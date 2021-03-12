@@ -1,10 +1,6 @@
-require("@nomiclabs/hardhat-waffle");
-require("@nomiclabs/hardhat-etherscan");
-require("hardhat-deploy");
-require("hardhat-deploy-ethers");
-require("dotenv").config();
+const { deployments } = require("hardhat");
 
-task("check", "Check addresses for all deployed contracts", async () => {
+module.exports = async () => {
   const yfUSDTContract = await deployments.get("YearnFarmerUSDTv2");
   const dvmUSDTContract = await deployments.get("DAOVaultMediumUSDT");
   const yfUSDCContract = await deployments.get("YearnFarmerUSDCv2");
@@ -14,6 +10,7 @@ task("check", "Check addresses for all deployed contracts", async () => {
   const yfTUSDContract = await deployments.get("YearnFarmerTUSDv2");
   const dvmTUSDContract = await deployments.get("DAOVaultMediumTUSD");
 
+  console.log("Summary:");
   console.log("Yearn-Farmer USDT v2 address: ", yfUSDTContract.address);
   console.log("DAO Vault Medium USDT address: ", dvmUSDTContract.address);
   console.log("");
@@ -25,39 +22,15 @@ task("check", "Check addresses for all deployed contracts", async () => {
   console.log("");
   console.log("Yearn-Farmer TUSD v2 address: ", yfTUSDContract.address);
   console.log("DAO Vault Medium TUSD address: ", dvmTUSDContract.address);
-})
-
-module.exports = {
-  networks: {
-    hardhat: {
-      forking: {
-        url: process.env.ALCHEMY_URL_MAINNET,
-        blockNumber: 11960000,
-      },
-    },
-    mainnet: {
-      url: process.env.ALCHEMY_URL_MAINNET,
-      accounts: [`0x${process.env.PRIVATE_KEY}`],
-    },
-    rinkeby: {
-      url: process.env.ALCHEMY_URL_RINKEBY,
-      accounts: [`0x${process.env.PRIVATE_KEY}`],
-    },
-  },
-  etherscan: {
-    apiKey: process.env.ETHERSCAN_API_KEY,
-  },
-  solidity: {
-    compilers: [
-      {
-        version: "0.7.6",
-        settings: {
-          optimizer: {
-            enabled: true,
-            runs: 1000
-          }
-        }
-      },
-    ],
-  },
 };
+module.exports.tags = ["rinkeby"];
+module.exports.dependencies = [
+  "rinkeby_USDT_deploy",
+  "rinkeby_USDC_deploy",
+  "rinkeby_DAI_deploy",
+  "rinkeby_TUSD_deploy",
+  "rinkeby_USDT_verify",
+  "rinkeby_USDC_verify",
+  "rinkeby_DAI_verify",
+  "rinkeby_TUSD_verify",
+];
