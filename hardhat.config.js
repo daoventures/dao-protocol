@@ -2,6 +2,7 @@ require("@nomiclabs/hardhat-waffle");
 require("@nomiclabs/hardhat-etherscan")
 require("hardhat-deploy")
 require("hardhat-deploy-ethers")
+require("@nomiclabs/hardhat-solhint");
 require("dotenv").config()
 
 module.exports = {
@@ -24,5 +25,13 @@ module.exports = {
   etherscan: {
     apiKey: process.env.ETHERSCAN_API_KEY
   },
-  solidity: "0.7.6",
+  solidity: {
+    version: "0.7.6",
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 1000
+      },
+    }
+  }
 };
