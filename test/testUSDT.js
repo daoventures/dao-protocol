@@ -26,59 +26,59 @@ describe("cfUSDT", () => {
     }
 
     beforeEach(async () => {
-        await deployments.fixture()
+        await deployments.fixture(["hardhat"])
     })
 
-    it("should deploy contract correctly", async () => {
-        // Get deployer signer and deploy the contracts
-        // const [deployerSigner, _] = await ethers.getSigners()
-        const cfUSDTContract = await ethers.getContract("CompoundFarmerUSDT")
-        const dvlUSDTContract = await ethers.getContract("DAOVaultLowUSDT")
-        const { deployerSigner } = await tokenContracts()
-        // Check if execute set vault function again to be reverted in DAOVaultLowUSDT contract
-        await expect(cfUSDTContract.setVault(deployerSigner.address)).to.be.revertedWith("Vault set")
-        // Check if contract owner is contract deployer in both contracts
-        expect(await cfUSDTContract.owner()).to.equal(deployerSigner.address)
-        expect(await dvlUSDTContract.owner()).to.equal(deployerSigner.address)
-        // Check if token details are correct in DAOVaultLowUSDT contract
-        expect(await dvlUSDTContract.name()).to.equal("DAO Vault Low USDT")
-        expect(await dvlUSDTContract.symbol()).to.equal("dvlUSDT")
-        expect(await dvlUSDTContract.decimals()).to.equal(6)
-        // Check if all pre-set addresses are correct in DAOVaultLowUSDT contract
-        expect(await dvlUSDTContract.token()).to.equal(network_.USDT.tokenAddress)
-        expect(await dvlUSDTContract.strategy()).to.equal(cfUSDTContract.address)
-        expect(await dvlUSDTContract.pendingStrategy()).to.equal(ethers.constants.AddressZero)
-        // Check if other pre-set variables are correct in DAOVaultLowUSDT contract
-        expect(await dvlUSDTContract.canSetPendingStrategy()).is.true
-        expect(await dvlUSDTContract.unlockTime()).to.equal(0)
-        expect(await dvlUSDTContract.LOCKTIME()).to.equal(5*24*60*60)
-        // Check if token details are correct in Compound-Farmer contract
-        expect(await cfUSDTContract.name()).to.equal("Compound-Farmer USDT")
-        expect(await cfUSDTContract.symbol()).to.equal("cfUSDT")
-        expect(await cfUSDTContract.decimals()).to.equal(6)
-        // Check if all pre-set addresses are correct in Compound-Farmer contract
-        expect(await cfUSDTContract.token()).to.equal(network_.USDT.tokenAddress)
-        expect(await cfUSDTContract.cToken()).to.equal(network_.USDT.cTokenAddress)
-        expect(await cfUSDTContract.compToken()).to.equal(network_.USDT.compTokenAddress)
-        expect(await cfUSDTContract.comptroller()).to.equal(network_.USDT.comptrollerAddress)
-        expect(await cfUSDTContract.uniswapRouter()).to.equal(network_.USDT.uniswapRouterAddress)
-        expect(await cfUSDTContract.DAOVault()).to.equal(dvlUSDTContract.address)
-        expect(await cfUSDTContract.WETH()).to.equal(network_.USDT.WETHAddress)
-        expect(await cfUSDTContract.treasuryWallet()).to.equal(treasuryWalletAddress)
-        expect(await cfUSDTContract.communityWallet()).to.equal(communityWalletAddress)
-        // Check if all pre-set fees are correct in Compound-Farmer contract
-        expect(await cfUSDTContract.depositFeeTier2(0)).to.equal("10000000001")
-        expect(await cfUSDTContract.depositFeeTier2(1)).to.equal("100000000000")
-        expect(await cfUSDTContract.DENOMINATOR()).to.equal("10000")
-        expect(await cfUSDTContract.depositFee(0)).to.equal("100")
-        expect(await cfUSDTContract.depositFee(1)).to.equal("50")
-        expect(await cfUSDTContract.depositFee(2)).to.equal("25")
-        expect(await cfUSDTContract.profileSharingFee()).to.equal("1000")
-        expect(await cfUSDTContract.treasuryAndCommunityFee()).to.equal("5000")
-        // Check if all other pre-set variables are correct in Compound-Farmer contract
-        expect(await cfUSDTContract.isVesting()).is.false
-        expect(await cfUSDTContract.pool()).to.equal(0)
-    })
+    // it("should deploy contract correctly", async () => {
+    //     // Get deployer signer and deploy the contracts
+    //     // const [deployerSigner, _] = await ethers.getSigners()
+    //     const cfUSDTContract = await ethers.getContract("CompoundFarmerUSDT")
+    //     const dvlUSDTContract = await ethers.getContract("DAOVaultLowUSDT")
+    //     const { deployerSigner } = await tokenContracts()
+    //     // Check if execute set vault function again to be reverted in DAOVaultLowUSDT contract
+    //     await expect(cfUSDTContract.setVault(deployerSigner.address)).to.be.revertedWith("Vault set")
+    //     // Check if contract owner is contract deployer in both contracts
+    //     expect(await cfUSDTContract.owner()).to.equal(deployerSigner.address)
+    //     expect(await dvlUSDTContract.owner()).to.equal(deployerSigner.address)
+    //     // Check if token details are correct in DAOVaultLowUSDT contract
+    //     expect(await dvlUSDTContract.name()).to.equal("DAO Vault Low USDT")
+    //     expect(await dvlUSDTContract.symbol()).to.equal("dvlUSDT")
+    //     expect(await dvlUSDTContract.decimals()).to.equal(6)
+    //     // Check if all pre-set addresses are correct in DAOVaultLowUSDT contract
+    //     expect(await dvlUSDTContract.token()).to.equal(network_.USDT.tokenAddress)
+    //     expect(await dvlUSDTContract.strategy()).to.equal(cfUSDTContract.address)
+    //     expect(await dvlUSDTContract.pendingStrategy()).to.equal(ethers.constants.AddressZero)
+    //     // Check if other pre-set variables are correct in DAOVaultLowUSDT contract
+    //     expect(await dvlUSDTContract.canSetPendingStrategy()).is.true
+    //     expect(await dvlUSDTContract.unlockTime()).to.equal(0)
+    //     expect(await dvlUSDTContract.LOCKTIME()).to.equal(5*24*60*60)
+    //     // Check if token details are correct in Compound-Farmer contract
+    //     expect(await cfUSDTContract.name()).to.equal("Compound-Farmer USDT")
+    //     expect(await cfUSDTContract.symbol()).to.equal("cfUSDT")
+    //     expect(await cfUSDTContract.decimals()).to.equal(6)
+    //     // Check if all pre-set addresses are correct in Compound-Farmer contract
+    //     expect(await cfUSDTContract.token()).to.equal(network_.USDT.tokenAddress)
+    //     expect(await cfUSDTContract.cToken()).to.equal(network_.USDT.cTokenAddress)
+    //     expect(await cfUSDTContract.compToken()).to.equal(network_.USDT.compTokenAddress)
+    //     expect(await cfUSDTContract.comptroller()).to.equal(network_.USDT.comptrollerAddress)
+    //     expect(await cfUSDTContract.uniswapRouter()).to.equal(network_.USDT.uniswapRouterAddress)
+    //     expect(await cfUSDTContract.DAOVault()).to.equal(dvlUSDTContract.address)
+    //     expect(await cfUSDTContract.WETH()).to.equal(network_.USDT.WETHAddress)
+    //     expect(await cfUSDTContract.treasuryWallet()).to.equal(treasuryWalletAddress)
+    //     expect(await cfUSDTContract.communityWallet()).to.equal(communityWalletAddress)
+    //     // Check if all pre-set fees are correct in Compound-Farmer contract
+    //     expect(await cfUSDTContract.depositFeeTier2(0)).to.equal("10000000001")
+    //     expect(await cfUSDTContract.depositFeeTier2(1)).to.equal("100000000000")
+    //     expect(await cfUSDTContract.DENOMINATOR()).to.equal("10000")
+    //     expect(await cfUSDTContract.depositFee(0)).to.equal("100")
+    //     expect(await cfUSDTContract.depositFee(1)).to.equal("50")
+    //     expect(await cfUSDTContract.depositFee(2)).to.equal("25")
+    //     expect(await cfUSDTContract.profileSharingFee()).to.equal("1000")
+    //     expect(await cfUSDTContract.treasuryAndCommunityFee()).to.equal("5000")
+    //     // Check if all other pre-set variables are correct in Compound-Farmer contract
+    //     expect(await cfUSDTContract.isVesting()).is.false
+    //     expect(await cfUSDTContract.pool()).to.equal(0)
+    // })
 
     // Check user functions
     describe("User functions", () => {
@@ -223,10 +223,10 @@ describe("cfUSDT", () => {
         //     expect(await dvlUSDTContract.totalSupply()).to.equal(0)
         //     expect(await dvlUSDTContract.balanceOf(deployerSigner.address)).to.equal(0)
         //     expect(await dvlUSDTContract.balanceOf(clientSigner.address)).to.equal(0)
-        //     const cTokenContract = new ethers.Contract(cTokenAddress, ICERC20_ABI, deployerSigner)
+        //     const cTokenContract = new ethers.Contract(network_.USDT.cTokenAddress, ICERC20_ABI, deployerSigner)
         //     expect(await cTokenContract.balanceOf(cfUSDTContract.address)).to.equal(0)
         //     expect(await cTokenContract.balanceOfUnderlying(cfUSDTContract.address)).to.equal(0)
-        //     const compTokenContract = new ethers.Contract(COMPAddress, ICOMPERC20_ABI, deployerSigner)
+        //     const compTokenContract = new ethers.Contract(network_.USDT.compTokenAddress, ICOMPERC20_ABI, deployerSigner)
         //     expect(await compTokenContract.balanceOf(cfUSDTContract.address)).to.equal(0)
         //     expect(await tokenContract.balanceOf(deployerSigner.address)).to.gte(deployerBalance.sub("35790000"))
         //     expect(await tokenContract.balanceOf(clientSigner.address)).to.gte(clientBalance.sub("35880000"))
