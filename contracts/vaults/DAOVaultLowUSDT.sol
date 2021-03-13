@@ -12,24 +12,27 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
  * New strategy contract must utilize ERC20 and with functions below:
  *
  * In constructor, _setupDecimals(decimals) follow token decimals
- * 
+ *
  * function deposit(uint256 _amount)
  * -> require msg.sender == Vault
- * 
+ *
  * function withdraw(uint256 _shares)
  * -> require msg.sender == Vault
- * 
+ *
  * function refund(uint256 _shares)
  * -> Receive amount of shares (same amount with daoToken) as argument
  * -> require msg.sender == Vault
- * 
+ *
  * function approveMigrate()
  * -> Approve Vault to migrate all funds to new strategy
  */
 interface IStrategy {
     function deposit(uint256) external;
+
     function withdraw(uint256) external;
+
     function refund(uint256) external;
+
     function balanceOf(address) external view returns (uint256);
 }
 
@@ -47,9 +50,15 @@ contract DAOVaultLowUSDT is ERC20, Ownable {
     uint256 public unlockTime;
     uint256 public constant LOCKTIME = 5 days;
 
-    event MigrateFunds(address indexed fromStrategy, address indexed toStrategy, uint256 amount);
+    event MigrateFunds(
+        address indexed fromStrategy,
+        address indexed toStrategy,
+        uint256 amount
+    );
 
-    constructor(address _token, address _strategy) ERC20("DAO Vault Low USDT", "dvlUSDT") {
+    constructor(address _token, address _strategy)
+        ERC20("DAO Vault Low USDT", "dvlUSDT")
+    {
         token = IERC20(_token);
         _setupDecimals(6);
         strategy = IStrategy(_strategy);
@@ -68,7 +77,7 @@ contract DAOVaultLowUSDT is ERC20, Ownable {
         uint256 _before = strategy.balanceOf(address(this));
         strategy.deposit(_amount);
         uint256 _after = strategy.balanceOf(address(this));
-        
+
         if (_after > _before) {
             uint256 _shares = _after.sub(_before);
             _mint(msg.sender, _shares);
@@ -118,20 +127,16 @@ contract DAOVaultLowUSDT is ERC20, Ownable {
      * - Pending strategy must be a contract
      */
     function setPendingStrategy(address _pendingStrategy) external onlyOwner {
-        require(canSetPendingStrategy == true, "Cannot set pending strategy now");
-        require(_pendingStrategy.isContract() == true, "New strategy is not contract");
+        require(
+            canSetPendingStrategy == true,
+            "Cannot set pending strategy now"
+        );
+        require(
+            _pendingStrategy.isContract() == true,
+            "New strategy is not contract"
+        );
 
         pendingStrategy = _pendingStrategy;
-    }
-
-    /**
-     * @notice Set new strategy
-     * @dev This function only call from function migrateFunds()
-     */
-    function _setStrategy() private {
-        strategy = IStrategy(pendingStrategy);
-        pendingStrategy = address(0);
-        canSetPendingStrategy = true;
     }
 
     /**
@@ -152,18 +157,32 @@ contract DAOVaultLowUSDT is ERC20, Ownable {
      * - Pending strategy is set
      */
     function migrateFunds() external onlyOwner {
-        require(unlockTime <= block.timestamp && unlockTime + 1 days >= block.timestamp, "Function locked");
-        require(token.balanceOf(address(strategy)) > 0, "No balance to migrate");
+        require(
+            unlockTime <= block.timestamp &&
+                unlockTime + 1 days >= block.timestamp,
+            "Function locked"
+        );
+        require(
+            token.balanceOf(address(strategy)) > 0,
+            "No balance to migrate"
+        );
         require(pendingStrategy != address(0), "No pendingStrategy");
         uint256 _amount = token.balanceOf(address(strategy));
-        emit MigrateFunds(address(strategy), pendingStrategy, _amount);
 
         token.safeTransferFrom(address(strategy), pendingStrategy, _amount);
         // Remove balance of old strategy token
         IERC20 oldStrategyToken = IERC20(address(strategy));
-        oldStrategyToken.safeTransfer(address(strategy), oldStrategyToken.balanceOf(address(this)));
+        oldStrategyToken.safeTransfer(
+            address(strategy),
+            oldStrategyToken.balanceOf(address(this))
+        );
 
-        _setStrategy();
+        // Set new strategy
+        emit MigrateFunds(address(strategy), pendingStrategy, _amount);
+        strategy = IStrategy(pendingStrategy);
+        pendingStrategy = address(0);
+        canSetPendingStrategy = true;
+
         unlockTime = 0; // Lock back this function
     }
 }
