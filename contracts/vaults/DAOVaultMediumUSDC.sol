@@ -28,7 +28,7 @@ import "@openzeppelin/contracts/utils/Address.sol";
  * function approveMigrate()
  * -> Approve Vault to migrate all funds to new strategy
  */
-import "../interfaces/IStrategy.sol";
+import "../../interfaces/IStrategy.sol";
 
 /// @title Contract to interact between user and strategy, and distribute daoToken to user
 contract DAOVaultMediumUSDC is ERC20, Ownable {

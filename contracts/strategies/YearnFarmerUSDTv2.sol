@@ -7,9 +7,9 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 
-import "../interfaces/IYearn.sol";
-import "../interfaces/IYvault.sol";
-import "../interfaces/IDaoVault.sol";
+import "../../interfaces/IYearn.sol";
+import "../../interfaces/IYvault.sol";
+import "../../interfaces/IDaoVault.sol";
 
 /// @title Contract for yield token in Yearn Finance contracts
 /// @dev This contract should not be reused after vesting state
