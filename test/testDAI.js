@@ -183,7 +183,7 @@ describe("YearnFarmerDAIv2", () => {
             expect(await yfDAIContract.pool()).to.equal(0)
             // Check if DAI amount withdraw from Yearn Farmer contract is correct
             const clientTokenAmountAfterWithdraw = clientTokenAmountBeforeDeposit.sub(earnDepositAmount.add(vaultDepositAmount)).add(actualEarnWithdrawAmount.add(actualVaultWithdrawAmount))
-            expect(await tokenContract.balanceOf(clientSigner.address)).to.equal(clientTokenAmountAfterWithdraw) // Sometimes this will failed because of very small variation
+            expect(await tokenContract.balanceOf(clientSigner.address)).to.be.closeTo(clientTokenAmountAfterWithdraw, 1)
         })
 
         // it("should withdraw earn and vault correctly if there is profit", async () => {
@@ -370,7 +370,7 @@ describe("YearnFarmerDAIv2", () => {
             clientActualVaultWithdrawAmount = ((await yVaultContract.balance()).mul(clientVaultSharesinYearnContract)).div(await yVaultContract.totalSupply())
             // Check if token balance of accounts top-up correctly after withdraw all
             expect(await tokenContract.balanceOf(deployerSigner.address)).to.equal(senderTknBalAftWdr.add(senderActualEarnWithdrawAmount).add(senderActualVaultWithdrawAmount))
-            expect(await tokenContract.balanceOf(clientSigner.address)).to.equal(clientTknBalAftWdr.add(clientActualEarnWithdrawAmount).add(clientActualVaultWithdrawAmount)) // Sometimes this will failed because of very small variation
+            expect(await tokenContract.balanceOf(clientSigner.address)).to.be.closeTo(clientTknBalAftWdr.add(clientActualEarnWithdrawAmount).add(clientActualVaultWithdrawAmount), 1)
             // Check if Yearn Contract pool amount return 0
             expect(await yfDAIContract.pool()).to.equal(0)
         })

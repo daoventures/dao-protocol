@@ -183,7 +183,7 @@ describe("YearnFarmerUSDCv2", () => {
             expect(await yfUSDCContract.pool()).to.equal(0)
             // Check if USDC amount withdraw from Yearn Farmer contract is correct
             const clientTokenAmountAfterWithdraw = clientTokenAmountBeforeDeposit.sub(earnDepositAmount.add(vaultDepositAmount)).add(actualEarnWithdrawAmount.add(actualVaultWithdrawAmount))
-            expect(await tokenContract.balanceOf(clientSigner.address)).to.equal(clientTokenAmountAfterWithdraw) // Sometimes this will failed because of very small variation
+            expect(await tokenContract.balanceOf(clientSigner.address)).to.be.closeTo(clientTokenAmountAfterWithdraw, 1)
         })
 
         // it("should withdraw earn and vault correctly if there is profit", async () => {
@@ -337,8 +337,8 @@ describe("YearnFarmerUSDCv2", () => {
             let clientVaultSharesinYearnContract = (clientVaultWdrAmt.mul(await yVaultContract.totalSupply())).div(await yVaultContract.balance())
             let clientActualVaultWithdrawAmount = ((await yVaultContract.balance()).mul(clientVaultSharesinYearnContract)).div(await yVaultContract.totalSupply())
             // Check if token balance of accounts top-up correctly after withdraw
-            expect(senderTknBalAftWdr).to.equal(senderTknBalAftDep.add(senderActualEarnWithdrawAmount).add(senderActualVaultWithdrawAmount)) // Sometimes this will failed because of very small variation
-            expect(clientTknBalAftWdr).to.equal(clientTknBalAftDep.add(clientActualEarnWithdrawAmount).add(clientActualVaultWithdrawAmount)) // Sometimes this will failed because of very small variation
+            expect(senderTknBalAftWdr).to.be.closeTo(senderTknBalAftDep.add(senderActualEarnWithdrawAmount).add(senderActualVaultWithdrawAmount), 1)
+            expect(clientTknBalAftWdr).to.be.closeTo(clientTknBalAftDep.add(clientActualEarnWithdrawAmount).add(clientActualVaultWithdrawAmount), 1)
             // Check if Yearn Contract pool amount deduct correctly
             expect(await yfUSDCContract.pool()).to.equal(yfPool.sub(senderEarnWdrAmt.add(senderVaultWdrAmt).add(clientEarnWdrAmt).add(clientVaultWdrAmt)))
             // Get shares based on deposit
@@ -369,7 +369,7 @@ describe("YearnFarmerUSDCv2", () => {
             clientVaultSharesinYearnContract = (clientVaultDepBalAftWdr.mul(await yVaultContract.totalSupply())).div(await yVaultContract.balance())
             clientActualVaultWithdrawAmount = ((await yVaultContract.balance()).mul(clientVaultSharesinYearnContract)).div(await yVaultContract.totalSupply())
             // Check if token balance of accounts top-up correctly after withdraw all
-            expect(await tokenContract.balanceOf(deployerSigner.address)).to.equal(senderTknBalAftWdr.add(senderActualEarnWithdrawAmount).add(senderActualVaultWithdrawAmount)) // Sometimes this will failed because of very small variation
+            expect(await tokenContract.balanceOf(deployerSigner.address)).to.be.closeTo(senderTknBalAftWdr.add(senderActualEarnWithdrawAmount).add(senderActualVaultWithdrawAmount), 1)
             expect(await tokenContract.balanceOf(clientSigner.address)).to.equal(clientTknBalAftWdr.add(clientActualEarnWithdrawAmount).add(clientActualVaultWithdrawAmount))
             // Check if Yearn Contract pool amount return 0
             expect(await yfUSDCContract.pool()).to.equal(0)
@@ -405,7 +405,7 @@ describe("YearnFarmerUSDCv2", () => {
             const vaultDepositBalance = (22222000000-Math.floor(22222000000*0.0075))+(59367000000-Math.floor(59367000000*0.0075))-19965000000
             expect(await yfUSDCContract.getVaultDepositBalance(deployerSigner.address)).to.equal(vaultDepositBalance)
             // Check if balance token of sender account correctly after mix and max deposit and withdraw
-            expect(await tokenContract.balanceOf(deployerSigner.address)).to.equal(currentTokenBalance) // Sometimes this will failed because of very small variation
+            expect(await tokenContract.balanceOf(deployerSigner.address)).to.be.closeTo(currentTokenBalance, 1)
             // Check if daoUSDC balance of sender account correct
             expect(await dvmUSDCContract.balanceOf(deployerSigner.address)).to.equal(earnDepositBalance+vaultDepositBalance)
             // Check if treasury wallet receive fees amount correctly

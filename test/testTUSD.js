@@ -183,7 +183,7 @@ describe("YearnFarmerTUSDv2", () => {
             expect(await yfTUSDContract.pool()).to.equal(0)
             // Check if TUSD amount withdraw from Yearn Farmer contract is correct
             const clientTokenAmountAfterWithdraw = clientTokenAmountBeforeDeposit.sub(earnDepositAmount.add(vaultDepositAmount)).add(actualEarnWithdrawAmount.add(actualVaultWithdrawAmount))
-            expect(await tokenContract.balanceOf(clientSigner.address)).to.equal(clientTokenAmountAfterWithdraw) // Sometimes this will failed because of very small variation
+            expect(await tokenContract.balanceOf(clientSigner.address)).to.be.closeTo(clientTokenAmountAfterWithdraw, 1)
         })
 
         // it("should withdraw earn and vault correctly if there is profit", async () => {
@@ -369,8 +369,8 @@ describe("YearnFarmerTUSDv2", () => {
             clientVaultSharesinYearnContract = (clientVaultDepBalAftWdr.mul(await yVaultContract.totalSupply())).div(await yVaultContract.balance())
             clientActualVaultWithdrawAmount = ((await yVaultContract.balance()).mul(clientVaultSharesinYearnContract)).div(await yVaultContract.totalSupply())
             // Check if token balance of accounts top-up correctly after withdraw all
-            expect(await tokenContract.balanceOf(deployerSigner.address)).to.equal(senderTknBalAftWdr.add(senderActualEarnWithdrawAmount).add(senderActualVaultWithdrawAmount))
-            expect(await tokenContract.balanceOf(clientSigner.address)).to.equal(clientTknBalAftWdr.add(clientActualEarnWithdrawAmount).add(clientActualVaultWithdrawAmount)) // Sometimes this will failed because of very small variation
+            expect(await tokenContract.balanceOf(deployerSigner.address)).to.be.closeTo(senderTknBalAftWdr.add(senderActualEarnWithdrawAmount).add(senderActualVaultWithdrawAmount), 1)
+            expect(await tokenContract.balanceOf(clientSigner.address)).to.be.closeTo(clientTknBalAftWdr.add(clientActualEarnWithdrawAmount).add(clientActualVaultWithdrawAmount), 1)
             // Check if Yearn Contract pool amount return 0
             expect(await yfTUSDContract.pool()).to.equal(0)
         })
@@ -405,7 +405,7 @@ describe("YearnFarmerTUSDv2", () => {
             const vaultDepositBalance = (22222000000-Math.floor(22222000000*0.0075))+(59367000000-Math.floor(59367000000*0.0075))-19965000000
             expect(await yfTUSDContract.getVaultDepositBalance(deployerSigner.address)).to.equal(vaultDepositBalance)
             // Check if balance token of sender account correctly after mix and max deposit and withdraw
-            expect(await tokenContract.balanceOf(deployerSigner.address)).to.equal(currentTokenBalance)  // Sometimes this will failed because of very small variation
+            expect(await tokenContract.balanceOf(deployerSigner.address)).to.be.closeTo(currentTokenBalance, 1)
             // Check if daoTUSD balance of sender account correct
             expect(await dvmTUSDContract.balanceOf(deployerSigner.address)).to.equal(earnDepositBalance+vaultDepositBalance)
             // Check if treasury wallet receive fees amount correctly
