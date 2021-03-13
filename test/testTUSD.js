@@ -6,7 +6,6 @@ const IERC20_ABI = require("../artifacts/@openzeppelin/contracts/token/ERC20/IER
 const IYearn_ABI = require("../artifacts/interfaces/IYearn.sol/IYearn.json").abi
 const IYvault_ABI = require("../artifacts/interfaces/IYvault.sol/IYvault.json").abi
 
-// TUSD
 const { tokenAddress, yEarnAddress, yVaultAddress } = network_.TUSD
 const treasuryWalletAddress = "0x59E83877bD248cBFe392dbB5A8a29959bcb48592"
 const communityWalletAddress = "0xdd6c35aFF646B2fB7d8A8955Ccbe0994409348d0"
@@ -26,7 +25,7 @@ describe("YearnFarmerTUSDv2", () => {
     }
 
     beforeEach(async () => {
-        await deployments.fixture()
+        await deployments.fixture(["hardhat"])
     })
 
     it("should deploy contract correctly", async () => {
