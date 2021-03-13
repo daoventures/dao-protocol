@@ -126,6 +126,15 @@ contract CompoundFarmerUSDT is ERC20, Ownable {
         DAOVault = IDAOVault(_address);
     }
 
+    function initialDeposit() external onlyOwner {
+        require(isVesting == false, "Contract in vesting state");
+        uint256 _amount = token.balanceOf(address(this));
+        require(_amount > 0, "No balance to deposit");
+
+        uint256 error = cToken.mint(_amount);
+        require(error == 0, "Failed to lend into Compound");
+    }
+
     function setTreasuryWallet(address _treasuryWallet) external onlyOwner {
         emit SetTreasuryWallet(treasuryWallet, _treasuryWallet);
         treasuryWallet = _treasuryWallet;
@@ -321,6 +330,12 @@ contract CompoundFarmerUSDT is ERC20, Ownable {
         token.safeTransfer(tx.origin, _refundAmount);
         pool = pool.sub(_refundAmount);
         _burn(address(DAOVault), _shares);
+    }
+
+    function revertVesting() external {
+        require(isVesting == true, "Not in vesting state");
+
+        isVesting = false;
     }
 
     function approveMigrate() external onlyOwner {
