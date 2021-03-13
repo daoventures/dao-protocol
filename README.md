@@ -7,9 +7,9 @@ Yearn-Farmer v2 is a lending aggregator that build on top of Yearn Finance. User
 ## Installation
 Clone the repository and install it.
 ```
-git clone https://github.com/daoventures/Yearn-Farmer
-cd Yearn-Farmer
-git checkout develop
+git clone https://github.com/daoventures/dao-protocol
+cd dao-protocol
+git checkout develop/YearnFarmerV2
 npm install
 ```
 
@@ -18,14 +18,20 @@ npm install
 npx hardhat compile
 ```
 
+## Deploy
+```
+npx hardhat deploy --tags hardhat
+```
+> Note: First deploy will take some time.
+
 ## Tests
-Create an .env file within the folder. Type in `PUBLIC_NODE_URL=https://eth-mainnet.alchemyapi.io/v2/{your-alchemy-id}`
+Create an .env file within the folder. Type in `ALCHEMY_URL_MAINNET=https://eth-mainnet.alchemyapi.io/v2/{your-alchemy-id}`
 > Note: For public node, we recommend use Alchemy instead of Infura. Infura may cause some weird error in this test suite. If you don't have one, apply in https://www.alchemyapi.io/
 
 ```
 npx hardhat test
 ```
-> Note: For the first few test run, you might encounter this error `Error: Timeout of 20000ms exceeded.`. If so, please run again `npx hardhat test`.
+> Note: For the first few test run, you might encounter this error `Error: Timeout of 20000ms exceeded.`. If so, please run again `npx hardhat test`. If error still occurred, please run test manually for each file, for example `npx hardhat test test/testUSDT.js`.
 
 ## Functions
 ### User functions
