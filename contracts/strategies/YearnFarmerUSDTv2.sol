@@ -307,7 +307,11 @@ contract YearnFarmerUSDTv2 is ERC20, Ownable {
       vault.deposit(_vaultAmount);
       vaultDepositBalance[tx.origin] = vaultDepositBalance[tx.origin].add(_vaultAmount);
     }
-    token.safeTransfer(treasuryWallet, _earnNetworkFee.add(_vaultNetworkFee));
+
+    // Transfer network fee to treasury and community wallet
+    uint _totalNetworkFee = _earnNetworkFee.add(_vaultNetworkFee);
+    token.safeTransfer(treasuryWallet, _totalNetworkFee.mul(treasuryFee).div(DENOMINATOR));
+    token.safeTransfer(communityWallet, _totalNetworkFee.mul(treasuryFee).div(DENOMINATOR));
 
     uint256 _shares = 0;
     if (totalSupply() == 0) {
