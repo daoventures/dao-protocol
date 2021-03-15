@@ -22,11 +22,6 @@ module.exports = async () => {
   console.log("");
   console.log("Yearn-Farmer TUSD v2 address: ", yfTUSDContract.address);
   console.log("DAO Vault Medium TUSD address: ", dvmTUSDContract.address);
-
-  // console.log(yfDAIContract.receipt.gasUsed)
-  // console.log(yfTUSDContract.receipt.gasUsed)
-  // console.log(yfUSDCContract.receipt.gasUsed)
-  // console.log(yfUSDTContract.receipt.gasUsed)
 };
 module.exports.tags = ["mainnet"];
 module.exports.dependencies = [
