@@ -15,7 +15,7 @@ module.exports = async () => {
   await run("verify:verify", {
     address: dvmDAIContract.address,
     constructorArguments: [tokenAddress, yfDAIContract.address],
-    contract: "contracts/strategies/DAOVaultMediumDAI.sol:DAOVaultMediumDAI",
+    contract: "contracts/vaults/DAOVaultMediumDAI.sol:DAOVaultMediumDAI",
   });
 };
 module.exports.tags = ["mainnet_DAI_verify"];

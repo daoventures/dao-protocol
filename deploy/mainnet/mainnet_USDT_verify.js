@@ -15,7 +15,7 @@ module.exports = async () => {
   await run("verify:verify", {
     address: dvmUSDTContract.address,
     constructorArguments: [tokenAddress, yfUSDTContract.address],
-    contract: "contracts/strategies/DAOVaultMediumUSDT.sol:DAOVaultMediumUSDT",
+    contract: "contracts/vaults/DAOVaultMediumUSDT.sol:DAOVaultMediumUSDT",
   });
 };
 module.exports.tags = ["mainnet_USDT_verify"];

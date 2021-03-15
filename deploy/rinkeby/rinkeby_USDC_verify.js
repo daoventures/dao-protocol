@@ -15,7 +15,7 @@ module.exports = async () => {
   await run("verify:verify", {
     address: dvmUSDCContract.address,
     constructorArguments: [tokenAddress, yfUSDCContract.address],
-    contract: "contracts/strategies/DAOVaultMediumUSDC.sol:DAOVaultMediumUSDC",
+    contract: "contracts/vaults/DAOVaultMediumUSDC.sol:DAOVaultMediumUSDC",
   });
 };
 module.exports.tags = ["rinkeby_USDC_verify"];
