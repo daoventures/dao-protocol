@@ -8,14 +8,14 @@ module.exports = async () => {
   await run("verify:verify", {
     address: yfUSDTContract.address,
     constructorArguments: [tokenAddress, yEarnAddress, yVaultAddress],
-    contract: "contracts/YearnFarmerUSDTv2.sol:YearnFarmerUSDTv2",
+    contract: "contracts/strategies/YearnFarmerUSDTv2.sol:YearnFarmerUSDTv2",
   });
 
   const dvmUSDTContract = await ethers.getContract("DAOVaultMediumUSDT");
   await run("verify:verify", {
     address: dvmUSDTContract.address,
     constructorArguments: [tokenAddress, yfUSDTContract.address],
-    contract: "contracts/DAOVaultMediumUSDT.sol:DAOVaultMediumUSDT",
+    contract: "contracts/strategies/DAOVaultMediumUSDT.sol:DAOVaultMediumUSDT",
   });
 };
 module.exports.tags = ["rinkeby_USDT_verify"];

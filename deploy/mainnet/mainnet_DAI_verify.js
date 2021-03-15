@@ -8,14 +8,14 @@ module.exports = async () => {
   await run("verify:verify", {
     address: yfDAIContract.address,
     constructorArguments: [tokenAddress, yEarnAddress, yVaultAddress],
-    contract: "contracts/YearnFarmerDAIv2.sol:YearnFarmerDAIv2",
+    contract: "contracts/strategies/YearnFarmerDAIv2.sol:YearnFarmerDAIv2",
   });
 
   const dvmDAIContract = await ethers.getContract("DAOVaultMediumDAI");
   await run("verify:verify", {
     address: dvmDAIContract.address,
     constructorArguments: [tokenAddress, yfDAIContract.address],
-    contract: "contracts/DAOVaultMediumDAI.sol:DAOVaultMediumDAI",
+    contract: "contracts/strategies/DAOVaultMediumDAI.sol:DAOVaultMediumDAI",
   });
 };
 module.exports.tags = ["mainnet_DAI_verify"];

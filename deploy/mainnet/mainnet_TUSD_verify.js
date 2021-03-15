@@ -8,14 +8,14 @@ module.exports = async () => {
   await run("verify:verify", {
     address: yfTUSDContract.address,
     constructorArguments: [tokenAddress, yEarnAddress, yVaultAddress],
-    contract: "contracts/YearnFarmerTUSDv2.sol:YearnFarmerTUSDv2",
+    contract: "contracts/strategies/YearnFarmerTUSDv2.sol:YearnFarmerTUSDv2",
   });
 
   const dvmTUSDContract = await ethers.getContract("DAOVaultMediumTUSD");
   await run("verify:verify", {
     address: dvmTUSDContract.address,
     constructorArguments: [tokenAddress, yfTUSDContract.address],
-    contract: "contracts/DAOVaultMediumTUSD.sol:DAOVaultMediumTUSD",
+    contract: "contracts/strategies/DAOVaultMediumTUSD.sol:DAOVaultMediumTUSD",
   });
 };
 module.exports.tags = ["mainnet_TUSD_verify"];
