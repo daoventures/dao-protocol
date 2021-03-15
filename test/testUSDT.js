@@ -99,7 +99,7 @@ describe("YearnFarmerUSDTv2", () => {
             await expect(yfUSDTContract.connect(clientSigner).deposit(["100000000", "200000000"])).to.be.revertedWith("Only can call from Vault")
             // Deposit 100 USDT to Yearn Earn contract and 200 to Yearn Vault Contract
             await tokenContract.connect(clientSigner).approve(yfUSDTContract.address, "10000000000")
-            const tx = await dvmUSDTContract.connect(clientSigner).deposit(["100000000", "200000000"])
+            await dvmUSDTContract.connect(clientSigner).deposit(["100000000", "200000000"])
             // Check if user deposit successfully with correct amount
             const earnDepositAmount = await yfUSDTContract.getEarnDepositBalance(clientSigner.address)
             const vaultDepositAmount = await yfUSDTContract.getVaultDepositBalance(clientSigner.address)
@@ -292,8 +292,11 @@ describe("YearnFarmerUSDTv2", () => {
             // Check if token balance of accounts deduct correctly after deposit
             expect(senderTknBalAftDep).to.equal(senderTknBalBefDep.sub(123000000+132000000+166000000+186000000))
             expect(clientTknBalAftDep).to.equal(clientTknBalBefDep.sub(212000000+249000000+234000000+269000000))
-            // Check if network fees send to treasury wallet correctly
-            expect(await tokenContract.balanceOf(treasuryWalletAddress)).to.equal(senderEarnDepFee+senderVaultDepFee+clientEarnDepFee+clientVaultDepFee)
+            // Check if network fees send to treasury and community wallet correctly
+            let totalFees = senderEarnDepFee+senderVaultDepFee+clientEarnDepFee+clientVaultDepFee
+            totalFees = ethers.BigNumber.from(totalFees.toString())
+            expect(await tokenContract.balanceOf(treasuryWalletAddress)).to.equal(totalFees.mul(1).div(2))
+            expect(await tokenContract.balanceOf(communityWalletAddress)).to.equal(totalFees.mul(1).div(2))
             // Get Yearn Farmer pool amount
             const yfPool = await yfUSDTContract.pool()
             // Check if Yearn Farmer pool amount sum up correctly
@@ -416,8 +419,10 @@ describe("YearnFarmerUSDTv2", () => {
             expect(await yfUSDTContract.getVaultDepositBalance(deployerSigner.address)).to.equal(vaultDepositBalance)
             // Check if daoUSDT balance of sender account correct
             expect(await dvmUSDTContract.balanceOf(deployerSigner.address)).to.equal(earnDepositBalance.add(vaultDepositBalance))
-            // Check if treasury wallet receive fees amount correctly
-            expect(await tokenContract.balanceOf(treasuryWalletAddress)).to.equal((depositAmount1.mul(75).div(10000)).add(depositAmount2.mul(75).div(10000)).add(depositAmount4.mul(75).div(10000)).add(depositAmount3*0.01).add(depositAmount5.mul(75).div(10000)))
+            // Check if treasury and community wallet receive fees amount correctly
+            const totalFees = (depositAmount1.mul(75).div(10000)).add(depositAmount2.mul(75).div(10000)).add(depositAmount4.mul(75).div(10000)).add(depositAmount3*0.01).add(depositAmount5.mul(75).div(10000))
+            expect(await tokenContract.balanceOf(treasuryWalletAddress)).to.equal(totalFees.mul(1).div(2))
+            expect(await tokenContract.balanceOf(communityWalletAddress)).to.equal(totalFees.mul(1).div(2))
             // Check if Yearn Farmer pool amount correct
             expect(await yfUSDTContract.pool()).to.equal((depositAmount1.sub(depositAmount1.mul(75).div(10000))).add(depositAmount2.sub(depositAmount2.mul(75).div(10000))).sub(withdrawAmount1).add(depositAmount4.sub(depositAmount4.mul(75).div(10000))).add(depositAmount3.sub(depositAmount3.mul(100).div(10000))).sub(withdrawAmount2).sub(withdrawAmount3).add(depositAmount5.sub(depositAmount5.mul(75).div(10000))))
         })
@@ -606,13 +611,13 @@ describe("YearnFarmerUSDTv2", () => {
             await tokenContract.approve(yfUSDTContract.address, "1000000000")
             await dvmUSDTContract.deposit(["100000000", "200000000"])
             // - 100 + 200 < 300 within network fee tier 1 hence fee = 1%
-            expect(await tokenContract.balanceOf(newTreasuryWalletSigner.address)).to.equal("3000000")
+            expect(await tokenContract.balanceOf(newTreasuryWalletSigner.address)).to.equal("1500000")
         })
 
         it("should able to set new community wallet correctly in Yearn Farmer contract", async () => {
             // Get address of deployer and new community wallet and deploy the contracts
             const [_, newCommunityWalletSigner] = await ethers.getSigners()
-            const yfUSDTContract = await ethers.getContract("YearnFarmerUSDTv2")
+            const { tokenContract, yfUSDTContract, dvmUSDTContract } = await setup()
             // Set new community wallet
             // Check if event for setCommunityWallet function is logged
             await expect(yfUSDTContract.setCommunityWallet(newCommunityWalletSigner.address))
@@ -620,6 +625,11 @@ describe("YearnFarmerUSDTv2", () => {
                 .withArgs(communityWalletAddress, newCommunityWalletSigner.address)
             // Check if new community wallet is set to the contract
             expect(await yfUSDTContract.communityWallet()).to.equal(newCommunityWalletSigner.address)
+            // Check if new treasury wallet receive fees
+            await tokenContract.approve(yfUSDTContract.address, "1000000000")
+            await dvmUSDTContract.deposit(["100000000", "200000000"])
+            // - 100 + 200 < 300 within network fee tier 1 hence fee = 1%
+            expect(await tokenContract.balanceOf(newCommunityWalletSigner.address)).to.equal("1500000")
         })
 
         it("should able to set new network fee tier correctly in Yearn Farmer contract", async () => {

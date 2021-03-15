@@ -99,7 +99,7 @@ describe("YearnFarmerUSDCv2", () => {
             await expect(yfUSDCContract.connect(clientSigner).deposit(["100000000", "200000000"])).to.be.revertedWith("Only can call from Vault")
             // Deposit 100 USDC to Yearn Earn contract and 200 to Yearn Vault Contract
             await tokenContract.connect(clientSigner).approve(yfUSDCContract.address, "10000000000")
-            const tx = await dvmUSDCContract.connect(clientSigner).deposit(["100000000", "200000000"])
+            await dvmUSDCContract.connect(clientSigner).deposit(["100000000", "200000000"])
             // Check if user deposit successfully with correct amount
             const earnDepositAmount = await yfUSDCContract.getEarnDepositBalance(clientSigner.address)
             const vaultDepositAmount = await yfUSDCContract.getVaultDepositBalance(clientSigner.address)
@@ -292,8 +292,11 @@ describe("YearnFarmerUSDCv2", () => {
             // Check if token balance of accounts deduct correctly after deposit
             expect(senderTknBalAftDep).to.equal(senderTknBalBefDep.sub(123000000+132000000+166000000+186000000))
             expect(clientTknBalAftDep).to.equal(clientTknBalBefDep.sub(212000000+249000000+234000000+269000000))
-            // Check if network fees send to treasury wallet correctly
-            expect(await tokenContract.balanceOf(treasuryWalletAddress)).to.equal(senderEarnDepFee+senderVaultDepFee+clientEarnDepFee+clientVaultDepFee)
+            // Check if network fees send to treasury and community wallet correctly
+            let totalFees = senderEarnDepFee+senderVaultDepFee+clientEarnDepFee+clientVaultDepFee
+            totalFees = ethers.BigNumber.from(totalFees.toString())
+            expect(await tokenContract.balanceOf(treasuryWalletAddress)).to.equal(totalFees.mul(1).div(2))
+            expect(await tokenContract.balanceOf(communityWalletAddress)).to.equal(totalFees.mul(1).div(2))
             // Get Yearn Farmer pool amount
             const yfPool = await yfUSDCContract.pool()
             // Check if Yearn Farmer pool amount sum up correctly
@@ -383,35 +386,45 @@ describe("YearnFarmerUSDCv2", () => {
             // Get current balance USDC of sender account
             const tokenBalanceBeforeDeposit = await tokenContract.balanceOf(deployerSigner.address)
             // Mix and max deposit and withdraw
-            await dvmUSDCContract.deposit(["62345000000", "22222000000"])
-            let senderSharesinYearnContract = (new ethers.BigNumber.from("8932000000")).mul(await yEarnContract.totalSupply()).div(await yEarnContract.calcPoolValueInToken())
+            const depositAmount1 = ethers.BigNumber.from("62345000000")
+            const depositAmount2 = ethers.BigNumber.from("97822000000")
+            const depositAmount3 = ethers.BigNumber.from("4444000000")
+            const depositAmount4 = ethers.BigNumber.from("22222000000")
+            await dvmUSDCContract.deposit([depositAmount1, depositAmount4])
+            const withdrawAmount1 = ethers.BigNumber.from("8932000000")
+            let senderSharesinYearnContract = (new ethers.BigNumber.from(withdrawAmount1)).mul(await yEarnContract.totalSupply()).div(await yEarnContract.calcPoolValueInToken())
             let senderActualWithdrawAmount = ((await yEarnContract.calcPoolValueInToken()).mul(senderSharesinYearnContract)).div(await yEarnContract.totalSupply())
-            await dvmUSDCContract.withdraw(["8932000000", 0])
-            await dvmUSDCContract.deposit(["97822000000", 0])
-            await dvmUSDCContract.deposit(["4444000000", 0])
-            let currentTokenBalance = tokenBalanceBeforeDeposit.sub("62345000000").sub("22222000000").add(senderActualWithdrawAmount).sub("97822000000").sub("4444000000")
-            senderSharesinYearnContract = (new ethers.BigNumber.from("7035000000")).mul(await yEarnContract.totalSupply()).div(await yEarnContract.calcPoolValueInToken())
+            await dvmUSDCContract.withdraw([withdrawAmount1, 0])
+            await dvmUSDCContract.deposit([depositAmount2, 0])
+            await dvmUSDCContract.deposit([depositAmount3, 0])
+            let currentTokenBalance = tokenBalanceBeforeDeposit.sub(depositAmount1).sub(depositAmount4).add(senderActualWithdrawAmount).sub("97822000000").sub(depositAmount3)
+            const withdrawAmount2 = ethers.BigNumber.from("7035000000")
+            senderSharesinYearnContract = (new ethers.BigNumber.from(withdrawAmount2)).mul(await yEarnContract.totalSupply()).div(await yEarnContract.calcPoolValueInToken())
             senderActualWithdrawAmount = ((await yEarnContract.calcPoolValueInToken()).mul(senderSharesinYearnContract)).div(await yEarnContract.totalSupply())
-            await dvmUSDCContract.withdraw(["7035000000", 0])
+            await dvmUSDCContract.withdraw([withdrawAmount2, 0])
             currentTokenBalance = currentTokenBalance.add(senderActualWithdrawAmount)
-            senderSharesinYearnContract = (new ethers.BigNumber.from("19965000000")).mul(await yVaultContract.totalSupply()).div(await yVaultContract.balance())
+            const withdrawAmount3 = ethers.BigNumber.from("19965000000")
+            senderSharesinYearnContract = (new ethers.BigNumber.from(withdrawAmount3)).mul(await yVaultContract.totalSupply()).div(await yVaultContract.balance())
             senderActualWithdrawAmount = ((await yVaultContract.balance()).mul(senderSharesinYearnContract)).div(await yVaultContract.totalSupply())
-            await dvmUSDCContract.withdraw([0, "19965000000"])
-            await dvmUSDCContract.deposit([0, "59367000000"])
-            currentTokenBalance = currentTokenBalance.add(senderActualWithdrawAmount).sub("59367000000")
-            // Check if earn and vault deposit balance return correctly
-            const earnDepositBalance = (62345000000-Math.floor(62345000000*0.0075))+(97822000000-Math.floor(97822000000*0.0075))+(4444000000-Math.floor(4444000000*0.01))-8932000000-7035000000
-            expect(await yfUSDCContract.getEarnDepositBalance(deployerSigner.address)).to.equal(earnDepositBalance)
-            const vaultDepositBalance = (22222000000-Math.floor(22222000000*0.0075))+(59367000000-Math.floor(59367000000*0.0075))-19965000000
-            expect(await yfUSDCContract.getVaultDepositBalance(deployerSigner.address)).to.equal(vaultDepositBalance)
+            await dvmUSDCContract.withdraw([0, withdrawAmount3])
+            const depositAmount5 = ethers.BigNumber.from("59367000000")
+            await dvmUSDCContract.deposit([0, depositAmount5])
+            currentTokenBalance = currentTokenBalance.add(senderActualWithdrawAmount).sub(depositAmount5)
             // Check if balance token of sender account correctly after mix and max deposit and withdraw
             expect(await tokenContract.balanceOf(deployerSigner.address)).to.be.closeTo(currentTokenBalance, 1)
+            // Check if earn and vault deposit balance return correctly
+            const earnDepositBalance = (depositAmount1.sub(depositAmount1.mul(75).div(10000))).add(depositAmount2.sub(depositAmount2.mul(75).div(10000))).add(depositAmount3.sub(depositAmount3.mul(100).div(10000))).sub(withdrawAmount1).sub(withdrawAmount2)
+            expect(await yfUSDCContract.getEarnDepositBalance(deployerSigner.address)).to.equal(earnDepositBalance)
+            const vaultDepositBalance = (depositAmount4.sub(depositAmount4.mul(75).div(10000))).add(depositAmount5.sub(depositAmount5.mul(75).div(10000)).sub(withdrawAmount3))
+            expect(await yfUSDCContract.getVaultDepositBalance(deployerSigner.address)).to.equal(vaultDepositBalance)
             // Check if daoUSDC balance of sender account correct
-            expect(await dvmUSDCContract.balanceOf(deployerSigner.address)).to.equal(earnDepositBalance+vaultDepositBalance)
-            // Check if treasury wallet receive fees amount correctly
-            expect(await tokenContract.balanceOf(treasuryWalletAddress)).to.equal(Math.floor(62345000000*0.0075)+Math.floor(22222000000*0.0075)+Math.floor(97822000000*0.0075)+Math.floor(4444000000*0.01)+Math.floor(59367000000*0.0075))
+            expect(await dvmUSDCContract.balanceOf(deployerSigner.address)).to.equal(earnDepositBalance.add(vaultDepositBalance))
+            // Check if treasury and community wallet receive fees amount correctly
+            const totalFees = (depositAmount1.mul(75).div(10000)).add(depositAmount2.mul(75).div(10000)).add(depositAmount4.mul(75).div(10000)).add(depositAmount3*0.01).add(depositAmount5.mul(75).div(10000))
+            expect(await tokenContract.balanceOf(treasuryWalletAddress)).to.equal(totalFees.mul(1).div(2))
+            expect(await tokenContract.balanceOf(communityWalletAddress)).to.equal(totalFees.mul(1).div(2))
             // Check if Yearn Farmer pool amount correct
-            expect(await yfUSDCContract.pool()).to.equal((62345000000-Math.floor(62345000000*0.0075))+(22222000000-Math.floor(22222000000*0.0075))-8932000000+(97822000000-Math.floor(97822000000*0.0075))+(4444000000-Math.floor(4444000000*0.01))-7035000000-19965000000+(59367000000-Math.floor(59367000000*0.0075)))
+            expect(await yfUSDCContract.pool()).to.equal((depositAmount1.sub(depositAmount1.mul(75).div(10000))).add(depositAmount2.sub(depositAmount2.mul(75).div(10000))).sub(withdrawAmount1).add(depositAmount4.sub(depositAmount4.mul(75).div(10000))).add(depositAmount3.sub(depositAmount3.mul(100).div(10000))).sub(withdrawAmount2).sub(withdrawAmount3).add(depositAmount5.sub(depositAmount5.mul(75).div(10000))))
         })
 
         it("should able to refund token when this contract is in vesting state", async () => {
@@ -598,13 +611,13 @@ describe("YearnFarmerUSDCv2", () => {
             await tokenContract.approve(yfUSDCContract.address, "1000000000")
             await dvmUSDCContract.deposit(["100000000", "200000000"])
             // - 100 + 200 < 300 within network fee tier 1 hence fee = 1%
-            expect(await tokenContract.balanceOf(newTreasuryWalletSigner.address)).to.equal("3000000")
+            expect(await tokenContract.balanceOf(newTreasuryWalletSigner.address)).to.equal("1500000")
         })
 
         it("should able to set new community wallet correctly in Yearn Farmer contract", async () => {
             // Get address of deployer and new community wallet and deploy the contracts
             const [_, newCommunityWalletSigner] = await ethers.getSigners()
-            const yfUSDCContract = await ethers.getContract("YearnFarmerUSDCv2")
+            const { tokenContract, yfUSDCContract, dvmUSDCContract } = await setup()
             // Set new community wallet
             // Check if event for setCommunityWallet function is logged
             await expect(yfUSDCContract.setCommunityWallet(newCommunityWalletSigner.address))
@@ -612,6 +625,11 @@ describe("YearnFarmerUSDCv2", () => {
                 .withArgs(communityWalletAddress, newCommunityWalletSigner.address)
             // Check if new community wallet is set to the contract
             expect(await yfUSDCContract.communityWallet()).to.equal(newCommunityWalletSigner.address)
+            // Check if new treasury wallet receive fees
+            await tokenContract.approve(yfUSDCContract.address, "1000000000")
+            await dvmUSDCContract.deposit(["100000000", "200000000"])
+            // - 100 + 200 < 300 within network fee tier 1 hence fee = 1%
+            expect(await tokenContract.balanceOf(newCommunityWalletSigner.address)).to.equal("1500000")
         })
 
         it("should able to set new network fee tier correctly in Yearn Farmer contract", async () => {
