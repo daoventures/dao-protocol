@@ -7,7 +7,7 @@ module.exports = async () => {
       {
         forking: {
           jsonRpcUrl: process.env.ALCHEMY_URL_MAINNET,
-          blockNumber: 11960000,
+          blockNumber: 12000000,
         },
       },
     ],

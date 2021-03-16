@@ -21,9 +21,6 @@ module.exports = async ({ deployments }) => {
     args: [tokenAddress, yfDAIv2.address],
   });
 
-  const yfDAIContract = await ethers.getContract("YearnFarmerDAIv2");
-  await yfDAIContract.setVault(dvmDAI.address);
-
   // Transfer some token to deployer before each test
   await network.provider.request({
     method: "hardhat_impersonateAccount",

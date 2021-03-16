@@ -21,9 +21,6 @@ module.exports = async ({ deployments }) => {
     args: [tokenAddress, yfUSDTv2.address],
   });
 
-  const yfUSDTContract = await ethers.getContract("YearnFarmerUSDTv2");
-  await yfUSDTContract.setVault(dvmUSDT.address);
-
   // Transfer some token to deployer before each test
   await network.provider.request({
     method: "hardhat_impersonateAccount",
