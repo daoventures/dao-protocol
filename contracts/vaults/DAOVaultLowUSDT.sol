@@ -26,15 +26,7 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
  * function approveMigrate()
  * -> Approve Vault to migrate all funds to new strategy
  */
-interface IStrategy {
-    function deposit(uint256) external;
-
-    function withdraw(uint256) external;
-
-    function refund(uint256) external;
-
-    function balanceOf(address) external view returns (uint256);
-}
+import "../../interfaces/IStrategy.sol";
 
 /// @title Contract to interact between user and strategy, and distribute daoToken
 contract DAOVaultLowUSDT is ERC20, Ownable {
@@ -48,7 +40,7 @@ contract DAOVaultLowUSDT is ERC20, Ownable {
 
     bool public canSetPendingStrategy = true;
     uint256 public unlockTime;
-    uint256 public constant LOCKTIME = 5 days;
+    uint256 public constant LOCKTIME = 2 days;
 
     event MigrateFunds(
         address indexed fromStrategy,
