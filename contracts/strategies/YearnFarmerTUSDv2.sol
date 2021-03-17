@@ -36,8 +36,8 @@ contract YearnFarmerTUSDv2 is ERC20, Ownable {
   address public treasuryWallet = 0x59E83877bD248cBFe392dbB5A8a29959bcb48592;
   address public communityWallet = 0xdd6c35aFF646B2fB7d8A8955Ccbe0994409348d0;
 
-  uint256[] public networkFeeTier2 = [50000e6+1, 100000e6]; // Represent [tier2 minimun, tier2 maximun], initial value represent Tier 2 from 50001 to 100000
-  uint256 public customNetworkFeeTier = 1000000e6;
+  uint256[] public networkFeeTier2 = [50000e18+1, 100000e18]; // Represent [tier2 minimun, tier2 maximun], initial value represent Tier 2 from 50001 to 100000
+  uint256 public customNetworkFeeTier = 1000000e18;
 
   uint256 public constant DENOMINATOR = 10000;
   uint256[] public networkFeePercentage = [100, 75, 50]; // Represent [Tier 1, Tier 2, Tier 3], initial value represent [1%, 0.75%, 0.5%]
