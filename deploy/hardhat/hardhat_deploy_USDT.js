@@ -1,7 +1,8 @@
 const { ethers, network } = require("hardhat");
 const { mainnet: network_ } = require("../../addresses");
 
-const tokenAddress = network_.USDT.tokenAddress;
+const { compTokenAddress, comptrollerAddress, uniswapRouterAddress, WETHAddress } = network_.GLOBAL
+const { tokenAddress, cTokenAddress } = network_.USDT
 const unlockedAddress = "0xBE0eB53F46cd790Cd13851d5EFf43D12404d33E8";
 
 module.exports = async ({ deployments }) => {
@@ -11,12 +12,12 @@ module.exports = async ({ deployments }) => {
   const cfUSDT = await deploy("CompoundFarmerUSDT", {
     from: deployer.address,
     args: [
-      network_.USDT.tokenAddress,
-      network_.USDT.cTokenAddress,
-      network_.USDT.compTokenAddress,
-      network_.USDT.comptrollerAddress,
-      network_.USDT.uniswapRouterAddress,
-      network_.USDT.WETHAddress,
+      tokenAddress,
+      cTokenAddress,
+      compTokenAddress,
+      comptrollerAddress,
+      uniswapRouterAddress,
+      WETHAddress,
     ],
   });
 
