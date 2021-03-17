@@ -16,7 +16,7 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
  * function deposit(uint256 _amount)
  * -> require msg.sender == Vault
  *
- * function withdraw(uint256 _shares)
+ * function withdraw(uint256 _amount)
  * -> require msg.sender == Vault
  *
  * function refund(uint256 _shares)
