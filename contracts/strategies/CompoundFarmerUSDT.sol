@@ -33,8 +33,8 @@ contract CompoundFarmerUSDT is ERC20, Ownable {
     uint256 public pool;
 
     // For Uniswap
-    uint256 private _amountOutMinPerc = 9500;
-    uint256 private _deadline = 20 minutes;
+    uint256 public amountOutMinPerc = 9500;
+    uint256 public deadline = 20 minutes;
 
     // Address to collect fees
     address public treasuryWallet = 0x59E83877bD248cBFe392dbB5A8a29959bcb48592;
@@ -147,15 +147,15 @@ contract CompoundFarmerUSDT is ERC20, Ownable {
 
     function setAmountOutMinPerc(uint256 _percentage) external onlyOwner {
         require(_percentage <= 9700, "Amount out minimun > 97%");
-        _amountOutMinPerc = _percentage;
+        amountOutMinPerc = _percentage;
     }
 
     function setDeadline(uint256 _seconds) external onlyOwner {
         require(_seconds >= 60, "Deadline < 60 seconds");
-        _deadline = _seconds;
+        deadline = _seconds;
     }
 
-    function getBalance(address _address) external view returns (uint256) {
+    function getCurrentBalance(address _address) external view returns (uint256) {
         uint256 _shares = DAOVault.balanceOf(_address);
         if (_shares > 0) {
             return pool.mul(_shares).div(totalSupply());
@@ -223,8 +223,8 @@ contract CompoundFarmerUSDT is ERC20, Ownable {
 
             uint256[] memory _amountsOut = uniswapRouter.getAmountsOut(_amountIn, _path);
             if (_amountsOut[2] > 0) {
-                uint256 _amountOutMin = _amountsOut[2].mul(_amountOutMinPerc).div(DENOMINATOR);
-                uniswapRouter.swapExactTokensForTokens(_amountIn, _amountOutMin, _path, address(this), block.timestamp.add(_deadline));
+                uint256 _amountOutMin = _amountsOut[2].mul(amountOutMinPerc).div(DENOMINATOR);
+                uniswapRouter.swapExactTokensForTokens(_amountIn, _amountOutMin, _path, address(this), block.timestamp.add(deadline));
             }
         }
 
@@ -269,8 +269,8 @@ contract CompoundFarmerUSDT is ERC20, Ownable {
 
             uint256[] memory _amountsOut = uniswapRouter.getAmountsOut(_amountIn, _path);
             if (_amountsOut[2] > 0) {
-                uint256 _amountOutMin = _amountsOut[2].mul(_amountOutMinPerc).div(DENOMINATOR);
-                uniswapRouter.swapExactTokensForTokens(_amountIn, _amountOutMin, _path, address(this), block.timestamp.add(_deadline));
+                uint256 _amountOutMin = _amountsOut[2].mul(amountOutMinPerc).div(DENOMINATOR);
+                uniswapRouter.swapExactTokensForTokens(_amountIn, _amountOutMin, _path, address(this), block.timestamp.add(deadline));
             }
         }
 
@@ -285,19 +285,6 @@ contract CompoundFarmerUSDT is ERC20, Ownable {
 
         pool = token.balanceOf(address(this));
         isVesting = true;
-    }
-
-    function getSharesValue(address _address) external view returns (uint256) {
-        if (isVesting == false) {
-            return 0;
-        } else {
-            uint256 _shares = DAOVault.balanceOf(_address);
-            if (_shares > 0) {
-                return token.balanceOf(address(this)).mul(_shares).div(DAOVault.totalSupply());
-            } else {
-                return 0;
-            }
-        }
     }
 
     function refund(uint256 _shares) external {
