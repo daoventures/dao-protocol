@@ -71,9 +71,9 @@ describe("cfDAI", () => {
         expect(await cfDAIContract.treasuryWallet()).to.equal(treasuryWalletAddress)
         expect(await cfDAIContract.communityWallet()).to.equal(communityWalletAddress)
         // Check if all pre-set fees are correct in CompoundFarmer contract
-        expect(await cfDAIContract.networkFeeTier2(0)).to.equal("50000000001")
-        expect(await cfDAIContract.networkFeeTier2(1)).to.equal("100000000000")
-        expect(await cfDAIContract.customNetworkFeeTier()).to.equal(ethers.utils.parseUnits("1", 12))
+        expect(await cfDAIContract.networkFeeTier2(0)).to.equal(decimals(50000).add(1))
+        expect(await cfDAIContract.networkFeeTier2(1)).to.equal(decimals(100000))
+        expect(await cfDAIContract.customNetworkFeeTier()).to.equal(ethers.utils.parseUnits("1", 24))
         expect(await cfDAIContract.DENOMINATOR()).to.equal("10000")
         expect(await cfDAIContract.networkFeePercentage(0)).to.equal("100")
         expect(await cfDAIContract.networkFeePercentage(1)).to.equal("75")
@@ -123,10 +123,10 @@ describe("cfDAI", () => {
             let treasuryBalance, communityBalance, depositBalance, fee
             treasuryBalance = await tokenContract.balanceOf(treasuryWalletAddress)
             communityBalance = await tokenContract.balanceOf(communityWalletAddress)
-            const depositTier1 = decimals("10000")
-            const depositTier2 = decimals("100000")
-            const depositTier3 = decimals("500000")
-            const customDepositTier = decimals("1000000")
+            const depositTier1 = decimals(10000)
+            const depositTier2 = decimals(100000)
+            const depositTier3 = decimals(500000)
+            const customDepositTier = decimals(1000000)
             await tokenContract.approve(cfDAIContract.address, depositTier1.add(depositTier2).add(depositTier3).add(customDepositTier))
             // Tier 1 deposit
             await dvlDAIContract.deposit(depositTier1)
@@ -171,7 +171,7 @@ describe("cfDAI", () => {
             // Get deployer signer and deploy the contracts
             const { clientSigner, tokenContract, cTokenContract, cfDAIContract, dvlDAIContract } = await setup()
             // Deposit token into contracts
-            const depositAmount = decimals("1000")
+            const depositAmount = decimals(1000)
             // const tokenContract = new ethers.Contract(tokenAddress, IERC20_ABI, deployerSigner)
             expect(await tokenContract.balanceOf(clientSigner.address)).to.equal(0)
             await tokenContract.transfer(clientSigner.address, depositAmount)
@@ -179,8 +179,8 @@ describe("cfDAI", () => {
             await dvlDAIContract.connect(clientSigner).deposit(depositAmount)
             // Check if meet the function requirements
             await expect(dvlDAIContract.connect(clientSigner).withdraw("0")).to.be.revertedWith("Amount must > 0")
-            await expect(cfDAIContract.connect(clientSigner).withdraw("200")).to.be.revertedWith("Only can call from Vault")
-            await expect(dvlDAIContract.withdraw("200")).to.be.revertedWith("Insufficient balance")
+            await expect(cfDAIContract.connect(clientSigner).withdraw(decimals(200))).to.be.revertedWith("Only can call from Vault")
+            await expect(dvlDAIContract.withdraw(decimals(200))).to.be.revertedWith("Insufficient balance")
             // Withdraw all token from contracts
             const balance = await cfDAIContract.getCurrentBalance(clientSigner.address)
             // const cTokenContract = new ethers.Contract(cTokenAddress, ICERC20_ABI, deployerSigner)
@@ -254,9 +254,9 @@ describe("cfDAI", () => {
             const profit = decimals("100").sub(profileSharingFee)
             // Withdraw from contract and check if fee deduct correctly
             await dvlDAIContract.connect(clientSigner).withdraw(decimals("990"))
-            expect(await tokenContract.balanceOf(clientSigner.address)).to.be.closeTo(deployerBalance.add(decimals("990")).add(profit), 100)
-            expect(await tokenContract.balanceOf(treasuryWalletAddress)).to.be.closeTo(treasuryWalletBalance.add(networkFee.mul(1).div(2)).add(profileSharingFee.mul(1).div(2)), 50)
-            expect(await tokenContract.balanceOf(communityWalletAddress)).to.be.closeTo(communityWalletBalance.add(networkFee.mul(1).div(2)).add(profileSharingFee.mul(1).div(2)), 50)
+            expect(await tokenContract.balanceOf(clientSigner.address)).to.be.closeTo(deployerBalance.add(decimals("990")).add(profit), decimals(1))
+            expect(await tokenContract.balanceOf(treasuryWalletAddress)).to.be.closeTo(treasuryWalletBalance.add(networkFee.mul(1).div(2)).add(profileSharingFee.mul(1).div(2)), decimals(1))
+            expect(await tokenContract.balanceOf(communityWalletAddress)).to.be.closeTo(communityWalletBalance.add(networkFee.mul(1).div(2)).add(profileSharingFee.mul(1).div(2)), decimals(1))
         })
 
         it("should be able to mix and match deposit and withdraw correctly", async () => {
@@ -277,8 +277,8 @@ describe("cfDAI", () => {
             await dvlDAIContract.connect(clientSigner).withdraw(decimals("2020"))
             await dvlDAIContract.withdraw(decimals("1989"))
             await dvlDAIContract.connect(clientSigner).deposit(decimals("378"))
-            await dvlDAIContract.connect(clientSigner).withdraw("1532120000")
-            await dvlDAIContract.withdraw("1554210000")
+            await dvlDAIContract.connect(clientSigner).withdraw("1532120000000000000000")
+            await dvlDAIContract.withdraw("1554210000000000000000")
             // Check if final number is correct
             expect(await cfDAIContract.pool()).to.equal(0)
             expect(await cfDAIContract.getCurrentBalance(deployerSigner.address)).to.equal(0)
@@ -291,10 +291,10 @@ describe("cfDAI", () => {
             expect(await cTokenContract.balanceOf(cfDAIContract.address)).to.equal(0)
             expect(await cTokenContract.balanceOfUnderlying(cfDAIContract.address)).to.equal(0)
             expect(await compTokenContract.balanceOf(cfDAIContract.address)).to.equal(0)
-            expect(await tokenContract.balanceOf(deployerSigner.address)).to.gte(deployerBalance.sub("35790000"))
-            expect(await tokenContract.balanceOf(clientSigner.address)).to.gte(clientBalance.sub("35880000"))
+            expect(await tokenContract.balanceOf(deployerSigner.address)).to.gte(deployerBalance.sub("35790000000000000000"))
+            expect(await tokenContract.balanceOf(clientSigner.address)).to.gte(clientBalance.sub("35880000000000000000"))
             // Check if treasury and community wallet receive fees correctly
-            expect(await tokenContract.balanceOf(treasuryWalletAddress)).to.gte(treasuryBalance.add("35835000"))
+            expect(await tokenContract.balanceOf(treasuryWalletAddress)).to.gte(treasuryBalance.add("35835000000000000000"))
             expect(await tokenContract.balanceOf(communityWalletAddress)).to.gte(communityBalance)
         })
 
@@ -310,12 +310,12 @@ describe("cfDAI", () => {
             const depositBalance = await cfDAIContract.getCurrentBalance(deployerSigner.address)
             const treasuryBalanceBeforeVesting = await tokenContract.balanceOf(treasuryWalletAddress)
             const communityBalanceBeforeVesting = await tokenContract.balanceOf(communityWalletAddress)
-            expect(await dvlDAIContract.balanceOf(deployerSigner.address)).to.equal(decimals("990"))
-            expect(await dvlDAIContract.balanceOf(clientSigner.address)).to.equal(decimals("990"))
-            expect(await cfDAIContract.balanceOf(dvlDAIContract.address)).to.equal(decimals("1980"))
-            expect(await cfDAIContract.totalSupply()).to.equal(decimals("1980"))
-            expect(await dvlDAIContract.totalSupply()).to.equal(decimals("1980"))
-            expect(await cfDAIContract.pool()).to.equal(decimals("1980"))
+            expect(await dvlDAIContract.balanceOf(deployerSigner.address)).to.equal(decimals(990))
+            expect(await dvlDAIContract.balanceOf(clientSigner.address)).to.equal(decimals(990))
+            expect(await cfDAIContract.balanceOf(dvlDAIContract.address)).to.equal(decimals(1980))
+            expect(await cfDAIContract.totalSupply()).to.equal(decimals(1980))
+            expect(await dvlDAIContract.totalSupply()).to.equal(decimals(1980))
+            expect(await cfDAIContract.pool()).to.equal(decimals(1980))
             expect(await tokenContract.balanceOf(cfDAIContract.address)).to.equal(0)
             expect(await cTokenContract.balanceOf(cfDAIContract.address)).to.gt(0)
             expect(await compTokenContract.balanceOf(cfDAIContract.address)).to.equal(0)
@@ -325,8 +325,8 @@ describe("cfDAI", () => {
             expect(await tokenContract.balanceOf(communityWalletAddress)).to.gte(communityBalanceBeforeVesting)
             const refundBalance = await cfDAIContract.getCurrentBalance(deployerSigner.address)
             expect(refundBalance).to.gte(depositBalance)
-            expect(await cfDAIContract.pool()).to.gt(decimals("1980"))
-            expect(await tokenContract.balanceOf(cfDAIContract.address)).to.gt(decimals("1980"))
+            expect(await cfDAIContract.pool()).to.gt(decimals(1980))
+            expect(await tokenContract.balanceOf(cfDAIContract.address)).to.gt(decimals(1980))
             expect(await cTokenContract.balanceOf(cfDAIContract.address)).to.equal(0)
             expect(await compTokenContract.balanceOf(cfDAIContract.address)).to.equal(0)
             // Refund from vesting contract
@@ -347,22 +347,22 @@ describe("cfDAI", () => {
             const { clientSigner, tokenContract, cfDAIContract, dvlDAIContract } = await setup()
             const treasuryWalletBalance = await tokenContract.balanceOf(treasuryWalletAddress)
             const communityWalletBalance = await tokenContract.balanceOf(communityWalletAddress)
-            await tokenContract.transfer(clientSigner.address, decimals("1000"))
+            await tokenContract.transfer(clientSigner.address, decimals(1000))
             // Deposit into contract
-            await tokenContract.connect(clientSigner).approve(cfDAIContract.address, decimals("1000"))
-            await dvlDAIContract.connect(clientSigner).deposit(decimals("1000"))
+            await tokenContract.connect(clientSigner).approve(cfDAIContract.address, decimals(1000))
+            await dvlDAIContract.connect(clientSigner).deposit(decimals(1000))
             const deployerBalance = await tokenContract.balanceOf(clientSigner.address)
             // Transfer some token to contract as profit
-            await tokenContract.transfer(cfDAIContract.address, decimals("100"))
-            const networkFee = decimals("1000").mul(1).div(100)
-            const profileSharingFee = decimals("100").mul(1).div(10)
-            const profit = decimals("100").sub(profileSharingFee)
+            await tokenContract.transfer(cfDAIContract.address, decimals(100))
+            const networkFee = decimals(1000).mul(1).div(100)
+            const profileSharingFee = decimals(100).mul(1).div(10)
+            const profit = decimals(100).sub(profileSharingFee)
             // Vesting contract and check if fee deduct correctly
             await cfDAIContract.vesting()
             await dvlDAIContract.connect(clientSigner).refund()
-            expect(await tokenContract.balanceOf(clientSigner.address)).to.be.closeTo(deployerBalance.add(decimals("990")).add(profit), decimals("1"))
-            expect(await tokenContract.balanceOf(treasuryWalletAddress)).to.be.closeTo(treasuryWalletBalance.add(networkFee.mul(1).div(2)).add(profileSharingFee.mul(1).div(2)), 50)
-            expect(await tokenContract.balanceOf(communityWalletAddress)).to.be.closeTo(communityWalletBalance.add(networkFee.mul(1).div(2)).add(profileSharingFee.mul(1).div(2)), 50)
+            expect(await tokenContract.balanceOf(clientSigner.address)).to.be.closeTo(deployerBalance.add(decimals(990)).add(profit), decimals(1))
+            expect(await tokenContract.balanceOf(treasuryWalletAddress)).to.be.closeTo(treasuryWalletBalance.add(networkFee.mul(1).div(2)).add(profileSharingFee.mul(1).div(2)), decimals(1))
+            expect(await tokenContract.balanceOf(communityWalletAddress)).to.be.closeTo(communityWalletBalance.add(networkFee.mul(1).div(2)).add(profileSharingFee.mul(1).div(2)), decimals(1))
         })
     })
 
@@ -380,7 +380,7 @@ describe("cfDAI", () => {
             await expect(cfDAIContract.connect(clientSigner).initialDeposit()).to.be.revertedWith("Ownable: caller is not the owner")
             await expect(cfDAIContract.connect(clientSigner).setTreasuryWallet(clientSigner.address)).to.be.revertedWith("Ownable: caller is not the owner")
             await expect(cfDAIContract.connect(clientSigner).setCommunityWallet(clientSigner.address)).to.be.revertedWith("Ownable: caller is not the owner")
-            await expect(cfDAIContract.connect(clientSigner).setNetworkFeeTier2(["100000000", "200000000"])).to.be.revertedWith("Ownable: caller is not the owner")
+            await expect(cfDAIContract.connect(clientSigner).setNetworkFeeTier2([decimals(100), decimals(200)])).to.be.revertedWith("Ownable: caller is not the owner")
             await expect(cfDAIContract.connect(clientSigner).setNetworkFeePercentage([3000, 3000, 3000])).to.be.revertedWith("Ownable: caller is not the owner")
             await expect(cfDAIContract.connect(clientSigner).setCustomNetworkFeeTier(ethers.utils.parseUnits("1", 12))).to.be.revertedWith("Ownable: caller is not the owner")
             await expect(cfDAIContract.connect(clientSigner).setCustomNetworkFeePercentage(3000)).to.be.revertedWith("Ownable: caller is not the owner")
@@ -402,7 +402,7 @@ describe("cfDAI", () => {
             await expect(cfDAIContract.connect(clientSigner).initialDeposit()).not.to.be.revertedWith("Ownable: caller is not the owner")
             await expect(cfDAIContract.connect(clientSigner).setTreasuryWallet(clientSigner.address)).not.to.be.revertedWith("Ownable: caller is not the owner")
             await expect(cfDAIContract.connect(clientSigner).setCommunityWallet(clientSigner.address)).not.to.be.revertedWith("Ownable: caller is not the owner")
-            await expect(cfDAIContract.connect(clientSigner).setNetworkFeeTier2(["100000000", "200000000"])).not.to.be.revertedWith("Ownable: caller is not the owner")
+            await expect(cfDAIContract.connect(clientSigner).setNetworkFeeTier2([decimals(100), decimals(200)])).not.to.be.revertedWith("Ownable: caller is not the owner")
             await expect(cfDAIContract.connect(clientSigner).setNetworkFeePercentage([3000, 3000, 3000])).not.to.be.revertedWith("Ownable: caller is not the owner")
             await expect(cfDAIContract.connect(clientSigner).setCustomNetworkFeeTier(ethers.utils.parseUnits("1", 12))).not.to.be.revertedWith("Ownable: caller is not the owner")
             await expect(cfDAIContract.connect(clientSigner).setCustomNetworkFeePercentage(3000)).not.to.be.revertedWith("Ownable: caller is not the owner")
@@ -419,7 +419,7 @@ describe("cfDAI", () => {
             await expect(cfDAIContract.connect(deployerSigner).initialDeposit()).to.be.revertedWith("Ownable: caller is not the owner")
             await expect(cfDAIContract.connect(deployerSigner).setTreasuryWallet(clientSigner.address)).to.be.revertedWith("Ownable: caller is not the owner")
             await expect(cfDAIContract.connect(deployerSigner).setCommunityWallet(clientSigner.address)).to.be.revertedWith("Ownable: caller is not the owner")
-            await expect(cfDAIContract.connect(deployerSigner).setNetworkFeeTier2(["100000000", "200000000"])).to.be.revertedWith("Ownable: caller is not the owner")
+            await expect(cfDAIContract.connect(deployerSigner).setNetworkFeeTier2([decimals(100), decimals(200)])).to.be.revertedWith("Ownable: caller is not the owner")
             await expect(cfDAIContract.connect(deployerSigner).setNetworkFeePercentage([3000, 3000, 3000])).to.be.revertedWith("Ownable: caller is not the owner")
             await expect(cfDAIContract.connect(deployerSigner).setCustomNetworkFeeTier(ethers.utils.parseUnits("1", 12))).to.be.revertedWith("Ownable: caller is not the owner")
             await expect(cfDAIContract.connect(deployerSigner).setCustomNetworkFeePercentage(3000)).to.be.revertedWith("Ownable: caller is not the owner")
@@ -439,10 +439,10 @@ describe("cfDAI", () => {
             // Check if new treasury wallet is set to the contract
             expect(await cfDAIContract.treasuryWallet()).to.equal(clientSigner.address)
             // Check if new treasury wallet receive fees
-            await tokenContract.approve(cfDAIContract.address, "1000000000")
-            await dvlDAIContract.deposit("200000000")
+            await tokenContract.approve(cfDAIContract.address, decimals(1000))
+            await dvlDAIContract.deposit(decimals(200))
             // Deposit amount within network fee tier 1 hence fee = 0.5%
-            expect(await tokenContract.balanceOf(clientSigner.address)).to.equal("1000000")
+            expect(await tokenContract.balanceOf(clientSigner.address)).to.equal(decimals(1))
         })
 
         it("should able to set new community wallet correctly in CompoundFarmerDAI contract", async () => {
@@ -454,39 +454,39 @@ describe("cfDAI", () => {
             // Check if new community wallet is set to the contract
             expect(await cfDAIContract.communityWallet()).to.equal(clientSigner.address)
             // Check if new treasury wallet receive fees
-            await tokenContract.approve(cfDAIContract.address, "1000000000")
-            await dvlDAIContract.deposit("200000000")
+            await tokenContract.approve(cfDAIContract.address, decimals(1000))
+            await dvlDAIContract.deposit(decimals(200))
             // Deposit amount within network fee tier 1 hence fee = 0.5%
-            expect(await tokenContract.balanceOf(clientSigner.address)).to.equal("1000000")
+            expect(await tokenContract.balanceOf(clientSigner.address)).to.equal(decimals(1))
         })
 
         it("should able to set new network fee tier correctly in CompoundFarmerDAI contract", async () => {
             const { cfDAIContract } = await setup()
             // Check if function parameter meet the requirements
-            await expect(cfDAIContract.setNetworkFeeTier2([0, "10000000000"]))
+            await expect(cfDAIContract.setNetworkFeeTier2([0, decimals(10000)]))
                 .to.be.revertedWith("Minimun amount cannot be 0")
-            await expect(cfDAIContract.setNetworkFeeTier2(["10000000000", "10000000000"]))
+            await expect(cfDAIContract.setNetworkFeeTier2([decimals(10000), decimals(10000)]))
                 .to.be.revertedWith("Maximun amount must greater than minimun amount")
             // Set new network fee tier 2 and check if event for setNetworkFeeTier2 is logged
-            await expect(cfDAIContract.setNetworkFeeTier2(["60000000001", "600000000000"]))
+            await expect(cfDAIContract.setNetworkFeeTier2([decimals(60000).add(1), decimals(600000)]))
                 .to.emit(cfDAIContract, "SetNetworkFeeTier2")
-                .withArgs(["50000000001", "100000000000"], ["60000000001", "600000000000"])
+                .withArgs([(decimals(50000).add(1).toString()).toString(), decimals(100000).toString()], [(decimals(60000).add(1)).toString(), decimals(600000).toString()])
             // Check if network fee tier 2 amount is set correctly
-            expect(await cfDAIContract.networkFeeTier2(0)).to.equal("60000000001")
-            expect(await cfDAIContract.networkFeeTier2(1)).to.equal("600000000000")
+            expect(await cfDAIContract.networkFeeTier2(0)).to.equal(decimals(60000).add(1))
+            expect(await cfDAIContract.networkFeeTier2(1)).to.equal(decimals(600000))
         })
 
         it("should able to set new custom network fee tier correctly in CompoundFarmerDAI contract", async () => {
             const { cfDAIContract } = await setup()
             // Check if function parameter meet the requirements
-            await expect(cfDAIContract.setCustomNetworkFeeTier(ethers.utils.parseUnits("1", 10)))
+            await expect(cfDAIContract.setCustomNetworkFeeTier(ethers.utils.parseUnits("1", 22)))
                 .to.be.revertedWith("Custom network fee tier must greater than tier 2")
             // Set new custom network fee tier and check if event for setCustomNetworkFeeTier is logged
-            await expect(cfDAIContract.setCustomNetworkFeeTier(ethers.utils.parseUnits("2", 12)))
+            await expect(cfDAIContract.setCustomNetworkFeeTier(ethers.utils.parseUnits("2", 24)))
                 .to.emit(cfDAIContract, "SetCustomNetworkFeeTier")
-                .withArgs("1000000000000", "2000000000000")
+                .withArgs(ethers.utils.parseUnits("1", 24).toString(), ethers.utils.parseUnits("2", 24).toString())
             // Check if custom network fee tier amount is set correctly
-            expect(await cfDAIContract.customNetworkFeeTier()).to.equal(ethers.utils.parseUnits("2", 12))
+            expect(await cfDAIContract.customNetworkFeeTier()).to.equal(ethers.utils.parseUnits("2", 24))
         })
 
         it("should able to set new network fee percentage correctly in CompoundFarmerDAI contract", async () => {
@@ -563,8 +563,8 @@ describe("cfDAI", () => {
             // Check if pending strategy is set with given address
             expect(await dvlDAIContract.pendingStrategy()).to.equal(sampleContract.address)
             // Deposit into daoVaultDAI and execute vesting function
-            await tokenContract.approve(cfDAIContract.address, "100000000000")
-            await dvlDAIContract.deposit("100000000000")
+            await tokenContract.approve(cfDAIContract.address, decimals(100000))
+            await dvlDAIContract.deposit(decimals(100000))
             await cfDAIContract.vesting()
             // Get Yearn Farmer token balance before migrate
             const tokenBalance = await tokenContract.balanceOf(cfDAIContract.address)
@@ -605,13 +605,13 @@ describe("cfDAI", () => {
             const treasuryBalance = await tokenContract.balanceOf(treasuryWalletAddress)
             const communityBalance = await tokenContract.balanceOf(communityWalletAddress)
             // Deposit into CompoundFarmerDAI through daoVaultDAI
-            await tokenContract.approve(cfDAIContract.address, "10000000000")
-            await dvlDAIContract.deposit("500000000")
-            await dvlDAIContract.deposit("500000000")
+            await tokenContract.approve(cfDAIContract.address, decimals(10000))
+            await dvlDAIContract.deposit(decimals(500))
+            await dvlDAIContract.deposit(decimals(500))
             const depositAmount = await cfDAIContract.getCurrentBalance(deployerSigner.address)
-            expect(depositAmount).to.equal("990000000")
+            expect(depositAmount).to.equal(decimals(990))
             const poolAmount = await cfDAIContract.pool()
-            expect(poolAmount).to.equal("990000000")
+            expect(poolAmount).to.equal(decimals(990))
             // Check if corresponding function to be reverted if no vesting
             await expect(dvlDAIContract.refund()).to.be.revertedWith("Not in vesting state")
             await expect(cfDAIContract.revertVesting()).to.be.revertedWith("Not in vesting state")
@@ -621,8 +621,8 @@ describe("cfDAI", () => {
             // Check if vesting state change to true
             expect(await cfDAIContract.isVesting()).is.true
             // Check if corresponding function to be reverted in vesting state
-            await expect(dvlDAIContract.deposit("500000000")).to.be.revertedWith("Contract in vesting state")
-            await expect(dvlDAIContract.withdraw("500000000")).to.be.revertedWith("Contract in vesting state")
+            await expect(dvlDAIContract.deposit(decimals(500))).to.be.revertedWith("Contract in vesting state")
+            await expect(dvlDAIContract.withdraw(decimals(500))).to.be.revertedWith("Contract in vesting state")
             await expect(cfDAIContract.initialDeposit()).to.be.revertedWith("Contract in vesting state")
             // Check if deployer balance in contract after vesting greater than deposit amount(because of profit)
             const deployerBalanceAfterVesting = await cfDAIContract.getCurrentBalance(deployerSigner.address)
@@ -639,8 +639,8 @@ describe("cfDAI", () => {
             // Check if execute vesting function again to be reverted
             await expect(cfDAIContract.vesting()).to.be.revertedWith("Already in vesting state")
             // Check if amount fee transfer to treasury and community wallet correctly (50% split)
-            expect(await tokenContract.balanceOf(treasuryWalletAddress)).to.gt(treasuryBalance.add("2500000"))
-            expect(await tokenContract.balanceOf(communityWalletAddress)).to.gt(communityBalance.add("2500000"))
+            expect(await tokenContract.balanceOf(treasuryWalletAddress)).to.gt(treasuryBalance.add(ethers.utils.parseUnits("25", 17)))
+            expect(await tokenContract.balanceOf(communityWalletAddress)).to.gt(communityBalance.add(ethers.utils.parseUnits("25", 17)))
         })
 
         it("should revert contract vesting state and lend into Compound again correctly", async () => {
