@@ -2,7 +2,7 @@ const { ethers, network } = require("hardhat");
 const { mainnet: network_ } = require("../../addresses");
 
 const tokenAddress = network_.TUSD.tokenAddress;
-const unlockedAddress = "0x701bd63938518d7DB7e0f00945110c80c67df532";
+const unlockedAddress = "0x270cd0b43f6fE2512A32597C7A05FB01eE6ec8E1";
 
 module.exports = async ({ deployments }) => {
   const { deploy } = deployments;

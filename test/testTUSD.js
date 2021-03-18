@@ -10,6 +10,10 @@ const { tokenAddress, yEarnAddress, yVaultAddress } = network_.TUSD
 const treasuryWalletAddress = "0x59E83877bD248cBFe392dbB5A8a29959bcb48592"
 const communityWalletAddress = "0xdd6c35aFF646B2fB7d8A8955Ccbe0994409348d0"
 
+const decimals = (amount) => {
+    return ethers.utils.parseUnits(amount.toString(), 18)
+}
+
 describe("YearnFarmerTUSDv2", () => {
     const setup = async () => {
         const [deployerSigner, clientSigner] = await ethers.getSigners()
@@ -48,15 +52,15 @@ describe("YearnFarmerTUSDv2", () => {
         expect(await yfTUSDContract.treasuryWallet()).to.equal(treasuryWalletAddress)
         // Check if community wallet address match given address in Yearn Farmer contract
         expect(await yfTUSDContract.communityWallet()).to.equal(communityWalletAddress)
-        // Check if initial tier2 of network fee is 50001e6 <= tokenAmount <= 100000e6 in Yearn Farmer contract (More details in contract)
-        expect(await yfTUSDContract.networkFeeTier2(0)).to.equal("50000000001")
-        expect(await yfTUSDContract.networkFeeTier2(1)).to.equal("100000000000")
+        // Check if initial tier2 of network fee is 50000e18+1 <= tokenAmount <= 100000e18 in Yearn Farmer contract (More details in contract)
+        expect(await yfTUSDContract.networkFeeTier2(0)).to.equal(decimals(50000).add(1))
+        expect(await yfTUSDContract.networkFeeTier2(1)).to.equal(decimals(100000))
         // Check if initial network fee percentage is 1% for tier1, 0.75% for tier2, and 0.5% for tier3 in Yearn Farmer contract (More details in contract)
         expect(await yfTUSDContract.networkFeePercentage(0)).to.equal(100) // 1% = 100/10000, more detail in contract
         expect(await yfTUSDContract.networkFeePercentage(1)).to.equal(75) // 1% = 50/10000, more detail in contract
         expect(await yfTUSDContract.networkFeePercentage(2)).to.equal(50) // 1% = 25/10000, more detail in contract
-        // Check if initial custom network fee tier is 1000000e6
-        expect(await yfTUSDContract.customNetworkFeeTier()).to.equal(ethers.utils.parseUnits("1", 12))
+        // Check if initial custom network fee tier is 1000000e18
+        expect(await yfTUSDContract.customNetworkFeeTier()).to.equal(decimals(1000000))
         // Check if initial custom network fee percentage is 0.25%
         expect(await yfTUSDContract.customNetworkFeePercentage()).to.equal(25)
         // Check if initial profile sharing fee percentage is 10% in Yearn Farmer contract
@@ -86,26 +90,26 @@ describe("YearnFarmerTUSDv2", () => {
             // Get sender address and deploy the contracts
             const { deployerSigner, clientSigner, tokenContract, yfTUSDContract, dvmTUSDContract } = await setup()
             // Transfer some TUSD to client
-            await tokenContract.transfer(clientSigner.address, "1000000000")
-            expect(await tokenContract.balanceOf(clientSigner.address)).to.equal("1000000000")
+            await tokenContract.transfer(clientSigner.address, decimals(1000))
+            expect(await tokenContract.balanceOf(clientSigner.address)).to.equal(decimals(1000))
             // Check if meet the function requirements
             const sampleContract_JSON = require("../build/SampleContract.json")
             const sampleContract = await waffle.deployContract(deployerSigner, sampleContract_JSON, [dvmTUSDContract.address, tokenContract.address])
-            await tokenContract.transfer(sampleContract.address, "1000000000")
-            expect(await tokenContract.balanceOf(sampleContract.address)).to.equal("1000000000")
+            await tokenContract.transfer(sampleContract.address, decimals(1000))
+            expect(await tokenContract.balanceOf(sampleContract.address)).to.equal(decimals(1000))
             await sampleContract.approve(yfTUSDContract.address)
             await expect(sampleContract.deposit()).to.be.revertedWith("Only EOA")
             await expect(dvmTUSDContract.connect(clientSigner).deposit([0, 0])).to.be.revertedWith("Amount must > 0")
-            await expect(yfTUSDContract.connect(clientSigner).deposit(["100000000", "200000000"])).to.be.revertedWith("Only can call from Vault")
+            await expect(yfTUSDContract.connect(clientSigner).deposit([decimals(100), decimals(200)])).to.be.revertedWith("Only can call from Vault")
             // Deposit 100 TUSD to Yearn Earn contract and 200 to Yearn Vault Contract
-            await tokenContract.connect(clientSigner).approve(yfTUSDContract.address, "10000000000")
-            await dvmTUSDContract.connect(clientSigner).deposit(["100000000", "200000000"])
+            await tokenContract.connect(clientSigner).approve(yfTUSDContract.address, decimals(1000))
+            await dvmTUSDContract.connect(clientSigner).deposit([decimals(100), decimals(200)])
             // Check if user deposit successfully with correct amount
             const earnDepositAmount = await yfTUSDContract.getEarnDepositBalance(clientSigner.address)
             const vaultDepositAmount = await yfTUSDContract.getVaultDepositBalance(clientSigner.address)
             // Network fee for amount < 10000 is 1% by default
-            const earnDepositBalance = "100000000" - Math.floor(100000000 * 1 / 100)
-            const vaultDepositBalance = "200000000" - Math.floor(200000000 * 1 / 100)
+            const earnDepositBalance = decimals(100).sub(decimals(100).mul(100).div(10000))
+            const vaultDepositBalance = decimals(200).sub(decimals(200).mul(100).div(10000))
             expect(earnDepositAmount).to.equal(earnDepositBalance)
             expect(vaultDepositAmount).to.equal(vaultDepositBalance)
             expect(await dvmTUSDContract.balanceOf(clientSigner.address)).to.equal(earnDepositAmount.add(vaultDepositAmount))
@@ -115,33 +119,33 @@ describe("YearnFarmerTUSDv2", () => {
             // Get signer and address of sender and deploy the contracts
             const { deployerSigner, tokenContract, yfTUSDContract, dvmTUSDContract } = await setup()
             // Check deduct network fee correctly in tier 1
-            await tokenContract.approve(yfTUSDContract.address, ethers.utils.parseEther("1"))
+            await tokenContract.approve(yfTUSDContract.address, decimals(10000000))
             let earnDepositBalance, vaultDepositBalance
-            await dvmTUSDContract.deposit(["100000000", "200000000"])
+            await dvmTUSDContract.deposit([decimals(100), decimals(200)])
             // Network fee for amount < 10000 is 1% in tier 1 by default
-            earnDepositBalance = "100000000" - Math.floor(100000000 * 1 / 100)
-            vaultDepositBalance = "200000000" - Math.floor(200000000 * 1 / 100)
-            expect(await yfTUSDContract.getEarnDepositBalance(deployerSigner.address)).to.equal(Math.floor(earnDepositBalance))
-            expect(await yfTUSDContract.getVaultDepositBalance(deployerSigner.address)).to.equal(Math.floor(vaultDepositBalance))
+            earnDepositBalance = decimals(100).sub(decimals(100).mul(100).div(10000))
+            vaultDepositBalance = decimals(200).sub(decimals(200).mul(100).div(10000))
+            expect(await yfTUSDContract.getEarnDepositBalance(deployerSigner.address)).to.equal(earnDepositBalance)
+            expect(await yfTUSDContract.getVaultDepositBalance(deployerSigner.address)).to.equal(vaultDepositBalance)
             // Check deduct network fee correctly in tier 2
-            await dvmTUSDContract.deposit(["60000000000", "20000000000"])
+            await dvmTUSDContract.deposit([decimals(60000), decimals(20000)])
             // Network fee for amount > 50000 and amount <= 100000 is 0.75% in tier 2 by default
-            earnDepositBalance = earnDepositBalance + Math.floor("60000000000" - Math.floor(60000000000 * 0.75 / 100))
-            vaultDepositBalance = vaultDepositBalance + Math.floor("20000000000" - Math.floor(20000000000 * 0.75 / 100))
+            earnDepositBalance = earnDepositBalance.add(decimals(60000).sub(decimals(60000).mul(75).div(10000)))
+            vaultDepositBalance = vaultDepositBalance.add(decimals(20000).sub(decimals(20000).mul(75).div(10000)))
             expect(await yfTUSDContract.getEarnDepositBalance(deployerSigner.address)).to.equal(earnDepositBalance)
             expect(await yfTUSDContract.getVaultDepositBalance(deployerSigner.address)).to.equal(vaultDepositBalance)
             // Check deduct network fee correctly in tier 3
-            await dvmTUSDContract.deposit(["100000000000", "200000000000"])
+            await dvmTUSDContract.deposit([decimals(100000), decimals(200000)])
             // Network fee for amount > 100000 is 0.5% in tier 3 by default
-            earnDepositBalance = earnDepositBalance + Math.floor(100000000000 - Math.floor(100000000000 * 0.5 / 100))
-            vaultDepositBalance = vaultDepositBalance + Math.floor(200000000000 - Math.floor(200000000000 * 0.5 / 100))
+            earnDepositBalance = earnDepositBalance.add(decimals(100000).sub(decimals(100000).mul(50).div(10000)))
+            vaultDepositBalance = vaultDepositBalance.add(decimals(200000).sub(decimals(200000).mul(50).div(10000)))
             expect(await yfTUSDContract.getEarnDepositBalance(deployerSigner.address)).to.equal(earnDepositBalance)
             expect(await yfTUSDContract.getVaultDepositBalance(deployerSigner.address)).to.equal(vaultDepositBalance)
             // Check deduct network fee correctly in custom tier
-            await dvmTUSDContract.deposit(["1000000000000", "2000000000000"])
+            await dvmTUSDContract.deposit([decimals(1000000), decimals(2000000)])
             // Network fee for amount > 1000000 is 0.25% in custom tier by default
-            earnDepositBalance = earnDepositBalance + Math.floor(1000000000000 - Math.floor(1000000000000 * 0.25 / 100))
-            vaultDepositBalance = vaultDepositBalance + Math.floor(2000000000000 - Math.floor(2000000000000 * 0.25 / 100))
+            earnDepositBalance = earnDepositBalance.add(decimals(1000000).sub(decimals(1000000).mul(25).div(10000)))
+            vaultDepositBalance = vaultDepositBalance.add(decimals(2000000).sub(decimals(2000000).mul(25).div(10000)))
             expect(await yfTUSDContract.getEarnDepositBalance(deployerSigner.address)).to.equal(earnDepositBalance)
             expect(await yfTUSDContract.getVaultDepositBalance(deployerSigner.address)).to.equal(vaultDepositBalance)
         })
@@ -150,17 +154,17 @@ describe("YearnFarmerTUSDv2", () => {
             // Get signer and address of sender and deploy the contracts
             const { clientSigner, tokenContract, yEarnContract, yVaultContract, yfTUSDContract, dvmTUSDContract } = await setup()
             // Transfer some TUSD to client
-            await tokenContract.transfer(clientSigner.address, "1000000000")
+            await tokenContract.transfer(clientSigner.address, decimals(1000))
             // Deposit some TUSD into Yearn Farmer contract
-            await tokenContract.connect(clientSigner).approve(yfTUSDContract.address, "1000000000")
+            await tokenContract.connect(clientSigner).approve(yfTUSDContract.address, decimals(1000))
             const clientTokenAmountBeforeDeposit = await tokenContract.balanceOf(clientSigner.address)
-            const earnDepositAmount = new ethers.BigNumber.from("100000000")
-            const vaultDepositAmount = new ethers.BigNumber.from("200000000")
+            const earnDepositAmount = decimals(100)
+            const vaultDepositAmount = decimals(200)
             await dvmTUSDContract.connect(clientSigner).deposit([earnDepositAmount, vaultDepositAmount])
             // Check if withdraw amount meet the function requirements
-            await expect(dvmTUSDContract.connect(clientSigner).withdraw(["1000000000", 0])).to.be.revertedWith("Insufficient balance")
-            await expect(dvmTUSDContract.connect(clientSigner).withdraw([0, "1000000000"])).to.be.revertedWith("Insufficient balance")
-            await expect(yfTUSDContract.connect(clientSigner).withdraw(["100000000", "200000000"])).to.be.revertedWith("Only can call from Vault")
+            await expect(dvmTUSDContract.connect(clientSigner).withdraw([decimals(1000), 0])).to.be.revertedWith("Insufficient balance")
+            await expect(dvmTUSDContract.connect(clientSigner).withdraw([0, decimals(1000)])).to.be.revertedWith("Insufficient balance")
+            await expect(yfTUSDContract.connect(clientSigner).withdraw([decimals(100), decimals(200)])).to.be.revertedWith("Only can call from Vault")
             // Get Yearn Farmer earn and vault deposit amount of client account 
             const earnDepositBalance = await yfTUSDContract.getEarnDepositBalance(clientSigner.address)
             const vaultDepositBalance = await yfTUSDContract.getVaultDepositBalance(clientSigner.address)
@@ -189,8 +193,8 @@ describe("YearnFarmerTUSDv2", () => {
         // it("should withdraw earn and vault correctly if there is profit", async () => {
         //     // To run this test you must comment out r variable in withdrawEarn() and withdrawVault() function
         //     // and assign r with the amount higher than deposit amount
-        //     // For example "uint256 r = 200000000" in withdrawEarn() and "uint256 r = 400000000" in withdrawVault
-        //     // if deposit 100000000 for Yearn Earn contract and 200000000 for Yearn Vault contract
+        //     // For example "uint256 r = 200e18" in withdrawEarn() and "uint256 r = 400e18" in withdrawVault
+        //     // if deposit 100e18 for Yearn Earn contract and 200e18 for Yearn Vault contract
         //     // Besides, you must provide some TUSD to Yearn Farmer contract as profit from Yearn contract
         //     // Get signer and address of sender and deploy the contracts
         //     const { deployerSigner, tokenContract, yfTUSDContract, dvmTUSDContract } = await setup()
@@ -199,19 +203,19 @@ describe("YearnFarmerTUSDv2", () => {
         //     // Get community wallet TUSD balance before deposit
         //     const communityWalletTokenBalBeforeDeposit = await tokenContract.balanceOf(communityWalletAddress)
         //     // Deposit 100 to Yearn Earn contract and 200 to Yearn Vault contract
-        //     await tokenContract.approve(yfTUSDContract.address, "1000000000")
-        //     await dvmTUSDContract.deposit(["100000000", "200000000"])
+        //     await tokenContract.approve(yfTUSDContract.address, decimals(1000))
+        //     await dvmTUSDContract.deposit([decimals(100), decimals(200)])
         //     // Transfer some TUSD to Yearn Farmer contract as profit from Yearn contract
-        //     await tokenContract.transfer(yfTUSDContract.address, "1000000000")
+        //     await tokenContract.transfer(yfTUSDContract.address, decimals(1000))
         //     // Record TUSD amount of sender before withdraw earn shares
         //     const senderTokenAmountBeforeWithdraw = await tokenContract.balanceOf(deployerSigner.address)
         //     // Get earn and vault deposit balance of sender 
         //     const earnDepositBalance = await yfTUSDContract.getEarnDepositBalance(deployerSigner.address)
         //     const vaultDepositBalance = await yfTUSDContract.getVaultDepositBalance(deployerSigner.address)
         //     // Calculate fees for earn and vault profit
-        //     const earnExampleWithdrawAmount = new ethers.BigNumber.from("200000000")
+        //     const earnExampleWithdrawAmount = decimals(200)
         //     const earnFee = (earnExampleWithdrawAmount.sub(earnDepositBalance)).mul(10).div(100) // .mul(10).div(100): 10% profile sharing fee 
-        //     const vaultExampleWithdrawAmount = new ethers.BigNumber.from("400000000")
+        //     const vaultExampleWithdrawAmount = decimals(400)
         //     const vaultFee = (vaultExampleWithdrawAmount.sub(vaultDepositBalance)).mul(10).div(100) // .mul(10).div(100): 10% profile sharing fee 
         //     // Get shares based on deposit
         //     const daoEarnShares = earnDepositBalance.mul(await dvmTUSDContract.totalSupply()).div(await yfTUSDContract.pool())
@@ -225,76 +229,75 @@ describe("YearnFarmerTUSDv2", () => {
         //         .add(vaultExampleWithdrawAmount.sub(vaultFee))
         //     )
         //     // Check if all fees transfer to treasury and community wallet correctly
-        //     const networkFees = Math.floor((100000000 + 200000000) * 1 / 100) // 1% network fee for tier 1, for treasury wallet only
+        //     const networkFees = ((decimals(100).add(decimals(200))).mul(100).div(10000)).mul(50).div(100) // 1% network fee for tier 1, 50% split between treasury and community wallet
         //     const profileSharingFees = (earnFee.add(vaultFee)).mul(50).div(100) // 50% split between treasury and community wallet
         //     expect(await tokenContract.balanceOf(treasuryWalletAddress)).to.equal(treasuryWalletTokenBalBeforeDeposit.add(profileSharingFees.add(networkFees)))
-        //     expect(await tokenContract.balanceOf(communityWalletAddress)).to.equal(communityWalletTokenBalBeforeDeposit.add(profileSharingFees))
+        //     expect(await tokenContract.balanceOf(communityWalletAddress)).to.equal(communityWalletTokenBalBeforeDeposit.add(profileSharingFees.add(networkFees)))
         // })
 
         it("should able to get earn and vault deposit amount correctly", async () => {
             // Get signer and address of sender and client and deploy the contracts
             const { deployerSigner, clientSigner, tokenContract, yfTUSDContract, dvmTUSDContract } = await setup()
             // Deposit 100 to Yearn Earn contract and 200 to Yearn Vault contract
-            await tokenContract.approve(yfTUSDContract.address, "1000000000")
-            await dvmTUSDContract.deposit(["100000000", "200000000"])
+            await tokenContract.approve(yfTUSDContract.address, decimals(1000))
+            await dvmTUSDContract.deposit([decimals(100), decimals(200)])
             // Deposit another 300 to Yearn Earn contract and 400 to Yearn Vault contract
-            await dvmTUSDContract.deposit(["300000000", "400000000"])
+            await dvmTUSDContract.deposit([decimals(300), decimals(400)])
             // Check if balance deposit of Yearn Earn contract and Yearn Vault contract after network fee return correctly
-            const totalEarnDepositAfterFee = (100000000 + 300000000) - Math.floor((100000000 + 300000000) * 0.01) // 0.01: 1% network fee for tier 1
+            const totalEarnDepositAfterFee = (decimals(100).add(decimals(300))).sub((decimals(100).add(decimals(300))).mul(100).div(10000)) // 1% network fee for tier 1
             expect(await yfTUSDContract.getEarnDepositBalance(deployerSigner.address)).to.equal(totalEarnDepositAfterFee)
-            const totalVaultDepositAfterFee = (200000000 + 400000000) - Math.floor((200000000 + 400000000) * 0.01) // 0.01: 1% network fee for tier 1
+            const totalVaultDepositAfterFee = (decimals(200).add(decimals(400))).sub((decimals(200).add(decimals(400))).mul(100).div(10000)) // 1% network fee for tier 1
             expect(await yfTUSDContract.getVaultDepositBalance(deployerSigner.address)).to.equal(totalVaultDepositAfterFee)
             // Transfer some TUSD to client account
-            await tokenContract.transfer(clientSigner.address, "1000000000")
-            expect(await tokenContract.balanceOf(clientSigner.address)).to.equal("1000000000")
+            await tokenContract.transfer(clientSigner.address, decimals(1000))
+            expect(await tokenContract.balanceOf(clientSigner.address)).to.equal(decimals(1000))
             // Deposit 150 to Yearn Earn contract and 250 to Yearn Vault contract from client
-            await tokenContract.connect(clientSigner).approve(yfTUSDContract.address, "1000000000")
-            await dvmTUSDContract.connect(clientSigner).deposit(["150000000", "250000000"])
+            await tokenContract.connect(clientSigner).approve(yfTUSDContract.address, decimals(1000))
+            await dvmTUSDContract.connect(clientSigner).deposit([decimals(150), decimals(250)])
             // Check if balance deposit of Yearn Earn contract and Yearn Vault contract after network fee from another account return correctly
-            expect(await yfTUSDContract.getEarnDepositBalance(clientSigner.address)).to.equal(150000000 - Math.floor(150000000 * 0.01)) // 0.01: 1% network fee for tier 1
-            expect(await yfTUSDContract.getVaultDepositBalance(clientSigner.address)).to.equal(250000000 - Math.floor(250000000 * 0.01)) // 0.01: 1% network fee for tier 1
+            expect(await yfTUSDContract.getEarnDepositBalance(clientSigner.address)).to.equal(decimals(150).sub(decimals(150).mul(100).div(10000))) // 1% network fee for tier 1
+            expect(await yfTUSDContract.getVaultDepositBalance(clientSigner.address)).to.equal(decimals(250).sub(decimals(250).mul(100).div(10000))) // 1% network fee for tier 1
         })
 
         it("should able to deal with mix and match situation (deposit and withdraw several times by several parties)", async () => {
              // Get signer and address of sender and client and deploy the contracts
             const { deployerSigner, clientSigner, tokenContract, yEarnContract, yVaultContract, yfTUSDContract, dvmTUSDContract } = await setup()
             // Transfer some token to client account
-            await tokenContract.transfer(clientSigner.address, "10000000000")
-            expect(await tokenContract.balanceOf(clientSigner.address)).to.equal("10000000000")
+            await tokenContract.transfer(clientSigner.address, decimals(10000))
+            expect(await tokenContract.balanceOf(clientSigner.address)).to.equal(decimals(10000))
             // Get sender and client account token balance before deposit
             const senderTknBalBefDep = await tokenContract.balanceOf(deployerSigner.address)
             const clientTknBalBefDep = await tokenContract.balanceOf(clientSigner.address)
             // Mix and max deposit
-            await tokenContract.approve(yfTUSDContract.address, "10000000000")
-            await tokenContract.connect(clientSigner).approve(yfTUSDContract.address, "10000000000")
-            await dvmTUSDContract.deposit(["123000000", 0])
-            await dvmTUSDContract.connect(clientSigner).deposit([0, "212000000"])
-            await dvmTUSDContract.deposit([0, "166000000"])
-            await dvmTUSDContract.connect(clientSigner).deposit(["249000000", 0])
-            await dvmTUSDContract.deposit(["132000000", "186000000"])
-            await dvmTUSDContract.connect(clientSigner).deposit(["234000000", "269000000"])
+            await tokenContract.approve(yfTUSDContract.address, decimals(10000))
+            await tokenContract.connect(clientSigner).approve(yfTUSDContract.address, decimals(10000))
+            await dvmTUSDContract.deposit([decimals(123), 0])
+            await dvmTUSDContract.connect(clientSigner).deposit([0, decimals(212)])
+            await dvmTUSDContract.deposit([0, decimals(166)])
+            await dvmTUSDContract.connect(clientSigner).deposit([decimals(249), 0])
+            await dvmTUSDContract.deposit([decimals(132), decimals(186)])
+            await dvmTUSDContract.connect(clientSigner).deposit([decimals(234), decimals(269)])
             // Get Yearn Farmer earn and vault network fees of accounts
-            const senderEarnDepFee = Math.floor(123000000*0.01)+Math.floor(132000000*0.01)
-            const senderVaultDepFee = Math.floor(166000000*0.01)+Math.floor(186000000*0.01)
-            const clientEarnDepFee = Math.floor(249000000*0.01)+Math.floor(234000000*0.01)
-            const clientVaultDepFee = Math.floor(212000000*0.01)+Math.floor(269000000*0.01)
+            const senderEarnDepFee = (decimals(123).mul(100).div(10000)).add((decimals(132).mul(100).div(10000)))
+            const senderVaultDepFee = (decimals(166).mul(100).div(10000)).add((decimals(186).mul(100).div(10000)))
+            const clientEarnDepFee = (decimals(249).mul(100).div(10000)).add((decimals(234).mul(100).div(10000)))
+            const clientVaultDepFee = (decimals(212).mul(100).div(10000)).add((decimals(269).mul(100).div(10000)))
             // Check if deposit amount of accounts return correctly
-            expect(await yfTUSDContract.getEarnDepositBalance(deployerSigner.address)).to.equal((123000000+132000000)-senderEarnDepFee)
-            expect(await yfTUSDContract.getVaultDepositBalance(deployerSigner.address)).to.equal((166000000+186000000)-senderVaultDepFee)
-            expect(await yfTUSDContract.getEarnDepositBalance(clientSigner.address)).to.equal((249000000+234000000)-clientEarnDepFee)
-            expect(await yfTUSDContract.getVaultDepositBalance(clientSigner.address)).to.equal((212000000+269000000)-clientVaultDepFee)
+            expect(await yfTUSDContract.getEarnDepositBalance(deployerSigner.address)).to.equal(decimals(123+132).sub(senderEarnDepFee))
+            expect(await yfTUSDContract.getVaultDepositBalance(deployerSigner.address)).to.equal(decimals(166+186).sub(senderVaultDepFee))
+            expect(await yfTUSDContract.getEarnDepositBalance(clientSigner.address)).to.equal(decimals(249+234).sub(clientEarnDepFee))
+            expect(await yfTUSDContract.getVaultDepositBalance(clientSigner.address)).to.equal(decimals(212+269).sub(clientVaultDepFee))
             // Check if daoTUSD distribute to accounts correctly
-            expect(await dvmTUSDContract.balanceOf(deployerSigner.address)).to.equal((123000000+132000000+166000000+186000000)-senderEarnDepFee-senderVaultDepFee)
-            expect(await dvmTUSDContract.balanceOf(clientSigner.address)).to.equal((212000000+249000000+234000000+269000000)-clientEarnDepFee-clientVaultDepFee)
+            expect(await dvmTUSDContract.balanceOf(deployerSigner.address)).to.equal(decimals(123+132+166+186).sub(senderEarnDepFee).sub(senderVaultDepFee))
+            expect(await dvmTUSDContract.balanceOf(clientSigner.address)).to.equal(decimals(212+249+234+269).sub(clientEarnDepFee).sub(clientVaultDepFee))
             // Get accounts token balance after deposit
             const senderTknBalAftDep = await tokenContract.balanceOf(deployerSigner.address)
             const clientTknBalAftDep = await tokenContract.balanceOf(clientSigner.address)
             // Check if token balance of accounts deduct correctly after deposit
-            expect(senderTknBalAftDep).to.equal(senderTknBalBefDep.sub(123000000+132000000+166000000+186000000))
-            expect(clientTknBalAftDep).to.equal(clientTknBalBefDep.sub(212000000+249000000+234000000+269000000))
+            expect(senderTknBalAftDep).to.equal(senderTknBalBefDep.sub(decimals(123+132+166+186)))
+            expect(clientTknBalAftDep).to.equal(clientTknBalBefDep.sub(decimals(212+249+234+269)))
             // Check if network fees send to treasury and community wallet correctly
-            let totalFees = senderEarnDepFee+senderVaultDepFee+clientEarnDepFee+clientVaultDepFee
-            totalFees = ethers.BigNumber.from(totalFees.toString())
+            const totalFees = senderEarnDepFee.add(senderVaultDepFee).add(clientEarnDepFee).add(clientVaultDepFee)
             expect(await tokenContract.balanceOf(treasuryWalletAddress)).to.equal(totalFees.mul(1).div(2))
             expect(await tokenContract.balanceOf(communityWalletAddress)).to.equal(totalFees.mul(1).div(2))
             // Get Yearn Farmer pool amount
@@ -305,31 +308,31 @@ describe("YearnFarmerTUSDv2", () => {
                 .add(await yfTUSDContract.getEarnDepositBalance(clientSigner.address)).add(await yfTUSDContract.getVaultDepositBalance(clientSigner.address))
             )
             // Mix and max withdraw
-            await dvmTUSDContract.withdraw(["200000000", 0])
-            await dvmTUSDContract.connect(clientSigner).withdraw(["132000000", 0])
-            await dvmTUSDContract.withdraw([0, "24000000"])
-            await dvmTUSDContract.connect(clientSigner).withdraw([0, "188000000"])
+            await dvmTUSDContract.withdraw([decimals(200), 0])
+            await dvmTUSDContract.connect(clientSigner).withdraw([decimals(132), 0])
+            await dvmTUSDContract.withdraw([0, decimals(240)])
+            await dvmTUSDContract.connect(clientSigner).withdraw([0, decimals(188)])
             // Get earn and vault deposit balance of accounts
             const senderEarnDepBalAftWdr = await yfTUSDContract.getEarnDepositBalance(deployerSigner.address)
             const senderVaultDepBalAftWdr = await yfTUSDContract.getVaultDepositBalance(deployerSigner.address)
             const clientEarnDepBalAftWdr = await yfTUSDContract.getEarnDepositBalance(clientSigner.address)
             const clientVaultDepBalAftWdr = await yfTUSDContract.getVaultDepositBalance(clientSigner.address)
             // Check if deposit amount of accounts return correctly after withdraw 1st time
-            expect(senderEarnDepBalAftWdr).to.equal((123000000+132000000)-senderEarnDepFee-200000000)
-            expect(senderVaultDepBalAftWdr).to.equal((166000000+186000000)-senderVaultDepFee-24000000)
-            expect(clientEarnDepBalAftWdr).to.equal((249000000+234000000)-clientEarnDepFee-132000000)
-            expect(clientVaultDepBalAftWdr).to.equal((212000000+269000000)-clientVaultDepFee-188000000)
+            expect(senderEarnDepBalAftWdr).to.equal(decimals(123+132).sub(senderEarnDepFee).sub(decimals(200)))
+            expect(senderVaultDepBalAftWdr).to.equal(decimals(166+186).sub(senderVaultDepFee).sub(decimals(240)))
+            expect(clientEarnDepBalAftWdr).to.equal(decimals(249+234).sub(clientEarnDepFee).sub(decimals(132)))
+            expect(clientVaultDepBalAftWdr).to.equal(decimals(212+269).sub(clientVaultDepFee).sub(decimals(188)))
             // Check if daoTUSD burn correctly in accounts
-            expect(await dvmTUSDContract.balanceOf(deployerSigner.address)).to.equal((123000000+132000000+166000000+186000000)-Math.floor(123000000*0.01)-Math.floor(132000000*0.01)-Math.floor(166000000*0.01)-Math.floor(186000000*0.01)-(200000000+24000000))
-            expect(await dvmTUSDContract.balanceOf(clientSigner.address)).to.equal((212000000+249000000+234000000+269000000)-Math.floor(212000000*0.01)-Math.floor(249000000*0.01)-Math.floor(234000000*0.01)-Math.floor(269000000*0.01)-(132000000+188000000))
+            expect(await dvmTUSDContract.balanceOf(deployerSigner.address)).to.equal(decimals(123+132+166+186).sub(decimals(123).mul(100).div(10000)).sub(decimals(132).mul(100).div(10000)).sub(decimals(166).mul(100).div(10000)).sub(decimals(186).mul(100).div(10000)).sub(decimals(200+240)))
+            expect(await dvmTUSDContract.balanceOf(clientSigner.address)).to.equal(decimals(212+249+234+269).sub(decimals(212).mul(100).div(10000)).sub(decimals(249).mul(100).div(10000)).sub(decimals(234).mul(100).div(10000)).sub(decimals(269).mul(100).div(10000)).sub(decimals(132+188)))
             // Get accounts token balance after withdraw 1st time
             const senderTknBalAftWdr = await tokenContract.balanceOf(deployerSigner.address)
             const clientTknBalAftWdr = await tokenContract.balanceOf(clientSigner.address)
             // Get total withdraw amount of sender and client in big number
-            const senderEarnWdrAmt = new ethers.BigNumber.from("200000000")
-            const senderVaultWdrAmt = new ethers.BigNumber.from("24000000")
-            const clientEarnWdrAmt = new ethers.BigNumber.from("132000000")
-            const clientVaultWdrAmt = new ethers.BigNumber.from("188000000")
+            const senderEarnWdrAmt = decimals(200)
+            const senderVaultWdrAmt = decimals(240)
+            const clientEarnWdrAmt = decimals(132)
+            const clientVaultWdrAmt = decimals(188)
             // Get off-chain actual withdraw TUSD amount based on Yearn Earn and Vault contract
             let senderEarnSharesinYearnContract = (senderEarnWdrAmt.mul(await yEarnContract.totalSupply())).div(await yEarnContract.calcPoolValueInToken())
             let senderActualEarnWithdrawAmount = ((await yEarnContract.calcPoolValueInToken()).mul(senderEarnSharesinYearnContract)).div(await yEarnContract.totalSupply())
@@ -340,10 +343,12 @@ describe("YearnFarmerTUSDv2", () => {
             let clientVaultSharesinYearnContract = (clientVaultWdrAmt.mul(await yVaultContract.totalSupply())).div(await yVaultContract.balance())
             let clientActualVaultWithdrawAmount = ((await yVaultContract.balance()).mul(clientVaultSharesinYearnContract)).div(await yVaultContract.totalSupply())
             // Check if token balance of accounts top-up correctly after withdraw
-            expect(senderTknBalAftWdr).to.equal(senderTknBalAftDep.add(senderActualEarnWithdrawAmount).add(senderActualVaultWithdrawAmount))
-            expect(clientTknBalAftWdr).to.equal(clientTknBalAftDep.add(clientActualEarnWithdrawAmount).add(clientActualVaultWithdrawAmount))
+            expect(senderTknBalAftWdr).to.be.closeTo(senderTknBalAftDep.add(senderActualEarnWithdrawAmount).add(senderActualVaultWithdrawAmount), 1)
+            expect(clientTknBalAftWdr).to.be.closeTo(clientTknBalAftDep.add(clientActualEarnWithdrawAmount).add(clientActualVaultWithdrawAmount), 1)
             // Check if Yearn Contract pool amount deduct correctly
             expect(await yfTUSDContract.pool()).to.equal(yfPool.sub(senderEarnWdrAmt.add(senderVaultWdrAmt).add(clientEarnWdrAmt).add(clientVaultWdrAmt)))
+            expect(await yfTUSDContract.totalSupply()).to.equal(yfPool.sub(senderEarnWdrAmt.add(senderVaultWdrAmt).add(clientEarnWdrAmt).add(clientVaultWdrAmt)))
+            expect(await dvmTUSDContract.totalSupply()).to.equal(yfPool.sub(senderEarnWdrAmt.add(senderVaultWdrAmt).add(clientEarnWdrAmt).add(clientVaultWdrAmt)))
             // Get shares based on deposit
             const senderDaoEarnShares = (await yfTUSDContract.getEarnDepositBalance(deployerSigner.address)).mul(await dvmTUSDContract.totalSupply()).div(await yfTUSDContract.pool())
             const senderDaoVaultTUSDShares = (await yfTUSDContract.getVaultDepositBalance(deployerSigner.address)).mul(await dvmTUSDContract.totalSupply()).div(await yfTUSDContract.pool())
@@ -354,7 +359,7 @@ describe("YearnFarmerTUSDv2", () => {
             await dvmTUSDContract.connect(clientSigner).withdraw([clientDaoEarnShares, 0])
             await dvmTUSDContract.withdraw([0, senderDaoVaultTUSDShares])
             await dvmTUSDContract.connect(clientSigner).withdraw([0, clientDaoVaultTUSDShares])
-            // Check if deposit amount of accounts return 0
+            // // Check if deposit amount of accounts return 0
             expect(await yfTUSDContract.getEarnDepositBalance(deployerSigner.address)).to.equal(0)
             expect(await yfTUSDContract.getVaultDepositBalance(deployerSigner.address)).to.equal(0)
             expect(await yfTUSDContract.getEarnDepositBalance(clientSigner.address)).to.equal(0)
@@ -382,32 +387,32 @@ describe("YearnFarmerTUSDv2", () => {
             // Get signer and address of sender and deploy the contracts
             const { deployerSigner, tokenContract, yEarnContract, yVaultContract, yfTUSDContract, dvmTUSDContract } = await setup()
             // Approve Yearn Farmer to transfer token from sender
-            await tokenContract.approve(yfTUSDContract.address, "1000000000000")
+            await tokenContract.approve(yfTUSDContract.address, decimals(1000000))
             // Get current balance TUSD of sender account
             const tokenBalanceBeforeDeposit = await tokenContract.balanceOf(deployerSigner.address)
             // Mix and max deposit and withdraw
-            const depositAmount1 = ethers.BigNumber.from("62345000000")
-            const depositAmount2 = ethers.BigNumber.from("97822000000")
-            const depositAmount3 = ethers.BigNumber.from("4444000000")
-            const depositAmount4 = ethers.BigNumber.from("22222000000")
+            const depositAmount1 = decimals(62345)
+            const depositAmount2 = decimals(97822)
+            const depositAmount3 = decimals(4444)
+            const depositAmount4 = decimals(22222)
             await dvmTUSDContract.deposit([depositAmount1, depositAmount4])
-            const withdrawAmount1 = ethers.BigNumber.from("8932000000")
-            let senderSharesinYearnContract = (new ethers.BigNumber.from(withdrawAmount1)).mul(await yEarnContract.totalSupply()).div(await yEarnContract.calcPoolValueInToken())
+            const withdrawAmount1 = decimals(8932)
+            let senderSharesinYearnContract = (withdrawAmount1).mul(await yEarnContract.totalSupply()).div(await yEarnContract.calcPoolValueInToken())
             let senderActualWithdrawAmount = ((await yEarnContract.calcPoolValueInToken()).mul(senderSharesinYearnContract)).div(await yEarnContract.totalSupply())
             await dvmTUSDContract.withdraw([withdrawAmount1, 0])
             await dvmTUSDContract.deposit([depositAmount2, 0])
             await dvmTUSDContract.deposit([depositAmount3, 0])
-            let currentTokenBalance = tokenBalanceBeforeDeposit.sub(depositAmount1).sub(depositAmount4).add(senderActualWithdrawAmount).sub("97822000000").sub(depositAmount3)
-            const withdrawAmount2 = ethers.BigNumber.from("7035000000")
-            senderSharesinYearnContract = (new ethers.BigNumber.from(withdrawAmount2)).mul(await yEarnContract.totalSupply()).div(await yEarnContract.calcPoolValueInToken())
+            let currentTokenBalance = tokenBalanceBeforeDeposit.sub(depositAmount1).sub(depositAmount4).add(senderActualWithdrawAmount).sub(depositAmount2).sub(depositAmount3)
+            const withdrawAmount2 = decimals(7035)
+            senderSharesinYearnContract = withdrawAmount2.mul(await yEarnContract.totalSupply()).div(await yEarnContract.calcPoolValueInToken())
             senderActualWithdrawAmount = ((await yEarnContract.calcPoolValueInToken()).mul(senderSharesinYearnContract)).div(await yEarnContract.totalSupply())
             await dvmTUSDContract.withdraw([withdrawAmount2, 0])
             currentTokenBalance = currentTokenBalance.add(senderActualWithdrawAmount)
-            const withdrawAmount3 = ethers.BigNumber.from("19965000000")
-            senderSharesinYearnContract = (new ethers.BigNumber.from(withdrawAmount3)).mul(await yVaultContract.totalSupply()).div(await yVaultContract.balance())
+            const withdrawAmount3 = decimals(19965)
+            senderSharesinYearnContract = withdrawAmount3.mul(await yVaultContract.totalSupply()).div(await yVaultContract.balance())
             senderActualWithdrawAmount = ((await yVaultContract.balance()).mul(senderSharesinYearnContract)).div(await yVaultContract.totalSupply())
             await dvmTUSDContract.withdraw([0, withdrawAmount3])
-            const depositAmount5 = ethers.BigNumber.from("59367000000")
+            const depositAmount5 = decimals(59367)
             await dvmTUSDContract.deposit([0, depositAmount5])
             currentTokenBalance = currentTokenBalance.add(senderActualWithdrawAmount).sub(depositAmount5)
             // Check if balance token of sender account correctly after mix and max deposit and withdraw
@@ -420,7 +425,7 @@ describe("YearnFarmerTUSDv2", () => {
             // Check if daoTUSD balance of sender account correct
             expect(await dvmTUSDContract.balanceOf(deployerSigner.address)).to.equal(earnDepositBalance.add(vaultDepositBalance))
             // Check if treasury and community wallet receive fees amount correctly
-            const totalFees = (depositAmount1.mul(75).div(10000)).add(depositAmount2.mul(75).div(10000)).add(depositAmount4.mul(75).div(10000)).add(depositAmount3*0.01).add(depositAmount5.mul(75).div(10000))
+            const totalFees = (depositAmount1.mul(75).div(10000)).add(depositAmount2.mul(75).div(10000)).add(depositAmount4.mul(75).div(10000)).add(depositAmount3.mul(100).div(10000)).add(depositAmount5.mul(75).div(10000))
             expect(await tokenContract.balanceOf(treasuryWalletAddress)).to.equal(totalFees.mul(1).div(2))
             expect(await tokenContract.balanceOf(communityWalletAddress)).to.equal(totalFees.mul(1).div(2))
             // Check if Yearn Farmer pool amount correct
@@ -431,10 +436,10 @@ describe("YearnFarmerTUSDv2", () => {
             // Get address of owner and deploy the contracts
             const { clientSigner, tokenContract, yEarnContract, yVaultContract, yfTUSDContract, dvmTUSDContract } = await setup()
             // Transfer some token to client
-            await tokenContract.transfer(clientSigner.address, "1000000000")
+            await tokenContract.transfer(clientSigner.address, decimals(1000))
             // Deposit 100 to Yearn Earn contract and 200 to Yearn Vault contract
-            await tokenContract.connect(clientSigner).approve(yfTUSDContract.address, ethers.utils.parseEther("1"))
-            await dvmTUSDContract.connect(clientSigner).deposit(["100000000", "200000000"])
+            await tokenContract.connect(clientSigner).approve(yfTUSDContract.address, decimals(1000))
+            await dvmTUSDContract.connect(clientSigner).deposit([decimals(100), decimals(200)])
             // Get client TUSD balance before refund
             const tokenBalanceBeforeRefund = await tokenContract.balanceOf(clientSigner.address)
             // Get client earn and vault deposit balance return before vesting
@@ -451,11 +456,11 @@ describe("YearnFarmerTUSDv2", () => {
             expect(await yfTUSDContract.getSharesValue(clientSigner.address)).to.gte(clientActualEarnWithdrawAmount.add(clientActualVaultWithdrawAmount))
             // Check if refund function meet requirements
             await expect(dvmTUSDContract.refund()).to.be.revertedWith("No balance to refund")
-            await expect(yfTUSDContract.refund("100000000")).to.be.revertedWith("Only can call from Vault")
+            await expect(yfTUSDContract.refund(decimals(100))).to.be.revertedWith("Only can call from Vault")
             // Execute refund function
             await dvmTUSDContract.connect(clientSigner).refund()
             // Check if TUSD amount of client refund correctly
-            expect(await tokenContract.balanceOf(clientSigner.address)).to.gte(tokenBalanceBeforeRefund.add(clientActualEarnWithdrawAmount).add(clientActualVaultWithdrawAmount))
+            expect(await tokenContract.balanceOf(clientSigner.address)).to.be.closeTo(tokenBalanceBeforeRefund.add(clientActualEarnWithdrawAmount).add(clientActualVaultWithdrawAmount), ethers.utils.parseEther("1"))
             // Check if daoTUSD of client burn to 0
             expect(await dvmTUSDContract.balanceOf(clientSigner.address)).to.equal(0)
         })
@@ -464,10 +469,10 @@ describe("YearnFarmerTUSDv2", () => {
             // Get address of owner and deploy the contracts
             const { deployerSigner, tokenContract, yfTUSDContract, dvmTUSDContract } = await setup()
             // Transfer some TUSD to Yearn Farmer contract as profit from Yearn contract
-            await tokenContract.transfer(yfTUSDContract.address, "1000000000")
+            await tokenContract.transfer(yfTUSDContract.address, decimals(1000))
             // Deposit 100 to Yearn Earn contract and 200 to Yearn Vault contract
-            await tokenContract.approve(yfTUSDContract.address, "1000000000")
-            await dvmTUSDContract.deposit(["100000000", "200000000"])
+            await tokenContract.approve(yfTUSDContract.address, decimals(1000))
+            await dvmTUSDContract.deposit([decimals(100), decimals(200)])
             // Get client TUSD balance before refund
             const tokenBalanceBeforeRefund = await tokenContract.balanceOf(deployerSigner.address)
             // Execute vesting function
@@ -494,8 +499,8 @@ describe("YearnFarmerTUSDv2", () => {
             // Get address of owner and deploy the contracts
             const { tokenContract, yfTUSDContract, dvmTUSDContract } = await setup()
             // Check if Yearn Earn and Vault contract can deposit a huge amount of TUSD from yfTUSD contract
-            await tokenContract.approve(yfTUSDContract.address, "500000000000000")
-            await expect(dvmTUSDContract.deposit(["250000000000000", "250000000000000"])).not.to.be.reverted
+            await tokenContract.approve(yfTUSDContract.address, decimals(5000000))
+            await expect(dvmTUSDContract.deposit([decimals(2500000), decimals(2500000)])).not.to.be.reverted
         })
     })
 
@@ -514,10 +519,10 @@ describe("YearnFarmerTUSDv2", () => {
             await expect(dvmTUSDContract.connect(clientSigner).migrateFunds()).to.be.revertedWith("Ownable: caller is not the owner")
             await expect(yfTUSDContract.connect(clientSigner).setVault(clientSigner.address)).to.be.revertedWith("Ownable: caller is not the owner")
             await expect(yfTUSDContract.connect(clientSigner).setTreasuryWallet(clientSigner.address)).to.be.revertedWith("Ownable: caller is not the owner")
-            await expect(yfTUSDContract.connect(clientSigner).setNetworkFeeTier2(["100000000", "200000000"])).to.be.revertedWith("Ownable: caller is not the owner")
-            await expect(yfTUSDContract.connect(clientSigner).setNetworkFeePercentage([30, 30, 30])).to.be.revertedWith("Ownable: caller is not the owner")
-            await expect(yfTUSDContract.connect(clientSigner).setCustomNetworkFeeTier(ethers.utils.parseUnits("1", 13))).to.be.revertedWith("Ownable: caller is not the owner")
-            await expect(yfTUSDContract.connect(clientSigner).setCustomNetworkFeePercentage(20)).to.be.revertedWith("Ownable: caller is not the owner")
+            await expect(yfTUSDContract.connect(clientSigner).setNetworkFeeTier2([decimals(100), decimals(200)])).to.be.revertedWith("Ownable: caller is not the owner")
+            await expect(yfTUSDContract.connect(clientSigner).setNetworkFeePercentage([3000, 3000, 3000])).to.be.revertedWith("Ownable: caller is not the owner")
+            await expect(yfTUSDContract.connect(clientSigner).setCustomNetworkFeeTier(decimals(10000000))).to.be.revertedWith("Ownable: caller is not the owner")
+            await expect(yfTUSDContract.connect(clientSigner).setCustomNetworkFeePercentage(2000)).to.be.revertedWith("Ownable: caller is not the owner")
             await expect(yfTUSDContract.connect(clientSigner).vesting()).to.be.revertedWith("Ownable: caller is not the owner")
             // Transfer contract ownership from owner to new owner
             await dvmTUSDContract.transferOwnership(clientSigner.address)
@@ -531,10 +536,10 @@ describe("YearnFarmerTUSDv2", () => {
             await expect(dvmTUSDContract.connect(clientSigner).migrateFunds()).not.to.be.revertedWith("Ownable: caller is not the owner")
             await expect(yfTUSDContract.connect(clientSigner).setVault(deployerSigner.address)).not.to.be.revertedWith("Ownable: caller is not the owner")
             await expect(yfTUSDContract.connect(clientSigner).setTreasuryWallet(deployerSigner.address)).not.to.be.revertedWith("Ownable: caller is not the owner")
-            await expect(yfTUSDContract.connect(clientSigner).setNetworkFeeTier2(["100000000", "200000000"])).not.to.be.revertedWith("Ownable: caller is not the owner")
-            await expect(yfTUSDContract.connect(clientSigner).setNetworkFeePercentage([30, 30, 30])).not.to.be.revertedWith("Ownable: caller is not the owner")
-            await expect(yfTUSDContract.connect(clientSigner).setCustomNetworkFeeTier(ethers.utils.parseUnits("1", 13))).not.to.be.revertedWith("Ownable: caller is not the owner")
-            await expect(yfTUSDContract.connect(clientSigner).setCustomNetworkFeePercentage(20)).not.to.be.revertedWith("Ownable: caller is not the owner")
+            await expect(yfTUSDContract.connect(clientSigner).setNetworkFeeTier2([decimals(100), decimals(200)])).not.to.be.revertedWith("Ownable: caller is not the owner")
+            await expect(yfTUSDContract.connect(clientSigner).setNetworkFeePercentage([3000, 3000, 3000])).not.to.be.revertedWith("Ownable: caller is not the owner")
+            await expect(yfTUSDContract.connect(clientSigner).setCustomNetworkFeeTier(decimals(10000000))).not.to.be.revertedWith("Ownable: caller is not the owner")
+            await expect(yfTUSDContract.connect(clientSigner).setCustomNetworkFeePercentage(2000)).not.to.be.revertedWith("Ownable: caller is not the owner")
             await expect(yfTUSDContract.connect(clientSigner).vesting()).not.to.be.revertedWith("Ownable: caller is not the owner")
             // Check if original owner neither can execute admin function nor transfer back ownership
             await expect(dvmTUSDContract.connect(deployerSigner).transferOwnership(deployerSigner.address)).to.be.revertedWith("Ownable: caller is not the owner")
@@ -544,10 +549,10 @@ describe("YearnFarmerTUSDv2", () => {
             await expect(yfTUSDContract.connect(deployerSigner).transferOwnership(deployerSigner.address)).to.be.revertedWith("Ownable: caller is not the owner")
             await expect(yfTUSDContract.connect(deployerSigner).setVault(deployerSigner.address)).to.be.revertedWith("Ownable: caller is not the owner")
             await expect(yfTUSDContract.connect(deployerSigner).setTreasuryWallet(deployerSigner.address)).to.be.revertedWith("Ownable: caller is not the owner")
-            await expect(yfTUSDContract.connect(deployerSigner).setNetworkFeeTier2(["100000000", "200000000"])).to.be.revertedWith("Ownable: caller is not the owner")
-            await expect(yfTUSDContract.connect(deployerSigner).setNetworkFeePercentage([30, 30, 30])).to.be.revertedWith("Ownable: caller is not the owner")
-            await expect(yfTUSDContract.connect(deployerSigner).setCustomNetworkFeeTier(ethers.utils.parseUnits("1", 13))).to.be.revertedWith("Ownable: caller is not the owner")
-            await expect(yfTUSDContract.connect(deployerSigner).setCustomNetworkFeePercentage(20)).to.be.revertedWith("Ownable: caller is not the owner")
+            await expect(yfTUSDContract.connect(deployerSigner).setNetworkFeeTier2([decimals(100), decimals(200)])).to.be.revertedWith("Ownable: caller is not the owner")
+            await expect(yfTUSDContract.connect(deployerSigner).setNetworkFeePercentage([3900, 3900, 3900])).to.be.revertedWith("Ownable: caller is not the owner")
+            await expect(yfTUSDContract.connect(deployerSigner).setCustomNetworkFeeTier(decimals(20000000))).to.be.revertedWith("Ownable: caller is not the owner")
+            await expect(yfTUSDContract.connect(deployerSigner).setCustomNetworkFeePercentage(2000)).to.be.revertedWith("Ownable: caller is not the owner")
             await expect(yfTUSDContract.connect(deployerSigner).vesting()).to.be.revertedWith("Ownable: caller is not the owner")
         })
 
@@ -561,8 +566,8 @@ describe("YearnFarmerTUSDv2", () => {
             // Check if pending strategy is set with given address
             expect(await dvmTUSDContract.pendingStrategy()).to.equal(sampleContract.address)
             // Deposit into daoVaultTUSD and execute vesting function
-            await tokenContract.approve(yfTUSDContract.address, "100000000000")
-            await dvmTUSDContract.deposit(["1000000000", "2000000000"])
+            await tokenContract.approve(yfTUSDContract.address, decimals(10000))
+            await dvmTUSDContract.deposit([decimals(1000), decimals(2000)])
             await yfTUSDContract.vesting()
             // Get Yearn Farmer token balance before migrate
             const tokenBalance = await tokenContract.balanceOf(yfTUSDContract.address) 
@@ -608,10 +613,10 @@ describe("YearnFarmerTUSDv2", () => {
             // Check if new treasury wallet is set to the contract
             expect(await yfTUSDContract.treasuryWallet()).to.equal(newTreasuryWalletSigner.address)
             // Check if new treasury wallet receive fees
-            await tokenContract.approve(yfTUSDContract.address, "1000000000")
-            await dvmTUSDContract.deposit(["100000000", "200000000"])
-            // - 100 + 200 < 300 within network fee tier 1 hence fee = 1%
-            expect(await tokenContract.balanceOf(newTreasuryWalletSigner.address)).to.equal("1500000")
+            await tokenContract.approve(yfTUSDContract.address, decimals(1000))
+            await dvmTUSDContract.deposit([decimals(100), decimals(200)])
+            // 100 + 200 < 300 within network fee tier 1 hence fee = 1% split 50% between treasury and community wallet
+            expect(await tokenContract.balanceOf(newTreasuryWalletSigner.address)).to.equal(decimals(100+200).mul(5).div(1000))
         })
 
         it("should able to set new community wallet correctly in Yearn Farmer contract", async () => {
@@ -626,43 +631,43 @@ describe("YearnFarmerTUSDv2", () => {
             // Check if new community wallet is set to the contract
             expect(await yfTUSDContract.communityWallet()).to.equal(newCommunityWalletSigner.address)
             // Check if new treasury wallet receive fees
-            await tokenContract.approve(yfTUSDContract.address, "1000000000")
-            await dvmTUSDContract.deposit(["100000000", "200000000"])
-            // - 100 + 200 < 300 within network fee tier 1 hence fee = 1%
-            expect(await tokenContract.balanceOf(newCommunityWalletSigner.address)).to.equal("1500000")
+            await tokenContract.approve(yfTUSDContract.address, decimals(1000))
+            await dvmTUSDContract.deposit([decimals(100), decimals(200)])
+            // 100 + 200 < 300 within network fee tier 1 hence fee = 1% split 50% between treasury and community wallet
+            expect(await tokenContract.balanceOf(newCommunityWalletSigner.address)).to.equal(decimals(100+200).mul(5).div(1000))
         })
 
         it("should able to set new network fee tier correctly in Yearn Farmer contract", async () => {
             // Get address of deployer and deploy the contracts
             const { yfTUSDContract } = await setup()
             // Check if function parameter meet the requirements
-            await expect(yfTUSDContract.setNetworkFeeTier2([0, "10000000000"]))
+            await expect(yfTUSDContract.setNetworkFeeTier2([0, decimals(10000)]))
                 .to.be.revertedWith("Minimun amount cannot be 0")
-            await expect(yfTUSDContract.setNetworkFeeTier2(["10000000000", "10000000000"]))
+            await expect(yfTUSDContract.setNetworkFeeTier2([decimals(10000), decimals(10000)]))
                 .to.be.revertedWith("Maximun amount must greater than minimun amount")
             // Set network fee tier 2 with minimun 60001 and maximun 600000 (default 50001, 500000)
             // and Check if function is log
-            await expect(yfTUSDContract.setNetworkFeeTier2(["60000000001", "600000000000"]))
+            await expect(yfTUSDContract.setNetworkFeeTier2([decimals(60000).add(1), decimals(600000)]))
                 .to.emit(yfTUSDContract, "SetNetworkFeeTier2")
-                .withArgs(["50000000001", "100000000000"], ["60000000001", "600000000000"]) // [oldNetworkFeeTier2, newNetworkFeeTier2]
+                .withArgs(["50000000000000000000001", "100000000000000000000000"], ["60000000000000000000001", "600000000000000000000000"]) // [oldNetworkFeeTier2, newNetworkFeeTier2]
             // Check if network fee tier 2 amount is set correctly
-            expect(await yfTUSDContract.networkFeeTier2(0)).to.equal("60000000001")
-            expect(await yfTUSDContract.networkFeeTier2(1)).to.equal("600000000000")
+            expect(await yfTUSDContract.networkFeeTier2(0)).to.equal(decimals(60000).add(1))
+            expect(await yfTUSDContract.networkFeeTier2(1)).to.equal(decimals(600000))
         })
 
         it("should able to set new custom network fee tier correctly in Yearn Farmer contract", async () => {
             // Get address of deployer and deploy the contracts
             const { yfTUSDContract } = await setup()
             // Check if function parameter meet the requirements
-            await expect(yfTUSDContract.setCustomNetworkFeeTier(ethers.utils.parseUnits("1", 10)))
+            await expect(yfTUSDContract.setCustomNetworkFeeTier(decimals(1000)))
                 .to.be.revertedWith("Custom network fee tier must greater than tier 2")
             // Set custom network fee tier to 2000000 (default 1000000)
             // and Check if function is log
-            await expect(yfTUSDContract.setCustomNetworkFeeTier(ethers.utils.parseUnits("2", 12)))
+            await expect(yfTUSDContract.setCustomNetworkFeeTier(decimals(2000000)))
                 .to.emit(yfTUSDContract, "SetCustomNetworkFeeTier")
-                .withArgs("1000000000000", "2000000000000") // [oldCustomNetworkFeeTier, newCustomNetworkFeeTier]
+                .withArgs(ethers.utils.parseUnits("1", 24).toString(), ethers.utils.parseUnits("2", 24).toString()) // [oldCustomNetworkFeeTier, newCustomNetworkFeeTier]
             // Check if custom network fee tier amount is set correctly
-            expect(await yfTUSDContract.customNetworkFeeTier()).to.equal(ethers.utils.parseUnits("2", 12))
+            expect(await yfTUSDContract.customNetworkFeeTier()).to.equal(decimals(2000000))
         })
 
         it("should able to set new network fee percentage correctly in Yearn Farmer contract", async () => {
@@ -719,8 +724,8 @@ describe("YearnFarmerTUSDv2", () => {
             // Get address of deployer and deploy the contracts
             const { deployerSigner, tokenContract, yfTUSDContract, dvmTUSDContract } = await setup()
             // Deposit into Yearn Farmer through daoVaultTUSD
-            await tokenContract.approve(yfTUSDContract.address, "1000000000")
-            await dvmTUSDContract.deposit(["100000000", "200000000"])
+            await tokenContract.approve(yfTUSDContract.address, decimals(1000))
+            await dvmTUSDContract.deposit([decimals(100), decimals(200)])
             // Check if get shares value return 0 if no vesting (this function only available after vesting state)
             expect(await yfTUSDContract.getSharesValue(deployerSigner.address)).to.equal(0)
             // Check if corresponding function to be reverted if no vesting (these function only available after vesting state)
@@ -730,8 +735,8 @@ describe("YearnFarmerTUSDv2", () => {
             // Check if vesting state is true
             expect(await yfTUSDContract.isVesting()).is.true
             // Check if corresponding function to be reverted in vesting state
-            await expect(dvmTUSDContract.deposit(["100000000", "200000000"])).to.be.revertedWith("Contract in vesting state")
-            await expect(dvmTUSDContract.withdraw(["50000000", "100000000"])).to.be.revertedWith("Contract in vesting state")
+            await expect(dvmTUSDContract.deposit([decimals(100), decimals(200)])).to.be.revertedWith("Contract in vesting state")
+            await expect(dvmTUSDContract.withdraw([decimals(50), decimals(100)])).to.be.revertedWith("Contract in vesting state")
             // Check if corresponding getter function return 0 in vesting state
             expect(await yfTUSDContract.getEarnDepositBalance(deployerSigner.address)).to.equal(0) 
             expect(await yfTUSDContract.getVaultDepositBalance(deployerSigner.address)).to.equal(0) 
@@ -745,8 +750,8 @@ describe("YearnFarmerTUSDv2", () => {
             // Get address of deployer and deploy the contracts
             const { deployerSigner, tokenContract, yEarnContract, yVaultContract, yfTUSDContract, dvmTUSDContract } = await setup()
             // Deposit into Yearn Farmer through daoVaultTUSD
-            await tokenContract.approve(yfTUSDContract.address, "1000000000")
-            await dvmTUSDContract.deposit(["100000000", "200000000"])
+            await tokenContract.approve(yfTUSDContract.address, decimals(1000))
+            await dvmTUSDContract.deposit([decimals(100), decimals(200)])
             const treasuryWalletBalanceBeforeVesting = await tokenContract.balanceOf(treasuryWalletAddress)
             const communityWalletBalanceBeforeVesting = await tokenContract.balanceOf(communityWalletAddress)
             // Get off-chain Yearn earn and vault actual withdraw amount
@@ -759,15 +764,15 @@ describe("YearnFarmerTUSDv2", () => {
                 (vaultDepositBalance.mul(await yVaultContract.totalSupply())).div(await yVaultContract.balance()))
             ).div(await yVaultContract.totalSupply())
             // Transfer some token to Yearn Farmer contract treat as profit
-            await tokenContract.transfer(yfTUSDContract.address, "100000000")
+            await tokenContract.transfer(yfTUSDContract.address, decimals(100))
             await yfTUSDContract.vesting()
             // Check if balance token in Yearn Farmer contract correctly after fee
             expect(await tokenContract.balanceOf(yfTUSDContract.address)).to.equal(await yfTUSDContract.getSharesValue(deployerSigner.address))
             // Check if amount fee transfer to treasury and community wallet correctly (50% split)
             const profit = (await tokenContract.balanceOf(yfTUSDContract.address)).sub(offChainActualEarnWithdrawAmount.add(offChainActualVaultWithdrawAmount))
             const profileSharingFee = profit.mul(10).div(100)
-            expect(await tokenContract.balanceOf(treasuryWalletAddress)).to.gte(treasuryWalletBalanceBeforeVesting.add(profileSharingFee.mul(50).div(100)))
-            expect(await tokenContract.balanceOf(communityWalletAddress)).to.gte(communityWalletBalanceBeforeVesting.add(profileSharingFee.mul(50).div(100)))
+            expect(await tokenContract.balanceOf(treasuryWalletAddress)).to.be.closeTo(treasuryWalletBalanceBeforeVesting.add(profileSharingFee.mul(50).div(100)), ethers.utils.parseEther("1"))
+            expect(await tokenContract.balanceOf(communityWalletAddress)).to.be.closeTo(communityWalletBalanceBeforeVesting.add(profileSharingFee.mul(50).div(100)), ethers.utils.parseEther("1"))
         })
     })
 })

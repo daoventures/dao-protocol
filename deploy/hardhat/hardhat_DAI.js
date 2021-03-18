@@ -2,7 +2,7 @@ const { ethers, network } = require("hardhat");
 const { mainnet: network_ } = require("../../addresses");
 
 const tokenAddress = network_.DAI.tokenAddress;
-const unlockedAddress = "0x04ad0703B9c14A85A02920964f389973e094E153";
+const unlockedAddress = "0x01Ec5e7e03e2835bB2d1aE8D2edDEd298780129c";
 
 module.exports = async ({ deployments }) => {
   const { deploy } = deployments;
