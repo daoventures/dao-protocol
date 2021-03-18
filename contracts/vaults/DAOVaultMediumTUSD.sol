@@ -61,14 +61,12 @@ contract DAOVaultMediumTUSD is ERC20, Ownable {
      */
     function deposit(uint256[] memory _amounts) external {
         require(address(msg.sender).isContract() == false, "Only EOA");
+
         uint256 _before = strategy.balanceOf(address(this));
         strategy.deposit(_amounts);
         uint256 _after = strategy.balanceOf(address(this));
-        
-        if (_after > _before) {
-            uint256 _shares = _after.sub(_before);
-            _mint(msg.sender, _shares);
-        }
+        uint256 _shares = _after.sub(_before);
+        _mint(msg.sender, _shares);
     }
 
     /**
@@ -80,10 +78,10 @@ contract DAOVaultMediumTUSD is ERC20, Ownable {
      */
     function withdraw(uint256[] memory _shares) external {
         require(address(msg.sender).isContract() == false, "Only EOA");
+
         uint256 _before = strategy.balanceOf(address(this));
         strategy.withdraw(_shares);
         uint256 _after = strategy.balanceOf(address(this));
-
         _burn(msg.sender, _before.sub(_after));
     }
 
@@ -142,17 +140,18 @@ contract DAOVaultMediumTUSD is ERC20, Ownable {
         require(pendingStrategy != address(0), "No pendingStrategy");
 
         uint256 _amount = token.balanceOf(address(strategy));
-        emit MigrateFunds(address(strategy), pendingStrategy, _amount);
 
         token.safeTransferFrom(address(strategy), pendingStrategy, _amount);
         // Remove balance of old strategy token
         IERC20 oldStrategyToken = IERC20(address(strategy));
         oldStrategyToken.safeTransfer(address(strategy), oldStrategyToken.balanceOf(address(this)));
 
+        address oldStrategy = address(strategy);
         strategy = IStrategy(pendingStrategy);
         pendingStrategy = address(0);
         canSetPendingStrategy = true;
 
         unlockTime = 0; // Lock back this function
+        emit MigrateFunds(oldStrategy, address(strategy), _amount);
     }
 }
