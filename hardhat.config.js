@@ -12,10 +12,10 @@ module.exports = {
         blockNumber: 12000000,
       },
     },
-    mainnet: {
-      url: process.env.ALCHEMY_URL_MAINNET,
-      accounts: [`0x${process.env.PRIVATE_KEY}`],
-    },
+    // mainnet: {
+    //   url: process.env.ALCHEMY_URL_MAINNET,
+    //   accounts: [`0x${process.env.PRIVATE_KEY}`],
+    // },
     // rinkeby: {
     //   url: process.env.ALCHEMY_URL_RINKEBY,
     //   accounts: [`0x${process.env.PRIVATE_KEY}`],
