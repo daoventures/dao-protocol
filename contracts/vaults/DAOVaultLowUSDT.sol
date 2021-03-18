@@ -69,11 +69,8 @@ contract DAOVaultLowUSDT is ERC20, Ownable {
         uint256 _before = strategy.balanceOf(address(this));
         strategy.deposit(_amount);
         uint256 _after = strategy.balanceOf(address(this));
-
-        if (_after > _before) {
-            uint256 _shares = _after.sub(_before);
-            _mint(msg.sender, _shares);
-        }
+        uint256 _shares = _after.sub(_before);
+        _mint(msg.sender, _shares);
     }
 
     /**
@@ -89,7 +86,6 @@ contract DAOVaultLowUSDT is ERC20, Ownable {
         uint256 _before = strategy.balanceOf(address(this));
         strategy.withdraw(_amount);
         uint256 _after = strategy.balanceOf(address(this));
-
         _burn(msg.sender, _before.sub(_after));
     }
 
@@ -170,11 +166,12 @@ contract DAOVaultLowUSDT is ERC20, Ownable {
         );
 
         // Set new strategy
-        emit MigrateFunds(address(strategy), pendingStrategy, _amount);
+        address oldStrategy = address(strategy);
         strategy = IStrategy(pendingStrategy);
         pendingStrategy = address(0);
         canSetPendingStrategy = true;
 
         unlockTime = 0; // Lock back this function
+        emit MigrateFunds(oldStrategy, address(strategy), _amount);
     }
 }
