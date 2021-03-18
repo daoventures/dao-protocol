@@ -12,18 +12,32 @@ ETHERSCAN_API_KEY=<YOUR_ETHERSCAN_API_KEY_HERE>
 npx hardhat compile
 ```
 ## Test deploy on local hardhat network
+Uncomment code in deploy/hardhat/hardhat.js from line 49 to line 68
+```
+  // const res = await axios.get(
+  //   `https://api.etherscan.io/api?module=gastracker&action=gasoracle&apikey=${process.env.ETHERSCAN_API_KEY}`
+  // );
+  // const proposeGasPriceInGwei = ethers.BigNumber.from(
+  //   res.data.result.ProposeGasPrice
+  // );
+  // const proposeGasPrice = proposeGasPriceInGwei.mul("1000000000");
+
+  // const deployer = new ethers.Wallet(process.env.PRIVATE_KEY);
+  // const deployerBalance = await ethers.provider.getBalance(deployer.address);
+
+  // console.log(`Total estimated gas used: ${totalGasUsed.toString()}`);
+  // console.log(`Current gas price(Etherscan): ${proposeGasPriceInGwei} Gwei`);
+  // console.log(
+  //   `Total gas fee: ${ethers.utils.formatEther(
+  //     totalGasUsed.mul(proposeGasPrice)
+  //   )} ETH`
+  // );
+  // console.log(`Your balance: ${ethers.utils.formatEther(deployerBalance)} ETH`);
+  // console.log("Please make sure you have enough ETH before deploy.");
+```
+Then,
 ```
 npx hardhat deploy --network hardhat --tags hardhat
-```
-To test deploy on latest forked-mainnet block, comment out ```blockNumber``` line in hardhat.config.js
-```
-module.exports = {
-  networks: {
-    hardhat: {
-      forking: {
-        url: process.env.ALCHEMY_URL_MAINNET,
-        // blockNumber: 12000000,
-      },
 ```
 > It will take some time to test deploy on Mainnet fork.
 

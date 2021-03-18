@@ -46,30 +46,30 @@ module.exports = async ({ deployments }) => {
   totalGasUsed = ethers.BigNumber.from(totalGasUsed.toString());
   totalGasUsed = totalGasUsed.add(totalCallFunctionGasUsed);
 
-  const res = await axios.get(
-    `https://api.etherscan.io/api?module=gastracker&action=gasoracle&apikey=${process.env.ETHERSCAN_API_KEY}`
-  );
-  const proposeGasPriceInGwei = ethers.BigNumber.from(
-    res.data.result.ProposeGasPrice
-  );
-  const proposeGasPrice = proposeGasPriceInGwei.mul("1000000000");
+  // const res = await axios.get(
+  //   `https://api.etherscan.io/api?module=gastracker&action=gasoracle&apikey=${process.env.ETHERSCAN_API_KEY}`
+  // );
+  // const proposeGasPriceInGwei = ethers.BigNumber.from(
+  //   res.data.result.ProposeGasPrice
+  // );
+  // const proposeGasPrice = proposeGasPriceInGwei.mul("1000000000");
 
-  const deployer = new ethers.Wallet(process.env.PRIVATE_KEY);
-  const deployerBalance = await ethers.provider.getBalance(deployer.address);
+  // const deployer = new ethers.Wallet(process.env.PRIVATE_KEY);
+  // const deployerBalance = await ethers.provider.getBalance(deployer.address);
 
-  console.log(`Total estimated gas used: ${totalGasUsed.toString()}`);
-  console.log(`Current gas price(Etherscan): ${proposeGasPriceInGwei} Gwei`);
-  console.log(
-    `Total gas fee: ${ethers.utils.formatEther(
-      totalGasUsed.mul(proposeGasPrice)
-    )} ETH`
-  );
-  console.log(`Your balance: ${ethers.utils.formatEther(deployerBalance)} ETH`);
-  console.log("Please make sure you have enough ETH before deploy.");
+  // console.log(`Total estimated gas used: ${totalGasUsed.toString()}`);
+  // console.log(`Current gas price(Etherscan): ${proposeGasPriceInGwei} Gwei`);
+  // console.log(
+  //   `Total gas fee: ${ethers.utils.formatEther(
+  //     totalGasUsed.mul(proposeGasPrice)
+  //   )} ETH`
+  // );
+  // console.log(`Your balance: ${ethers.utils.formatEther(deployerBalance)} ETH`);
+  // console.log("Please make sure you have enough ETH before deploy.");
 };
 module.exports.tags = ["hardhat"];
 module.exports.dependencies = [
-  // "hardhat_reset",
+  "hardhat_reset",
   "hardhat_USDT",
   "hardhat_USDC",
   "hardhat_DAI",
