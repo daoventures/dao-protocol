@@ -35,6 +35,12 @@ Uncomment code in deploy/hardhat/hardhat.js from line 49 to line 68
   // console.log(`Your balance: ${ethers.utils.formatEther(deployerBalance)} ETH`);
   // console.log("Please make sure you have enough ETH before deploy.");
 ```
+Uncomment code in hardhat.config.js from line 24 to line 26
+```
+  // etherscan: {
+  //   apiKey: process.env.ETHERSCAN_API_KEY,
+  // },
+```
 Then,
 ```
 npx hardhat deploy --network hardhat --tags hardhat
