@@ -1,4 +1,3 @@
-
 # Yearn-Farmer v2
 Yearn-Farmer v2 is a lending aggregator that build on top of Yearn Finance. User can choose to deposit between Yearn Earn or Vault through daoVault.
 
