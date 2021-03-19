@@ -46,15 +46,15 @@ contract YearnFarmerTUSDv2 is ERC20, Ownable {
   uint256 public constant treasuryFee = 5000; // 50% on profile sharing fee
   uint256 public constant communityFee = 5000; // 50% on profile sharing fee
 
-  bool public isVesting = false;
+  bool public isVesting;
   IDaoVault public daoVault;
 
   event SetTreasuryWallet(address indexed oldTreasuryWallet, address indexed newTreasuryWallet);
   event SetCommunityWallet(address indexed oldCommunityWallet, address indexed newCommunityWallet);
   event SetNetworkFeeTier2(uint256[] oldNetworkFeeTier2, uint256[] newNetworkFeeTier2);
   event SetNetworkFeePercentage(uint256[] oldNetworkFeePercentage, uint256[] newNetworkFeePercentage);
-  event SetCustomNetworkFeeTier(uint256 oldCustomNetworkFeeTier, uint256 newCustomNetworkFeeTier);
-  event SetCustomNetworkFeePercentage(uint256 oldCustomNetworkFeePercentage, uint256 newCustomNetworkFeePercentage);
+  event SetCustomNetworkFeeTier(uint256 indexed oldCustomNetworkFeeTier, uint256 indexed newCustomNetworkFeeTier);
+  event SetCustomNetworkFeePercentage(uint256 indexed oldCustomNetworkFeePercentage, uint256 indexed newCustomNetworkFeePercentage);
   event SetProfileSharingFeePercentage(uint256 indexed oldProfileSharingFeePercentage, uint256 indexed newProfileSharingFeePercentage);
 
   constructor(address _token, address _earn, address _vault)
@@ -218,27 +218,19 @@ contract YearnFarmerTUSDv2 is ERC20, Ownable {
   /**
    * @notice Get Yearn Earn current total deposit amount of account (after network fee)
    * @param _address Address of account to check
-   * @return Current total deposit amount of account in Yearn Earn. 0 if contract is in vesting state.
+   * @return result Current total deposit amount of account in Yearn Earn. 0 if contract is in vesting state.
    */
-  function getEarnDepositBalance(address _address) external view returns (uint256) {
-    if (isVesting == true) {
-      return 0;
-    } else {
-      return earnDepositBalance[_address];
-    }
+  function getEarnDepositBalance(address _address) external view returns (uint256 result) {
+    result = isVesting ? 0 : earnDepositBalance[_address];
   }
 
   /**
    * @notice Get Yearn Vault current total deposit amount of account (after network fee)
    * @param _address Address of account to check
-   * @return Current total deposit amount of account in Yearn Vault. 0 if contract is in vesting state.
+   * @return result Current total deposit amount of account in Yearn Vault. 0 if contract is in vesting state.
    */
-  function getVaultDepositBalance(address _address) external view returns (uint256) {
-    if (isVesting == true) {
-      return 0;
-    } else {
-      return vaultDepositBalance[_address];
-    }
+  function getVaultDepositBalance(address _address) external view returns (uint256 result) {
+    result = isVesting ? 0 : vaultDepositBalance[_address];
   }
 
   /**
@@ -251,7 +243,7 @@ contract YearnFarmerTUSDv2 is ERC20, Ownable {
    * - Either first element(earn deposit) or second element(earn deposit) in list must greater than 0
    */
   function deposit(uint256[] memory _amounts) public {
-    require(isVesting == false, "Contract in vesting state");
+    require(!isVesting, "Contract in vesting state");
     require(msg.sender == address(daoVault), "Only can call from Vault");
     require(_amounts[0] > 0 || _amounts[1] > 0, "Amount must > 0");
     
@@ -260,9 +252,9 @@ contract YearnFarmerTUSDv2 is ERC20, Ownable {
     uint256 _depositAmount = _earnAmount.add(_vaultAmount);
     token.safeTransferFrom(tx.origin, address(this), _depositAmount);
 
-    uint256 _earnNetworkFee = 0;
-    uint256 _vaultNetworkFee = 0;
-    uint256 _networkFeePercentage = 0;
+    uint256 _earnNetworkFee;
+    uint256 _vaultNetworkFee;
+    uint256 _networkFeePercentage;
     /**
      * Network fees
      * networkFeeTier2 is used to set each tier minimun and maximun
@@ -313,14 +305,11 @@ contract YearnFarmerTUSDv2 is ERC20, Ownable {
     token.safeTransfer(treasuryWallet, _totalNetworkFee.mul(treasuryFee).div(DENOMINATOR));
     token.safeTransfer(communityWallet, _totalNetworkFee.mul(treasuryFee).div(DENOMINATOR));
 
-    uint256 _shares = 0;
-    if (totalSupply() == 0) {
-      _shares = _earnAmount.add(_vaultAmount);
-    } else {
-      _shares = (_earnAmount.add(_vaultAmount)).mul(totalSupply()).div(pool);
-    }
+    uint256 _totalAmount = _earnAmount.add(_vaultAmount);
+    uint256 _shares;
+    _shares = totalSupply() == 0 ? _totalAmount : _totalAmount.mul(totalSupply()).div(pool);
     _mint(address(daoVault), _shares);
-    pool = pool.add(_earnAmount.add(_vaultAmount));
+    pool = pool.add(_totalAmount);
   }
 
   /**
@@ -331,7 +320,7 @@ contract YearnFarmerTUSDv2 is ERC20, Ownable {
    * - Only Vault can call this function
    */
   function withdraw(uint256[] memory _shares) external {
-    require(isVesting == false, "Contract in vesting state");
+    require(!isVesting, "Contract in vesting state");
     require(msg.sender == address(daoVault), "Only can call from Vault");
 
     if (_shares[0] > 0) {
@@ -411,7 +400,7 @@ contract YearnFarmerTUSDv2 is ERC20, Ownable {
    * - This contract is not in vesting state
    */
   function vesting() external onlyOwner {
-    require(isVesting == false, "Already in vesting state");
+    require(!isVesting, "Already in vesting state");
 
     // Withdraw all funds from Yearn Earn and Vault contracts
     isVesting = true;
@@ -425,8 +414,9 @@ contract YearnFarmerTUSDv2 is ERC20, Ownable {
     }
 
     // Collect all profits
-    if (token.balanceOf(address(this)) > pool) {
-      uint256 _profit = token.balanceOf(address(this)).sub(pool);
+    uint256 balance_ = token.balanceOf(address(this));
+    if (balance_ > pool) {
+      uint256 _profit = balance_.sub(pool);
       uint256 _fee = _profit.mul(profileSharingFeePercentage).div(DENOMINATOR);
       token.safeTransfer(treasuryWallet, _fee.mul(treasuryFee).div(DENOMINATOR));
       token.safeTransfer(communityWallet, _fee.mul(communityFee).div(DENOMINATOR));
@@ -440,7 +430,7 @@ contract YearnFarmerTUSDv2 is ERC20, Ownable {
    * @return Token amount based on on daoToken hold by account. 0 if contract is not in vesting state
    */
   function getSharesValue(address _address) external view returns (uint256) {
-    if (isVesting == false) {
+    if (!isVesting) {
       return 0;
     } else {
       uint256 _shares = daoVault.balanceOf(_address);
@@ -460,7 +450,7 @@ contract YearnFarmerTUSDv2 is ERC20, Ownable {
    * - Only Vault can call this function
    */
   function refund(uint256 _shares) external {
-    require(isVesting == true, "Not in vesting state");
+    require(isVesting, "Not in vesting state");
     require(msg.sender == address(daoVault), "Only can call from Vault");
 
     uint256 _refundAmount = token.balanceOf(address(this)).mul(_shares).div(daoVault.totalSupply());
@@ -476,7 +466,7 @@ contract YearnFarmerTUSDv2 is ERC20, Ownable {
    * - This contract is in vesting state
    */
   function approveMigrate() external onlyOwner {
-    require(isVesting == true, "Not in vesting state");
+    require(isVesting, "Not in vesting state");
 
     if (token.allowance(address(this), address(daoVault)) == 0) {
       token.safeApprove(address(daoVault), MAX_UNIT);

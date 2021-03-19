@@ -60,13 +60,13 @@ contract DAOVaultMediumUSDC is ERC20, Ownable {
      * - Only EOA account can call this function
      */
     function deposit(uint256[] memory _amounts) external {
-        require(address(msg.sender).isContract() == false, "Only EOA");
+        require(!address(msg.sender).isContract(), "Only EOA");
 
         uint256 _before = strategy.balanceOf(address(this));
         strategy.deposit(_amounts);
         uint256 _after = strategy.balanceOf(address(this));
-        uint256 _shares = _after.sub(_before);
-        _mint(msg.sender, _shares);
+        
+        _mint(msg.sender, _after.sub(_before));
     }
 
     /**
@@ -77,11 +77,12 @@ contract DAOVaultMediumUSDC is ERC20, Ownable {
      * - Only EOA account can call this function
      */
     function withdraw(uint256[] memory _shares) external {
-        require(address(msg.sender).isContract() == false, "Only EOA");
-
+        require(!address(msg.sender).isContract(), "Only EOA");
+        
         uint256 _before = strategy.balanceOf(address(this));
         strategy.withdraw(_shares);
         uint256 _after = strategy.balanceOf(address(this));
+
         _burn(msg.sender, _before.sub(_after));
     }
 
@@ -93,13 +94,15 @@ contract DAOVaultMediumUSDC is ERC20, Ownable {
      * - Amount dvmToken of user must greater than 0
      */
     function refund() external {
-        require(address(msg.sender).isContract() == false, "Only EOA");
-        require(balanceOf(msg.sender) > 0, "No balance to refund");
+        require(!address(msg.sender).isContract(), "Only EOA");
 
         uint256 _shares = balanceOf(msg.sender);
+        require(_shares > 0, "No balance to refund");
+
         uint256 _before = strategy.balanceOf(address(this));
         strategy.refund(_shares);
         uint256 _after = strategy.balanceOf(address(this));
+
         _burn(msg.sender, _before.sub(_after));
     }
 
@@ -111,8 +114,8 @@ contract DAOVaultMediumUSDC is ERC20, Ownable {
      * - Pending strategy must be a contract
      */
     function setPendingStrategy(address _pendingStrategy) external onlyOwner {
-        require(canSetPendingStrategy == true, "Cannot set pending strategy now");
-        require(_pendingStrategy.isContract() == true, "New strategy is not contract");
+        require(canSetPendingStrategy, "Cannot set pending strategy now");
+        require(_pendingStrategy.isContract(), "New strategy is not contract");
 
         pendingStrategy = _pendingStrategy;
     }
@@ -136,10 +139,10 @@ contract DAOVaultMediumUSDC is ERC20, Ownable {
      */
     function migrateFunds() external onlyOwner {
         require(unlockTime <= block.timestamp && unlockTime + 1 days >= block.timestamp, "Function locked");
-        require(token.balanceOf(address(strategy)) > 0, "No balance to migrate");
         require(pendingStrategy != address(0), "No pendingStrategy");
 
         uint256 _amount = token.balanceOf(address(strategy));
+        require(_amount > 0, "No balance to migrate");
 
         token.safeTransferFrom(address(strategy), pendingStrategy, _amount);
         // Remove balance of old strategy token
@@ -152,6 +155,7 @@ contract DAOVaultMediumUSDC is ERC20, Ownable {
         canSetPendingStrategy = true;
 
         unlockTime = 0; // Lock back this function
+
         emit MigrateFunds(oldStrategy, address(strategy), _amount);
     }
 }
