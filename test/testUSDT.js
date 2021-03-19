@@ -377,7 +377,6 @@ describe("cfUSDT", () => {
             await expect(dvlUSDTContract.connect(clientSigner).unlockMigrateFunds()).to.be.revertedWith("Ownable: caller is not the owner")
             await expect(dvlUSDTContract.connect(clientSigner).setPendingStrategy(clientSigner.address)).to.be.revertedWith("Ownable: caller is not the owner")
             await expect(dvlUSDTContract.connect(clientSigner).migrateFunds()).to.be.revertedWith("Ownable: caller is not the owner")
-            await expect(cfUSDTContract.connect(clientSigner).initialDeposit()).to.be.revertedWith("Ownable: caller is not the owner")
             await expect(cfUSDTContract.connect(clientSigner).setTreasuryWallet(clientSigner.address)).to.be.revertedWith("Ownable: caller is not the owner")
             await expect(cfUSDTContract.connect(clientSigner).setCommunityWallet(clientSigner.address)).to.be.revertedWith("Ownable: caller is not the owner")
             await expect(cfUSDTContract.connect(clientSigner).setNetworkFeeTier2(["100000000", "200000000"])).to.be.revertedWith("Ownable: caller is not the owner")
@@ -399,7 +398,6 @@ describe("cfUSDT", () => {
             await expect(dvlUSDTContract.connect(clientSigner).unlockMigrateFunds()).not.to.be.revertedWith("Ownable: caller is not the owner")
             await expect(dvlUSDTContract.connect(clientSigner).setPendingStrategy(clientSigner.address)).not.to.be.revertedWith("Ownable: caller is not the owner")
             await expect(dvlUSDTContract.connect(clientSigner).migrateFunds()).not.to.be.revertedWith("Ownable: caller is not the owner")
-            await expect(cfUSDTContract.connect(clientSigner).initialDeposit()).not.to.be.revertedWith("Ownable: caller is not the owner")
             await expect(cfUSDTContract.connect(clientSigner).setTreasuryWallet(clientSigner.address)).not.to.be.revertedWith("Ownable: caller is not the owner")
             await expect(cfUSDTContract.connect(clientSigner).setCommunityWallet(clientSigner.address)).not.to.be.revertedWith("Ownable: caller is not the owner")
             await expect(cfUSDTContract.connect(clientSigner).setNetworkFeeTier2(["100000000", "200000000"])).not.to.be.revertedWith("Ownable: caller is not the owner")
@@ -416,7 +414,6 @@ describe("cfUSDT", () => {
             await expect(dvlUSDTContract.connect(deployerSigner).unlockMigrateFunds()).to.be.revertedWith("Ownable: caller is not the owner")
             await expect(dvlUSDTContract.connect(deployerSigner).setPendingStrategy(clientSigner.address)).to.be.revertedWith("Ownable: caller is not the owner")
             await expect(dvlUSDTContract.connect(deployerSigner).migrateFunds()).to.be.revertedWith("Ownable: caller is not the owner")
-            await expect(cfUSDTContract.connect(deployerSigner).initialDeposit()).to.be.revertedWith("Ownable: caller is not the owner")
             await expect(cfUSDTContract.connect(deployerSigner).setTreasuryWallet(clientSigner.address)).to.be.revertedWith("Ownable: caller is not the owner")
             await expect(cfUSDTContract.connect(deployerSigner).setCommunityWallet(clientSigner.address)).to.be.revertedWith("Ownable: caller is not the owner")
             await expect(cfUSDTContract.connect(deployerSigner).setNetworkFeeTier2(["100000000", "200000000"])).to.be.revertedWith("Ownable: caller is not the owner")
@@ -623,7 +620,6 @@ describe("cfUSDT", () => {
             // Check if corresponding function to be reverted in vesting state
             await expect(dvlUSDTContract.deposit("500000000")).to.be.revertedWith("Contract in vesting state")
             await expect(dvlUSDTContract.withdraw("500000000")).to.be.revertedWith("Contract in vesting state")
-            await expect(cfUSDTContract.initialDeposit()).to.be.revertedWith("Contract in vesting state")
             // Check if deployer balance in contract after vesting greater than deposit amount(because of profit)
             const deployerBalanceAfterVesting = await cfUSDTContract.getCurrentBalance(deployerSigner.address)
             expect(deployerBalanceAfterVesting).to.gt(depositAmount)
@@ -659,8 +655,6 @@ describe("cfUSDT", () => {
             await cfUSDTContract.revertVesting()
             // Check if vesting state change to false
             expect(await cfUSDTContract.isVesting()).is.false
-            // Lend into Compound again
-            await cfUSDTContract.initialDeposit()
             // Check if everything goes normal after revert vesting and lend into Compound again
             expect(await tokenContract.balanceOf(cfUSDTContract.address)).to.equal(0)
             expect(await cTokenContract.balanceOf(cfUSDTContract.address)).to.be.closeTo(cTokenBalance, 200000)

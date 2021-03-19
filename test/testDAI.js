@@ -377,7 +377,6 @@ describe("cfDAI", () => {
             await expect(dvlDAIContract.connect(clientSigner).unlockMigrateFunds()).to.be.revertedWith("Ownable: caller is not the owner")
             await expect(dvlDAIContract.connect(clientSigner).setPendingStrategy(clientSigner.address)).to.be.revertedWith("Ownable: caller is not the owner")
             await expect(dvlDAIContract.connect(clientSigner).migrateFunds()).to.be.revertedWith("Ownable: caller is not the owner")
-            await expect(cfDAIContract.connect(clientSigner).initialDeposit()).to.be.revertedWith("Ownable: caller is not the owner")
             await expect(cfDAIContract.connect(clientSigner).setTreasuryWallet(clientSigner.address)).to.be.revertedWith("Ownable: caller is not the owner")
             await expect(cfDAIContract.connect(clientSigner).setCommunityWallet(clientSigner.address)).to.be.revertedWith("Ownable: caller is not the owner")
             await expect(cfDAIContract.connect(clientSigner).setNetworkFeeTier2([decimals(100), decimals(200)])).to.be.revertedWith("Ownable: caller is not the owner")
@@ -399,7 +398,6 @@ describe("cfDAI", () => {
             await expect(dvlDAIContract.connect(clientSigner).unlockMigrateFunds()).not.to.be.revertedWith("Ownable: caller is not the owner")
             await expect(dvlDAIContract.connect(clientSigner).setPendingStrategy(clientSigner.address)).not.to.be.revertedWith("Ownable: caller is not the owner")
             await expect(dvlDAIContract.connect(clientSigner).migrateFunds()).not.to.be.revertedWith("Ownable: caller is not the owner")
-            await expect(cfDAIContract.connect(clientSigner).initialDeposit()).not.to.be.revertedWith("Ownable: caller is not the owner")
             await expect(cfDAIContract.connect(clientSigner).setTreasuryWallet(clientSigner.address)).not.to.be.revertedWith("Ownable: caller is not the owner")
             await expect(cfDAIContract.connect(clientSigner).setCommunityWallet(clientSigner.address)).not.to.be.revertedWith("Ownable: caller is not the owner")
             await expect(cfDAIContract.connect(clientSigner).setNetworkFeeTier2([decimals(100), decimals(200)])).not.to.be.revertedWith("Ownable: caller is not the owner")
@@ -416,7 +414,6 @@ describe("cfDAI", () => {
             await expect(dvlDAIContract.connect(deployerSigner).unlockMigrateFunds()).to.be.revertedWith("Ownable: caller is not the owner")
             await expect(dvlDAIContract.connect(deployerSigner).setPendingStrategy(clientSigner.address)).to.be.revertedWith("Ownable: caller is not the owner")
             await expect(dvlDAIContract.connect(deployerSigner).migrateFunds()).to.be.revertedWith("Ownable: caller is not the owner")
-            await expect(cfDAIContract.connect(deployerSigner).initialDeposit()).to.be.revertedWith("Ownable: caller is not the owner")
             await expect(cfDAIContract.connect(deployerSigner).setTreasuryWallet(clientSigner.address)).to.be.revertedWith("Ownable: caller is not the owner")
             await expect(cfDAIContract.connect(deployerSigner).setCommunityWallet(clientSigner.address)).to.be.revertedWith("Ownable: caller is not the owner")
             await expect(cfDAIContract.connect(deployerSigner).setNetworkFeeTier2([decimals(100), decimals(200)])).to.be.revertedWith("Ownable: caller is not the owner")
@@ -623,7 +620,6 @@ describe("cfDAI", () => {
             // Check if corresponding function to be reverted in vesting state
             await expect(dvlDAIContract.deposit(decimals(500))).to.be.revertedWith("Contract in vesting state")
             await expect(dvlDAIContract.withdraw(decimals(500))).to.be.revertedWith("Contract in vesting state")
-            await expect(cfDAIContract.initialDeposit()).to.be.revertedWith("Contract in vesting state")
             // Check if deployer balance in contract after vesting greater than deposit amount(because of profit)
             const deployerBalanceAfterVesting = await cfDAIContract.getCurrentBalance(deployerSigner.address)
             expect(deployerBalanceAfterVesting).to.gt(depositAmount)
@@ -659,8 +655,6 @@ describe("cfDAI", () => {
             await cfDAIContract.revertVesting()
             // Check if vesting state change to false
             expect(await cfDAIContract.isVesting()).is.false
-            // Lend into Compound again
-            await cfDAIContract.initialDeposit()
             // Check if everything goes normal after revert vesting and lend into Compound again
             expect(await tokenContract.balanceOf(cfDAIContract.address)).to.equal(0)
             expect(await cTokenContract.balanceOf(cfDAIContract.address)).to.be.closeTo(cTokenBalance, 200000)
