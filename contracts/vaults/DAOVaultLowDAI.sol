@@ -69,8 +69,7 @@ contract DAOVaultLowDAI is ERC20, Ownable {
         uint256 _before = strategy.balanceOf(address(this));
         strategy.deposit(_amount);
         uint256 _after = strategy.balanceOf(address(this));
-        uint256 _shares = _after.sub(_before);
-        _mint(msg.sender, _shares);
+        _mint(msg.sender, _after.sub(_before));
     }
 
     /**
