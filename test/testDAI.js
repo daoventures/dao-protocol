@@ -387,6 +387,7 @@ describe("cfDAI", () => {
             await expect(cfDAIContract.connect(clientSigner).setAmountOutMinPerc(9000)).to.be.revertedWith("Ownable: caller is not the owner")
             await expect(cfDAIContract.connect(clientSigner).setDeadline(12000)).to.be.revertedWith("Ownable: caller is not the owner")
             await expect(cfDAIContract.connect(clientSigner).vesting()).to.be.revertedWith("Ownable: caller is not the owner")
+            await expect(cfDAIContract.connect(clientSigner).revertVesting()).to.be.revertedWith("Ownable: caller is not the owner")
             await expect(cfDAIContract.connect(clientSigner).approveMigrate()).to.be.revertedWith("Ownable: caller is not the owner")
             // Transfer contract ownership from owner to new owner
             await dvlDAIContract.connect(deployerSigner).transferOwnership(clientSigner.address)
@@ -408,6 +409,7 @@ describe("cfDAI", () => {
             await expect(cfDAIContract.connect(clientSigner).setAmountOutMinPerc(9000)).not.to.be.revertedWith("Ownable: caller is not the owner")
             await expect(cfDAIContract.connect(clientSigner).setDeadline(12000)).not.to.be.revertedWith("Ownable: caller is not the owner")
             await expect(cfDAIContract.connect(clientSigner).vesting()).not.to.be.revertedWith("Ownable: caller is not the owner")
+            await expect(cfDAIContract.connect(clientSigner).revertVesting()).not.to.be.revertedWith("Ownable: caller is not the owner")
             await expect(cfDAIContract.connect(clientSigner).approveMigrate()).not.to.be.revertedWith("Ownable: caller is not the owner")
             // Check if original owner neither can execute admin function nor transfer back ownership
             await expect(dvlDAIContract.connect(deployerSigner).transferOwnership(deployerSigner.address)).to.be.revertedWith("Ownable: caller is not the owner")
@@ -424,6 +426,7 @@ describe("cfDAI", () => {
             await expect(cfDAIContract.connect(deployerSigner).setAmountOutMinPerc(9000)).to.be.revertedWith("Ownable: caller is not the owner")
             await expect(cfDAIContract.connect(deployerSigner).setDeadline(12000)).to.be.revertedWith("Ownable: caller is not the owner")
             await expect(cfDAIContract.connect(deployerSigner).vesting()).to.be.revertedWith("Ownable: caller is not the owner")
+            await expect(cfDAIContract.connect(deployerSigner).revertVesting()).to.be.revertedWith("Ownable: caller is not the owner")
             await expect(cfDAIContract.connect(deployerSigner).approveMigrate()).to.be.revertedWith("Ownable: caller is not the owner")
         })
 
