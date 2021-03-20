@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.7.6;
+pragma solidity 0.7.6;
 pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
@@ -415,7 +415,7 @@ contract CompoundFarmerUSDC is ERC20, Ownable {
      * - Only Vault can call this function
      */
     function refund(uint256 _shares) external {
-        require(isVesting == true, "Not in vesting state");
+        require(isVesting, "Not in vesting state");
         require(msg.sender == address(DAOVault), "Only can call from Vault");
 
         uint256 _refundAmount = pool.mul(_shares).div(totalSupply());
@@ -431,7 +431,7 @@ contract CompoundFarmerUSDC is ERC20, Ownable {
      * - This contract is in vesting state
      */
     function revertVesting() external {
-        require(isVesting == true, "Not in vesting state");
+        require(isVesting, "Not in vesting state");
 
         // Re-lend all token to Compound
         uint256 _amount = token.balanceOf(address(this));
@@ -450,7 +450,7 @@ contract CompoundFarmerUSDC is ERC20, Ownable {
      * - This contract is in vesting state
      */
     function approveMigrate() external onlyOwner {
-        require(isVesting == true, "Not in vesting state");
+        require(isVesting, "Not in vesting state");
 
         if (token.allowance(address(this), address(DAOVault)) == 0) {
             token.safeApprove(address(DAOVault), MAX_UNIT);

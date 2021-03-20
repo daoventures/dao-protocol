@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.7.6;
+pragma solidity 0.7.6;
 
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -63,7 +63,7 @@ contract DAOVaultLowDAI is ERC20, Ownable {
      * - Only EOA account can call this function
      */
     function deposit(uint256 _amount) external {
-        require(address(msg.sender).isContract() == false, "Only EOA");
+        require(!address(msg.sender).isContract(), "Only EOA");
         require(_amount > 0, "Amount must > 0");
 
         uint256 _before = strategy.balanceOf(address(this));
@@ -80,7 +80,7 @@ contract DAOVaultLowDAI is ERC20, Ownable {
      * - Only EOA account can call this function
      */
     function withdraw(uint256 _amount) external {
-        require(address(msg.sender).isContract() == false, "Only EOA");
+        require(!address(msg.sender).isContract(), "Only EOA");
         require(_amount > 0, "Amount must > 0");
 
         uint256 _before = strategy.balanceOf(address(this));
@@ -97,7 +97,7 @@ contract DAOVaultLowDAI is ERC20, Ownable {
      * - Amount daoToken of user must greater than 0
      */
     function refund() external {
-        require(address(msg.sender).isContract() == false, "Only EOA");
+        require(!address(msg.sender).isContract(), "Only EOA");
         require(balanceOf(msg.sender) > 0, "No balance to refund");
 
         uint256 _shares = balanceOf(msg.sender);
@@ -116,11 +116,11 @@ contract DAOVaultLowDAI is ERC20, Ownable {
      */
     function setPendingStrategy(address _pendingStrategy) external onlyOwner {
         require(
-            canSetPendingStrategy == true,
+            canSetPendingStrategy,
             "Cannot set pending strategy now"
         );
         require(
-            _pendingStrategy.isContract() == true,
+            _pendingStrategy.isContract(),
             "New strategy is not contract"
         );
 
