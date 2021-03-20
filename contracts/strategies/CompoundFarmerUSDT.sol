@@ -215,6 +215,7 @@ contract CompoundFarmerUSDT is ERC20, Ownable {
      */
     function setAmountOutMinPerc(uint256 _percentage) external onlyOwner {
         require(_percentage <= 9700, "Amount out minimun > 97%");
+
         amountOutMinPerc = _percentage;
     }
 
@@ -227,12 +228,12 @@ contract CompoundFarmerUSDT is ERC20, Ownable {
      */
     function setDeadline(uint256 _seconds) external onlyOwner {
         require(_seconds >= 60, "Deadline < 60 seconds");
+        
         deadline = _seconds;
     }
 
     /**
      * @notice Get current balance in contract
-     
      * @param _address Address to query
      * @return result
      * Result == total user deposit balance after fee if not vesting state
@@ -429,7 +430,7 @@ contract CompoundFarmerUSDT is ERC20, Ownable {
      * - Only owner of this contract can call this function
      * - This contract is in vesting state
      */
-    function revertVesting() external {
+    function revertVesting() external onlyOwner {
         require(isVesting, "Not in vesting state");
 
         // Re-lend all token to Compound
