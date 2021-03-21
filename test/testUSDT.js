@@ -340,7 +340,7 @@ describe("YearnFarmerUSDTv2", () => {
             let clientVaultSharesinYearnContract = (clientVaultWdrAmt.mul(await yVaultContract.totalSupply())).div(await yVaultContract.balance())
             let clientActualVaultWithdrawAmount = ((await yVaultContract.balance()).mul(clientVaultSharesinYearnContract)).div(await yVaultContract.totalSupply())
             // Check if token balance of accounts top-up correctly after withdraw
-            expect(senderTknBalAftWdr).to.equal(senderTknBalAftDep.add(senderActualEarnWithdrawAmount).add(senderActualVaultWithdrawAmount))
+            expect(senderTknBalAftWdr).to.be.closeTo(senderTknBalAftDep.add(senderActualEarnWithdrawAmount).add(senderActualVaultWithdrawAmount), 1)
             expect(clientTknBalAftWdr).to.be.closeTo(clientTknBalAftDep.add(clientActualEarnWithdrawAmount).add(clientActualVaultWithdrawAmount), 1)
             // Check if Yearn Contract pool amount deduct correctly
             expect(await yfUSDTContract.pool()).to.equal(yfPool.sub(senderEarnWdrAmt.add(senderVaultWdrAmt).add(clientEarnWdrAmt).add(clientVaultWdrAmt)))

@@ -357,17 +357,17 @@ describe("YearnFarmerDAIv2", () => {
             // Withdraw all balance for accounts in Yearn contract 
             await dvmDAIContract.withdraw([senderDaoEarnShares, 0])
             await dvmDAIContract.connect(clientSigner).withdraw([clientDaoEarnShares, 0])
-            // await dvmDAIContract.withdraw([0, senderDaoVaultDAIShares])
-            // await dvmDAIContract.connect(clientSigner).withdraw([0, clientDaoVaultDAIShares])
+            await dvmDAIContract.withdraw([0, senderDaoVaultDAIShares])
+            await dvmDAIContract.connect(clientSigner).withdraw([0, clientDaoVaultDAIShares])
             // // Check if deposit amount of accounts return 0
             expect(await yfDAIContract.getEarnDepositBalance(deployerSigner.address)).to.equal(0)
-            // expect(await yfDAIContract.getVaultDepositBalance(deployerSigner.address)).to.equal(0)
+            expect(await yfDAIContract.getVaultDepositBalance(deployerSigner.address)).to.equal(0)
             expect(await yfDAIContract.getEarnDepositBalance(clientSigner.address)).to.equal(0)
-            // expect(await yfDAIContract.getVaultDepositBalance(clientSigner.address)).to.equal(0)
-            // // Check if daoDAI burn to empty in accounts
-            // expect(await dvmDAIContract.balanceOf(deployerSigner.address)).to.equal(0)
-            // expect(await dvmDAIContract.balanceOf(clientSigner.address)).to.equal(0)
-            // // Get off-chain actual withdraw DAI amount based on Yearn Earn and Vault contract
+            expect(await yfDAIContract.getVaultDepositBalance(clientSigner.address)).to.equal(0)
+            // Check if daoDAI burn to empty in accounts
+            expect(await dvmDAIContract.balanceOf(deployerSigner.address)).to.equal(0)
+            expect(await dvmDAIContract.balanceOf(clientSigner.address)).to.equal(0)
+            // Get off-chain actual withdraw DAI amount based on Yearn Earn and Vault contract
             senderEarnSharesinYearnContract = (senderEarnDepBalAftWdr.mul(await yEarnContract.totalSupply())).div(await yEarnContract.calcPoolValueInToken())
             senderActualEarnWithdrawAmount = ((await yEarnContract.calcPoolValueInToken()).mul(senderEarnSharesinYearnContract)).div(await yEarnContract.totalSupply())
             senderVaultSharesinYearnContract = (senderVaultDepBalAftWdr.mul(await yVaultContract.totalSupply())).div(await yVaultContract.balance())
@@ -376,11 +376,11 @@ describe("YearnFarmerDAIv2", () => {
             clientActualEarnWithdrawAmount = ((await yEarnContract.calcPoolValueInToken()).mul(clientEarnSharesinYearnContract)).div(await yEarnContract.totalSupply())
             clientVaultSharesinYearnContract = (clientVaultDepBalAftWdr.mul(await yVaultContract.totalSupply())).div(await yVaultContract.balance())
             clientActualVaultWithdrawAmount = ((await yVaultContract.balance()).mul(clientVaultSharesinYearnContract)).div(await yVaultContract.totalSupply())
-            // // Check if token balance of accounts top-up correctly after withdraw all
-            // expect(await tokenContract.balanceOf(deployerSigner.address)).to.be.closeTo(senderTknBalAftWdr.add(senderActualEarnWithdrawAmount).add(senderActualVaultWithdrawAmount), 1)
-            // expect(await tokenContract.balanceOf(clientSigner.address)).to.be.closeTo(clientTknBalAftWdr.add(clientActualEarnWithdrawAmount).add(clientActualVaultWithdrawAmount), 1)
-            // // Check if Yearn Contract pool amount return 0
-            // expect(await yfDAIContract.pool()).to.equal(0)
+            // Check if token balance of accounts top-up correctly after withdraw all
+            expect(await tokenContract.balanceOf(deployerSigner.address)).to.be.closeTo(senderTknBalAftWdr.add(senderActualEarnWithdrawAmount).add(senderActualVaultWithdrawAmount), 1)
+            expect(await tokenContract.balanceOf(clientSigner.address)).to.be.closeTo(clientTknBalAftWdr.add(clientActualEarnWithdrawAmount).add(clientActualVaultWithdrawAmount), 1)
+            // Check if Yearn Contract pool amount return 0
+            expect(await yfDAIContract.pool()).to.equal(0)
         })
 
         it("should able to deal with mix and match situation (deposit and withdraw several times in tier 2)", async () => {
