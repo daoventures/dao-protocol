@@ -26,9 +26,6 @@ module.exports = async ({ deployments }) => {
     args: [network_.DAI.tokenAddress, cfDAI.address],
   });
 
-  const cfDAIContract = await ethers.getContract("CompoundFarmerDAI");
-  await cfDAIContract.setVault(dvlDAI.address);
-
   // Transfer token from unlocked account to deployer
   await network.provider.request({
     method: "hardhat_impersonateAccount",

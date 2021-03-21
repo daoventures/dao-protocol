@@ -26,9 +26,6 @@ module.exports = async ({ deployments }) => {
     args: [network_.USDC.tokenAddress, cfUSDC.address],
   });
 
-  const cfUSDCContract = await ethers.getContract("CompoundFarmerUSDC");
-  await cfUSDCContract.setVault(dvlUSDC.address);
-
   // Transfer token from unlocked account to deployer
   await network.provider.request({
     method: "hardhat_impersonateAccount",

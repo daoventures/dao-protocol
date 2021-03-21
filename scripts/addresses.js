@@ -8,6 +8,7 @@ async function main() {
   const cfDAIContract = await deployments.get("CompoundFarmerDAI");
   const dvlDAIContract = await deployments.get("DAOVaultLowDAI");
 
+  console.log("Summary:")
   console.log("Compound-Farmer USDT address: ", cfUSDTContract.address);
   console.log("DAO Vault Low USDT address: ", dvlUSDTContract.address);
   console.log("");
