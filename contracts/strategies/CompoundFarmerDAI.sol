@@ -324,7 +324,7 @@ contract CompoundFarmerDAI is ERC20, Ownable {
         // Swap COMP token for token same as deposit token
         if (compToken.balanceOf(address(this)) > 0) {
             uint256 _amountIn = compToken.balanceOf(address(this)).mul(_amount).div(pool);
-            compToken.safeApprove(address(uniswapRouter), _amountIn);
+            compToken.safeIncreaseAllowance(address(uniswapRouter), _amountIn);
 
             address[] memory _path = new address[](3);
             _path[0] = address(compToken);
