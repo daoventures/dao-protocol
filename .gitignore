@@ -1,5 +1,7 @@
 node_modules
 .env
+deployments/
+*deployment.json
 
 #Hardhat files
 cache
