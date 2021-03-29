@@ -1,10 +1,10 @@
-const { ethers, run, deployments } = require("hardhat");
-const { rinkeby: network_ } = require("../../addresses");
+const { ethers, run } = require("hardhat");
+const { mainnet: network_ } = require("../../../addresses/yearn_farmer_v2");
 
 const { tokenAddress, yEarnAddress, yVaultAddress } = network_.TUSD;
 
 module.exports = async () => {
-  const yfTUSDContract = await deployments.get("YearnFarmerTUSDv2");
+  const yfTUSDContract = await ethers.getContract("YearnFarmerTUSDv2");
   await run("verify:verify", {
     address: yfTUSDContract.address,
     constructorArguments: [tokenAddress, yEarnAddress, yVaultAddress],
@@ -18,4 +18,4 @@ module.exports = async () => {
     contract: "contracts/vaults/DAOVaultMediumTUSD.sol:DAOVaultMediumTUSD",
   });
 };
-module.exports.tags = ["rinkeby_TUSD_verify"];
+module.exports.tags = ["mainnet_TUSD_verify"];

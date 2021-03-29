@@ -1,10 +1,10 @@
 const { expect } = require("chai")
 const { ethers, network, deployments, waffle, artifacts } = require("hardhat")
-const { mainnet: network_ } = require("../addresses")
+const { mainnet: network_ } = require("../../addresses/yearn_farmer_v2")
 require("dotenv").config()
-const IERC20_ABI = require("../artifacts/@openzeppelin/contracts/token/ERC20/IERC20.sol/IERC20.json").abi
-const IYearn_ABI = require("../artifacts/interfaces/IYearn.sol/IYearn.json").abi
-const IYvault_ABI = require("../artifacts/interfaces/IYvault.sol/IYvault.json").abi
+const IERC20_ABI = require("../../artifacts/@openzeppelin/contracts/token/ERC20/IERC20.sol/IERC20.json").abi
+const IYearn_ABI = require("../../artifacts/interfaces/IYearn.sol/IYearn.json").abi
+const IYvault_ABI = require("../../artifacts/interfaces/IYvault.sol/IYvault.json").abi
 
 const { tokenAddress, yEarnAddress, yVaultAddress } = network_.USDT
 const treasuryWalletAddress = "0x59E83877bD248cBFe392dbB5A8a29959bcb48592"
@@ -89,7 +89,7 @@ describe("YearnFarmerUSDTv2", () => {
             await tokenContract.transfer(clientSigner.address, "1000000000")
             expect(await tokenContract.balanceOf(clientSigner.address)).to.equal("1000000000")
             // Check if meet the function requirements
-            const sampleContract_JSON = require("../build/SampleContract.json")
+            const sampleContract_JSON = require("../../build/yearn_farmer_v2/SampleContract.json")
             const sampleContract = await waffle.deployContract(deployerSigner, sampleContract_JSON, [dvmUSDTContract.address, tokenContract.address])
             await tokenContract.transfer(sampleContract.address, "1000000000")
             expect(await tokenContract.balanceOf(sampleContract.address)).to.equal("1000000000")
@@ -555,7 +555,7 @@ describe("YearnFarmerUSDTv2", () => {
             // Get address of deployer and deploy the contracts
             const { deployerSigner, tokenContract, yfUSDTContract, dvmUSDTContract } = await setup()
             // Set pending strategy
-            const sampleContract_JSON = require("../build/SampleContract.json")
+            const sampleContract_JSON = require("../../build/yearn_farmer_v2/SampleContract.json")
             const sampleContract = await waffle.deployContract(deployerSigner, sampleContract_JSON, [dvmUSDTContract.address, tokenContract.address])
             await dvmUSDTContract.setPendingStrategy(sampleContract.address)
             // Check if pending strategy is set with given address

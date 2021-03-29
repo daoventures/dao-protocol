@@ -1,5 +1,5 @@
 const { ethers, run } = require("hardhat");
-const { rinkeby: network_ } = require("../../addresses");
+const { mainnet: network_ } = require("../../../addresses/yearn_farmer_v2");
 
 const { tokenAddress, yEarnAddress, yVaultAddress } = network_.USDC;
 
@@ -18,4 +18,4 @@ module.exports = async () => {
     contract: "contracts/vaults/DAOVaultMediumUSDC.sol:DAOVaultMediumUSDC",
   });
 };
-module.exports.tags = ["rinkeby_USDC_verify"];
+module.exports.tags = ["mainnet_USDC_verify"];

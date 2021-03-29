@@ -1,10 +1,12 @@
 # dao-protocol
-## Documentation for vaults and strategies
-DAOVaultMedium: 
-Yearn-Farmer-V2: 
-Compound-Farmer: 
 
 ### The smart contract is still under development (testing and auditing) and we strongly advise anyone not to deposit anything on the mainnet until we publicly launch the product.
+
+## Documentation for vaults and strategies
+DAOVaultMedium: https://github.com/daoventures/dao-protocol/dao-protocol/tree/master/docs/DAOVaultMedium.md
+Yearn-Farmer-V2: https://github.com/daoventures/dao-protocol/dao-protocol/tree/master/docs/Yearn-Farmer-V2.md
+DAOVaultLow: https://github.com/daoventures/dao-protocol/dao-protocol/tree/master/docs/DAOVaultLow.md
+Compound-Farmer: https://github.com/daoventures/dao-protocol/dao-protocol/tree/master/docs/Compound-Farmer.md
 
 ## Installation
 Clone the repository and install it.

@@ -1,5 +1,5 @@
 const { ethers, network } = require("hardhat");
-const { mainnet: network_ } = require("../../addresses");
+const { mainnet: network_ } = require("../../../addresses/yearn_farmer_v2");
 
 const tokenAddress = network_.DAI.tokenAddress;
 const unlockedAddress = "0x01Ec5e7e03e2835bB2d1aE8D2edDEd298780129c";

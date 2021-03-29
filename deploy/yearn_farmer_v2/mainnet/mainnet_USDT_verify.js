@@ -1,5 +1,5 @@
 const { ethers, run } = require("hardhat");
-const { mainnet: network_ } = require("../../addresses");
+const { mainnet: network_ } = require("../../../addresses/yearn_farmer_v2");
 
 const { tokenAddress, yEarnAddress, yVaultAddress } = network_.USDT;
 

@@ -1,5 +1,5 @@
 const { ethers, run } = require("hardhat");
-const { mainnet: network_ } = require("../../addresses");
+const { rinkeby: network_ } = require("../../../addresses/yearn_farmer_v2");
 
 const { tokenAddress, yEarnAddress, yVaultAddress } = network_.DAI;
 
@@ -18,4 +18,4 @@ module.exports = async () => {
     contract: "contracts/vaults/DAOVaultMediumDAI.sol:DAOVaultMediumDAI",
   });
 };
-module.exports.tags = ["mainnet_DAI_verify"];
+module.exports.tags = ["rinkeby_DAI_verify"];
