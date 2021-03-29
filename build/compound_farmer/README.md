@@ -12,7 +12,7 @@ ETHERSCAN_API_KEY=<YOUR_ETHERSCAN_API_KEY_HERE>
 npx hardhat compile
 ```
 ## Test deploy on local hardhat network
-Uncomment code in deploy/hardhat/hardhat.js from line 41 to line 60
+Uncomment code in deploy/compound_farmer/hardhat/hardhat.js from line 41 to line 60
 ```
   // const res = await axios.get(
   //   `https://api.etherscan.io/api?module=gastracker&action=gasoracle&apikey=${process.env.ETHERSCAN_API_KEY}`
@@ -35,7 +35,7 @@ Uncomment code in deploy/hardhat/hardhat.js from line 41 to line 60
   // console.log(`Your balance: ${ethers.utils.formatEther(deployerBalance)} ETH`);
   // console.log("Please make sure you have enough ETH before deploy.");
 ```
-Uncomment code in hardhat.config.js from line 16 to 19 and line 25 to line 27
+Uncomment code in hardhat.config.js from line 16 to 19 and line 29 to line 31
 ```
     // mainnet: {
     //   url: process.env.ALCHEMY_URL_MAINNET,
@@ -80,7 +80,7 @@ npx hardhat deploy --network mainnet --tags mainnet_<token>_verify
 > \<token> include USDT, USDC, and DAI
 ## Print out deployed contracts
 ```
-npx hardhat run --network mainnet scripts/addresses.js
+npx hardhat run --network mainnet scripts/compound_farmer/addresses.js
 ```
 Sample output:
 ```

@@ -1,14 +1,14 @@
 const { ethers } = require("hardhat");
-const { kovan: network_ } = require("../../addresses");
+const { kovan: network_ } = require("../../../addresses/compound_farmer");
 
 const { compTokenAddress, comptrollerAddress, uniswapRouterAddress, WETHAddress } = network_.GLOBAL
-const { tokenAddress, cTokenAddress } = network_.DAI
+const { tokenAddress, cTokenAddress } = network_.USDC
 
 module.exports = async ({ deployments }) => {
   const { deploy } = deployments;
   const [deployer] = await ethers.getSigners();
 
-  const cfDAI = await deploy("CompoundFarmerDAI", {
+  const cfUSDC = await deploy("CompoundFarmerUSDC", {
     from: deployer.address,
     args: [
       tokenAddress,
@@ -20,12 +20,12 @@ module.exports = async ({ deployments }) => {
     ],
   });
 
-  const dvlDAI = await deploy("DAOVaultLowDAI", {
+  const dvlUSDC = await deploy("DAOVaultLowUSDC", {
     from: deployer.address,
-    args: [network_.DAI.tokenAddress, cfDAI.address],
+    args: [network_.USDC.tokenAddress, cfUSDC.address],
   });
 
-  const cfDAIContract = await ethers.getContract("CompoundFarmerDAI");
-  await cfDAIContract.setVault(dvlDAI.address);
+  const cfUSDCContract = await ethers.getContract("CompoundFarmerUSDC");
+  await cfUSDCContract.setVault(dvlUSDC.address);
 };
-module.exports.tags = ["kovan_deploy_DAI"]
+module.exports.tags = ["kovan_deploy_USDC"]

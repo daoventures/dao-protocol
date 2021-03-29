@@ -1,5 +1,5 @@
 const { ethers, run } = require("hardhat");
-const { kovan: network_ } = require("../../addresses");
+const { kovan: network_ } = require("../../../addresses/compound_farmer");
 
 const {
   compTokenAddress,

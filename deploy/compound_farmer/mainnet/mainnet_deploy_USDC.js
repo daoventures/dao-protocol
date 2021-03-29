@@ -1,14 +1,14 @@
 const { ethers } = require("hardhat");
-const { mainnet: network_ } = require("../../addresses");
+const { mainnet: network_ } = require("../../../addresses/compound_farmer");
 
 const { compTokenAddress, comptrollerAddress, uniswapRouterAddress, WETHAddress } = network_.GLOBAL
-const { tokenAddress, cTokenAddress } = network_.USDT
+const { tokenAddress, cTokenAddress } = network_.USDC
 
 module.exports = async ({ deployments }) => {
   const { deploy } = deployments;
   const [deployer] = await ethers.getSigners();
 
-  const cfUSDT = await deploy("CompoundFarmerUSDT", {
+  const cfUSDC = await deploy("CompoundFarmerUSDC", {
     from: deployer.address,
     args: [
       tokenAddress,
@@ -20,12 +20,12 @@ module.exports = async ({ deployments }) => {
     ],
   });
 
-  const dvlUSDT = await deploy("DAOVaultLowUSDT", {
+  const dvlUSDC = await deploy("DAOVaultLowUSDC", {
     from: deployer.address,
-    args: [network_.USDT.tokenAddress, cfUSDT.address],
+    args: [network_.USDC.tokenAddress, cfUSDC.address],
   });
 
-  const cfUSDTContract = await ethers.getContract("CompoundFarmerUSDT");
-  await cfUSDTContract.setVault(dvlUSDT.address);
+  const cfUSDCContract = await ethers.getContract("CompoundFarmerUSDC");
+  await cfUSDCContract.setVault(dvlUSDC.address);
 };
-module.exports.tags = ["mainnet_deploy_USDT"]
+module.exports.tags = ["mainnet_deploy_USDC"]

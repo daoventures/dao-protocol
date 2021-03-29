@@ -1,10 +1,10 @@
 const { expect } = require("chai")
 const { ethers, deployments, waffle } = require("hardhat")
-const { mainnet: network_ } = require("../addresses")
-const IERC20_ABI = require("../abis/IERC20_ABI.json")
-const ICERC20_ABI = require("../abis/CTOKEN_ABI.json")
-const ICOMPERC20_ABI = require("../abis/COMP_ABI.json")
-const sampleContract_JSON = require("../build/SampleContract.json")
+const { mainnet: network_ } = require("../../addresses/compound_farmer")
+const IERC20_ABI = require("../../abis/IERC20_ABI.json")
+const ICERC20_ABI = require("../../abis/CTOKEN_ABI.json")
+const ICOMPERC20_ABI = require("../../abis/COMP_ABI.json")
+const sampleContract_JSON = require("../../build/compound_farmer/SampleContract.json")
 require("dotenv").config()
 
 const { compTokenAddress, comptrollerAddress, uniswapRouterAddress, WETHAddress } = network_.GLOBAL
@@ -557,7 +557,6 @@ describe("cfUSDT", () => {
         it("should able to set pending strategy, migrate funds and set new strategy correctly in DAOVaultLowUSDT contract", async () => {
             const { deployerSigner, tokenContract, cfUSDTContract, dvlUSDTContract } = await setup()
             // Set pending strategy
-            const sampleContract_JSON = require("../build/SampleContract.json")
             const sampleContract = await waffle.deployContract(deployerSigner, sampleContract_JSON, [dvlUSDTContract.address, tokenContract.address])
             await dvlUSDTContract.setPendingStrategy(sampleContract.address)
             // Check if pending strategy is set with given address

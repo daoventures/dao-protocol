@@ -1,5 +1,5 @@
 const { ethers, run } = require("hardhat");
-const { mainnet: network_ } = require("../../addresses");
+const { mainnet: network_ } = require("../../../addresses/compound_farmer");
 
 const {
   compTokenAddress,

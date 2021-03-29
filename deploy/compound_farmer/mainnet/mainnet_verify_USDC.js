@@ -1,5 +1,5 @@
 const { ethers, run } = require("hardhat");
-const { kovan: network_ } = require("../../addresses");
+const { mainnet: network_ } = require("../../../addresses/compound_farmer");
 
 const {
   compTokenAddress,
@@ -31,4 +31,4 @@ module.exports = async () => {
     contract: "contracts/vaults/DAOVaultLowUSDC.sol:DAOVaultLowUSDC",
   });
 };
-module.exports.tags = ["kovan_verify_USDC"];
+module.exports.tags = ["mainnet_verify_USDC"];
