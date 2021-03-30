@@ -17,7 +17,7 @@ const decimals = (amount) => {
     return ethers.utils.parseUnits(amount.toString(), 18) // Change this to meet token decimals
 }
 
-describe("cfDAI", () => {
+describe("CompoundFarmerDAI", () => {
 
     const setup = async () => {
         const [deployerSigner, clientSigner] = await ethers.getSigners()
@@ -34,7 +34,7 @@ describe("cfDAI", () => {
     }
 
     beforeEach(async () => {
-        await deployments.fixture(["hardhat"])
+        await deployments.fixture(["cf_hardhat"])
     })
 
     it("should deploy contract correctly", async () => {

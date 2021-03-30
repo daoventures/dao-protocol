@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.7.6;
 
-interface IStrategy {
+interface IStrategy2 {
     function deposit(uint256) external;
 
     function withdraw(uint256) external;

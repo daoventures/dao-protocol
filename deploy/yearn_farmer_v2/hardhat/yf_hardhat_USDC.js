@@ -37,4 +37,4 @@ module.exports = async ({ deployments }) => {
     .connect(unlockedSigner)
     .transfer(senderSigner.address, tokenContract.balanceOf(unlockedAddress));
 };
-module.exports.tags = ["hardhat_USDC"]
+module.exports.tags = ["yf_hardhat_USDC"]

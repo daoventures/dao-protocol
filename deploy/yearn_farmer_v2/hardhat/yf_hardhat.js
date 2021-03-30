@@ -67,11 +67,11 @@ module.exports = async ({ deployments }) => {
   // console.log(`Your balance: ${ethers.utils.formatEther(deployerBalance)} ETH`);
   // console.log("Please make sure you have enough ETH before deploy.");
 };
-module.exports.tags = ["hardhat"];
+module.exports.tags = ["yf_hardhat"];
 module.exports.dependencies = [
-  "hardhat_reset",
-  "hardhat_USDT",
-  "hardhat_USDC",
-  "hardhat_DAI",
-  "hardhat_TUSD",
+  "yf_hardhat_reset",
+  "yf_hardhat_USDT",
+  "yf_hardhat_USDC",
+  "yf_hardhat_DAI",
+  "yf_hardhat_TUSD",
 ];

@@ -2,14 +2,14 @@ const { ethers, network } = require("hardhat");
 const { mainnet: network_ } = require("../../../addresses/compound_farmer");
 
 const { compTokenAddress, comptrollerAddress, uniswapRouterAddress, WETHAddress } = network_.GLOBAL
-const { tokenAddress, cTokenAddress } = network_.USDT
-const unlockedAddress = "0xBE0eB53F46cd790Cd13851d5EFf43D12404d33E8";
+const { tokenAddress, cTokenAddress } = network_.DAI
+const unlockedAddress = "0x04ad0703B9c14A85A02920964f389973e094E153";
 
 module.exports = async ({ deployments }) => {
   const { deploy } = deployments;
   const [deployer] = await ethers.getSigners();
 
-  const cfUSDT = await deploy("CompoundFarmerUSDT", {
+  const cfDAI = await deploy("CompoundFarmerDAI", {
     from: deployer.address,
     args: [
       tokenAddress,
@@ -21,9 +21,9 @@ module.exports = async ({ deployments }) => {
     ],
   });
 
-  const dvlUSDT = await deploy("DAOVaultLowUSDT", {
+  const dvlDAI = await deploy("DAOVaultLowDAI", {
     from: deployer.address,
-    args: [network_.USDT.tokenAddress, cfUSDT.address],
+    args: [network_.DAI.tokenAddress, cfDAI.address],
   });
 
   // Transfer token from unlocked account to deployer
@@ -32,6 +32,7 @@ module.exports = async ({ deployments }) => {
     params: [unlockedAddress],
   });
   const [senderSigner, _] = await ethers.getSigners();
+  await senderSigner.sendTransaction({to: unlockedAddress, value: ethers.utils.parseUnits("1")})
   const unlockedSigner = await ethers.getSigner(unlockedAddress);
   ABI = [
     "function transfer(address, uint) external",
@@ -42,4 +43,4 @@ module.exports = async ({ deployments }) => {
     .connect(unlockedSigner)
     .transfer(senderSigner.address, tokenContract.balanceOf(unlockedAddress));
 };
-module.exports.tags = ["hardhat_deploy_USDT"]
+module.exports.tags = ["cf_hardhat_deploy_DAI"]

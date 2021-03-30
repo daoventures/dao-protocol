@@ -1,27 +1,32 @@
 const { ethers, network } = require("hardhat");
-const { mainnet: network_ } = require("../../../addresses/yearn_farmer_v2");
+const { mainnet: network_ } = require("../../../addresses/compound_farmer");
 
-const tokenAddress = network_.TUSD.tokenAddress;
-const unlockedAddress = "0x270cd0b43f6fE2512A32597C7A05FB01eE6ec8E1";
+const { compTokenAddress, comptrollerAddress, uniswapRouterAddress, WETHAddress } = network_.GLOBAL
+const { tokenAddress, cTokenAddress } = network_.USDC
+const unlockedAddress = "0x55FE002aefF02F77364de339a1292923A15844B8";
 
 module.exports = async ({ deployments }) => {
   const { deploy } = deployments;
   const [deployer] = await ethers.getSigners();
 
-  const yfTUSDv2 = await deploy("YearnFarmerTUSDv2", {
+  const cfUSDC = await deploy("CompoundFarmerUSDC", {
     from: deployer.address,
     args: [
       tokenAddress,
-      network_.TUSD.yEarnAddress,
-      network_.TUSD.yVaultAddress,
+      cTokenAddress,
+      compTokenAddress,
+      comptrollerAddress,
+      uniswapRouterAddress,
+      WETHAddress,
     ],
   });
-  const dvmTUSD = await deploy("DAOVaultMediumTUSD", {
+
+  const dvlUSDC = await deploy("DAOVaultLowUSDC", {
     from: deployer.address,
-    args: [tokenAddress, yfTUSDv2.address],
+    args: [network_.USDC.tokenAddress, cfUSDC.address],
   });
 
-  // Transfer some token to deployer before each test
+  // Transfer token from unlocked account to deployer
   await network.provider.request({
     method: "hardhat_impersonateAccount",
     params: [unlockedAddress],
@@ -37,4 +42,4 @@ module.exports = async ({ deployments }) => {
     .connect(unlockedSigner)
     .transfer(senderSigner.address, tokenContract.balanceOf(unlockedAddress));
 };
-module.exports.tags = ["hardhat_TUSD"]
+module.exports.tags = ["cf_hardhat_deploy_USDC"]

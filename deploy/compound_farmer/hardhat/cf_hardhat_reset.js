@@ -7,10 +7,10 @@ module.exports = async () => {
       {
         forking: {
           jsonRpcUrl: process.env.ALCHEMY_URL_MAINNET,
-          blockNumber: 12020000,
+          blockNumber: 11960000,
         },
       },
     ],
   });
 };
-module.exports.tags = ["hardhat_reset"]
+module.exports.tags = ["cf_hardhat_reset"]

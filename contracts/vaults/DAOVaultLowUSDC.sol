@@ -35,7 +35,7 @@ contract DAOVaultLowUSDC is ERC20, Ownable {
     using SafeMath for uint256;
 
     IERC20 public token;
-    IStrategy public strategy;
+    IStrategy2 public strategy;
     address public pendingStrategy;
 
     bool public canSetPendingStrategy = true;
@@ -53,7 +53,7 @@ contract DAOVaultLowUSDC is ERC20, Ownable {
     {
         token = IERC20(_token);
         _setupDecimals(6);
-        strategy = IStrategy(_strategy);
+        strategy = IStrategy2(_strategy);
     }
 
     /**
@@ -166,7 +166,7 @@ contract DAOVaultLowUSDC is ERC20, Ownable {
 
         // Set new strategy
         address oldStrategy = address(strategy);
-        strategy = IStrategy(pendingStrategy);
+        strategy = IStrategy2(pendingStrategy);
         pendingStrategy = address(0);
         canSetPendingStrategy = true;
 
