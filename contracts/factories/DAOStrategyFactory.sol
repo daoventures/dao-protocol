@@ -25,16 +25,16 @@ contract DAOStrategyFactory is Ownable {
     ) external onlyOwner {
         DAOStrategy daoStrategy =
             DAOStrategy(Clones.clone(daoStrategyTemplate));
-        daoStrategy.init(
-            _strategyName,
-            _token,
-            _cToken,
-            _compToken,
-            _comptroller,
-            _uniswapRouter,
-            _WETH,
-            msg.sender
-        );
+        // daoStrategy.init(
+        //     _strategyName,
+        //     _token,
+        //     _cToken,
+        //     _compToken,
+        //     _comptroller,
+        //     _uniswapRouter,
+        //     _WETH,
+        //     msg.sender
+        // );
         daoStrategies.push(daoStrategy);
     }
 

@@ -2,6 +2,7 @@ require("@nomiclabs/hardhat-waffle");
 require("@nomiclabs/hardhat-etherscan");
 require("hardhat-deploy");
 require("hardhat-deploy-ethers");
+require("@nomiclabs/hardhat-solhint");
 require("dotenv").config();
 
 module.exports = {
@@ -9,11 +10,15 @@ module.exports = {
     hardhat: {
       forking: {
         url: process.env.ALCHEMY_URL_MAINNET,
-        blockNumber: 12020000,
+        blockNumber: 11960000,
       },
     },
     // mainnet: {
     //   url: process.env.ALCHEMY_URL_MAINNET,
+    //   accounts: [`0x${process.env.PRIVATE_KEY}`],
+    // },
+    // kovan: {
+    //   url: process.env.ALCHEMY_URL_KOVAN,
     //   accounts: [`0x${process.env.PRIVATE_KEY}`],
     // },
     // rinkeby: {
@@ -25,16 +30,12 @@ module.exports = {
   //   apiKey: process.env.ETHERSCAN_API_KEY,
   // },
   solidity: {
-    compilers: [
-      {
-        version: "0.8.3",
-        settings: {
-          optimizer: {
-            enabled: true,
-            runs: 1000
-          }
-        }
+    version: "0.7.6",
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 1000,
       },
-    ],
+    },
   },
 };

@@ -1,14 +1,21 @@
-# Harvest-Farmer
-Harvest-Farmer is a lending aggregator that build on top of Harvest Finance.
+# dao-protocol
 
 ### The smart contract is still under development (testing and auditing) and we strongly advise anyone not to deposit anything on the mainnet until we publicly launch the product.
+
+## Documentation for vaults and strategies
+DAOVaultMedium: https://github.com/daoventures/dao-protocol/dao-protocol/tree/master/docs/DAOVaultMedium.md
+
+Yearn-Farmer-V2: https://github.com/daoventures/dao-protocol/dao-protocol/tree/master/docs/Yearn-Farmer-V2.md
+
+DAOVaultLow: https://github.com/daoventures/dao-protocol/dao-protocol/tree/master/docs/DAOVaultLow.md
+
+Compound-Farmer: https://github.com/daoventures/dao-protocol/dao-protocol/tree/master/docs/Compound-Farmer.md
 
 ## Installation
 Clone the repository and install it.
 ```
 git clone https://github.com/daoventures/dao-protocol
 cd dao-protocol
-git checkout develop/HarvestFarmer
 npm install
 ```
 
@@ -27,27 +34,9 @@ npx hardhat deploy --tags hardhat
 
 ## Tests
 ```
-npx hardhat test
+npx hardhat test/<strategy-name>/<test-script>
 ```
-> Note: For the first few test run, you may encounter this error `Error: Timeout of 20000ms exceeded.`. If so, please run again `npx hardhat test`. If error still occurred, please run test manually for each file, for example `npx hardhat test test/testUSDT.js`.
-
-## Functions
-### User functions
-
-### Admin functions
-
-### General functions daoVault address
-
-# Vault
-Vault is a contract that help user to deposit, withdraw and refund in the latest strategy. Vault distribute daoToken to user based on shares.
-
-### The smart contract is still under development (testing and auditing) and we strongly advise anyone not to deposit anything on the mainnet until we publicly launch the product.
-
-> **Installation**, **Compile** and **Tests** is same as Yearn-Farmer v2 section, and it only need to implement 1 time.
-
-## Functions
-### User functions
-
-### Admin functions
-
-### General functions
+where
+<\strategy-name> refer to strategy name in test folder
+<\test-script> refer to the script file name contain in strategy name in test folder
+> Note: For the first few test run, you may encounter this error `Error: Timeout of 20000ms exceeded.`. If so, please run again `npx hardhat test`.
