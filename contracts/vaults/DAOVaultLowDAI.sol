@@ -26,7 +26,7 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
  * function approveMigrate()
  * -> Approve Vault to migrate all funds to new strategy
  */
-import "../../interfaces/IStrategy.sol";
+import "../../interfaces/IStrategy2.sol";
 
 /// @title Contract to interact between user and strategy, and distribute daoToken
 contract DAOVaultLowDAI is ERC20, Ownable {
