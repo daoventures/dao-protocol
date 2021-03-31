@@ -13,4 +13,4 @@ module.exports = async () => {
     ],
   });
 };
-module.exports.tags = ["hardhat_reset"]
+module.exports.tags = ["yf_hardhat_reset"]

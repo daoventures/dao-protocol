@@ -1,32 +1,38 @@
 const { ethers, network } = require("hardhat");
-const { mainnet: network_ } = require("../../../addresses/yearn_farmer_v2");
+const { mainnet: network_ } = require("../../../addresses/compound_farmer");
 
-const tokenAddress = network_.TUSD.tokenAddress;
-const unlockedAddress = "0x270cd0b43f6fE2512A32597C7A05FB01eE6ec8E1";
+const { compTokenAddress, comptrollerAddress, uniswapRouterAddress, WETHAddress } = network_.GLOBAL
+const { tokenAddress, cTokenAddress } = network_.DAI
+const unlockedAddress = "0x04ad0703B9c14A85A02920964f389973e094E153";
 
 module.exports = async ({ deployments }) => {
   const { deploy } = deployments;
   const [deployer] = await ethers.getSigners();
 
-  const yfTUSDv2 = await deploy("YearnFarmerTUSDv2", {
+  const cfDAI = await deploy("CompoundFarmerDAI", {
     from: deployer.address,
     args: [
       tokenAddress,
-      network_.TUSD.yEarnAddress,
-      network_.TUSD.yVaultAddress,
+      cTokenAddress,
+      compTokenAddress,
+      comptrollerAddress,
+      uniswapRouterAddress,
+      WETHAddress,
     ],
   });
-  const dvmTUSD = await deploy("DAOVaultMediumTUSD", {
+
+  const dvlDAI = await deploy("DAOVaultLowDAI", {
     from: deployer.address,
-    args: [tokenAddress, yfTUSDv2.address],
+    args: [network_.DAI.tokenAddress, cfDAI.address],
   });
 
-  // Transfer some token to deployer before each test
+  // Transfer token from unlocked account to deployer
   await network.provider.request({
     method: "hardhat_impersonateAccount",
     params: [unlockedAddress],
   });
   const [senderSigner, _] = await ethers.getSigners();
+  await senderSigner.sendTransaction({to: unlockedAddress, value: ethers.utils.parseUnits("1")})
   const unlockedSigner = await ethers.getSigner(unlockedAddress);
   ABI = [
     "function transfer(address, uint) external",
@@ -37,4 +43,4 @@ module.exports = async ({ deployments }) => {
     .connect(unlockedSigner)
     .transfer(senderSigner.address, tokenContract.balanceOf(unlockedAddress));
 };
-module.exports.tags = ["hardhat_TUSD"]
+module.exports.tags = ["cf_hardhat_deploy_DAI"]

@@ -9,7 +9,7 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 
 import "../../interfaces/IYearn.sol";
 import "../../interfaces/IYvault.sol";
-import "../../interfaces/IDaoVault.sol";
+import "../../interfaces/IDAOVault.sol";
 
 /// @title Contract for yield token in Yearn Finance contracts
 /// @dev This contract should not be reused after vesting state
@@ -47,7 +47,7 @@ contract YearnFarmerUSDCv2 is ERC20, Ownable {
   uint256 public constant communityFee = 5000; // 50% on profile sharing fee
 
   bool public isVesting;
-  IDaoVault public daoVault;
+  IDAOVault public daoVault;
 
   event SetTreasuryWallet(address indexed oldTreasuryWallet, address indexed newTreasuryWallet);
   event SetCommunityWallet(address indexed oldCommunityWallet, address indexed newCommunityWallet);
@@ -80,7 +80,7 @@ contract YearnFarmerUSDCv2 is ERC20, Ownable {
   function setVault(address _address) external onlyOwner {
     require(address(daoVault) == address(0), "Vault set");
 
-    daoVault = IDaoVault(_address);
+    daoVault = IDAOVault(_address);
   }
 
   /**

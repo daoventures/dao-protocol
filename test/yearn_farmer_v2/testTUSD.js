@@ -29,7 +29,7 @@ describe("YearnFarmerTUSDv2", () => {
     }
 
     beforeEach(async () => {
-        await deployments.fixture(["hardhat"])
+        await deployments.fixture(["yf_hardhat"])
     })
 
     it("should deploy contract correctly", async () => {
