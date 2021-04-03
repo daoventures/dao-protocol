@@ -5,15 +5,15 @@ const IERC20_ABI = require("../../abis/IERC20_ABI.json")
 const sampleContract_JSON = require("../../build/harvest_farmer/SampleContract.json")
 
 const { FARMAddress, uniswapRouterAddress, WETHAddress, treasuryWalletAddress, communityWalletAddress } = network_.GLOBAL
-const { tokenAddress, hfVaultAddress, hfStakeAddress } = network_.DAI
-const tokenDecimals = 18 // Change this to meet token decimals
-const created_index = 0 // DAI
+const { tokenAddress, hfVaultAddress, hfStakeAddress } = network_.USDC
+const tokenDecimals = 6 // Change this to meet token decimals
+const created_index = 1 // USDC
 
 const decimals = (amount) => {
   return ethers.utils.parseUnits(amount.toString(), tokenDecimals)
 }
 
-describe("Harvest-Farmer DAI", () => {
+describe("Harvest-Farmer USDC", () => {
 
   const setup = async () => {
     const [deployerSigner, clientSigner] = await ethers.getSigners()
@@ -50,10 +50,10 @@ describe("Harvest-Farmer DAI", () => {
     await expect(strategyContract.setVault(deployerSigner.address)).to.be.revertedWith("Vault set")
     // Check if execute init function again to be reverted in both contract
     await expect(vaultContract.init(
-      ethers.utils.formatBytes32String("DAOVault Medium-Risk DAI"),
+      ethers.utils.formatBytes32String("DAOVault Medium-Risk USDC"),
       tokenAddress, strategyContract.address, deployerSigner.address)).to.be.revertedWith("Initializable: contract is already initialized")
     await expect(strategyContract.init(
-      ethers.utils.formatBytes32String("Harvest-Farmer DAI"),
+      ethers.utils.formatBytes32String("Harvest-Farmer USDC"),
       tokenAddress, hfVaultAddress, hfStakeAddress, FARMAddress, uniswapRouterAddress, WETHAddress, deployerSigner.address))
       .to.be.revertedWith("Initializable: contract is already initialized")
     // Check if contract owner is contract deployer in both contracts
@@ -68,7 +68,7 @@ describe("Harvest-Farmer DAI", () => {
     expect(await vaultContract.strategy()).to.equal(strategyContract.address)
     expect(await vaultContract.pendingStrategy()).to.equal(ethers.constants.AddressZero)
     // Check if other pre-set variables are correct in vault contract
-    expect(await vaultContract.vaultName()).to.equal(ethers.utils.formatBytes32String("DAOVault Medium-Risk DAI"))
+    expect(await vaultContract.vaultName()).to.equal(ethers.utils.formatBytes32String("DAOVault Medium-Risk USDC"))
     expect(await vaultContract.canSetPendingStrategy()).is.true
     expect(await vaultContract.unlockTime()).to.equal(0)
     expect(await vaultContract.LOCKTIME()).to.equal(2*24*60*60)
@@ -99,7 +99,7 @@ describe("Harvest-Farmer DAI", () => {
     expect(await strategyContract.treasuryFee()).to.equal("5000")
     expect(await strategyContract.communityFee()).to.equal("5000")
     // Check if all other pre-set variables are correct in strategy contract
-    expect(await strategyContract.strategyName()).to.equal(ethers.utils.formatBytes32String("Harvest-Farmer DAI"))
+    expect(await strategyContract.strategyName()).to.equal(ethers.utils.formatBytes32String("Harvest-Farmer USDC"))
     expect(await strategyContract.isVesting()).is.false
     expect(await strategyContract.pool()).to.equal(0)
     expect(await strategyContract.amountOutMinPerc()).to.equal(9500)
@@ -220,8 +220,8 @@ describe("Harvest-Farmer DAI", () => {
       await tokenContract.transfer(clientSigner.address, depositAmount)
       await tokenContract.connect(clientSigner).approve(vaultContract.address, depositAmount)
       await vaultContract.connect(clientSigner).deposit(depositAmount)
-      // // Execute Harvest Finance earn function
-      // await hfVaultContract.doHardWork()
+      // Execute Harvest Finance earn function
+      await hfVaultContract.doHardWork()
       // Get initial value before withdraw
       const depositBalanceBoforeWithdraw = await vaultContract.getCurrentBalance(clientSigner.address)
       const dvlTokenBalanceBeforeWithdraw = await vaultContract.balanceOf(clientSigner.address)
@@ -292,14 +292,14 @@ describe("Harvest-Farmer DAI", () => {
       await vaultContract.deposit(decimals("1234"))
       await vaultContract.connect(clientSigner).deposit(decimals("3210"))
       await vaultContract.deposit(decimals("2345"))
-      // // Execute Harvest Finance earn function
-      // await hfVaultContract.doHardWork()
+      // Execute Harvest Finance earn function
+      await hfVaultContract.doHardWork()
       // Continue mix and match deposit and withdraw
       await vaultContract.connect(clientSigner).withdraw(decimals("2020"))
       await vaultContract.withdraw(decimals("1989"))
       await vaultContract.connect(clientSigner).deposit(decimals("378"))
-      await vaultContract.connect(clientSigner).withdraw("1532120000000000000000")
-      await vaultContract.withdraw("1554210000000000000000")
+      await vaultContract.connect(clientSigner).withdraw("1532120000")
+      await vaultContract.withdraw("1554210000")
       // Check if final number is correct
       expect(await strategyContract.pool()).to.equal(0)
       expect(await vaultContract.getCurrentBalance(deployerSigner.address)).to.equal(0)
@@ -310,10 +310,10 @@ describe("Harvest-Farmer DAI", () => {
       expect(await hfStakeContract.balanceOf(strategyContract.address)).to.equal(0)
       expect(await hfVaultContract.balanceOf(strategyContract.address)).to.equal(0)
       expect(await FARMContract.balanceOf(strategyContract.address)).to.equal(0)
-      expect(await tokenContract.balanceOf(deployerSigner.address)).to.gt(deployerBalance.sub("35790000000000000000"))
-      expect(await tokenContract.balanceOf(clientSigner.address)).to.gt(clientBalance.sub("35880000000000000000"))
+      expect(await tokenContract.balanceOf(deployerSigner.address)).to.gt(deployerBalance.sub("35790000"))
+      expect(await tokenContract.balanceOf(clientSigner.address)).to.gt(clientBalance.sub("35880000"))
       // Check if treasury and community wallet receive fees correctly
-      expect(await tokenContract.balanceOf(treasuryWalletAddress)).to.gt(treasuryBalance.add("35835000000000000000"))
+      expect(await tokenContract.balanceOf(treasuryWalletAddress)).to.gt(treasuryBalance.add("35835000"))
       expect(await tokenContract.balanceOf(communityWalletAddress)).to.gt(communityBalance)
     })
 
@@ -405,9 +405,9 @@ describe("Harvest-Farmer DAI", () => {
       expect(await vaultFactoryContract.owner()).to.equal(deployerSigner.address)
       expect(await strategyFactoryContract.owner()).to.equal(deployerSigner.address)
       // Check if new owner cannot execute clone contract functions yet
-      await expect(vaultFactoryContract.connect(clientSigner).createVault(ethers.utils.formatBytes32String("DAOVault Medium-Risk DAI"),
+      await expect(vaultFactoryContract.connect(clientSigner).createVault(ethers.utils.formatBytes32String("DAOVault Medium-Risk USDC"),
         tokenAddress, strategyContract.address)).to.be.revertedWith("Ownable: caller is not the owner")
-      await expect(strategyFactoryContract.connect(clientSigner).createStrategy(ethers.utils.formatBytes32String("Harvest-Farmer DAI"),
+      await expect(strategyFactoryContract.connect(clientSigner).createStrategy(ethers.utils.formatBytes32String("Harvest-Farmer USDC"),
         tokenAddress, hfVaultAddress, hfStakeAddress, FARMAddress, uniswapRouterAddress, WETHAddress)).to.be.revertedWith("Ownable: caller is not the owner")
       // Transfer contract ownership from owner to new owner
       await vaultFactoryContract.transferOwnership(clientSigner.address)
@@ -416,16 +416,16 @@ describe("Harvest-Farmer DAI", () => {
       expect(await vaultFactoryContract.owner()).to.equal(clientSigner.address)
       expect(await strategyFactoryContract.owner()).to.equal(clientSigner.address)
       // Check if new owner can execute admin function
-      await expect(vaultFactoryContract.connect(clientSigner).createVault(ethers.utils.formatBytes32String("DAOVault Medium-Risk DAI"),
+      await expect(vaultFactoryContract.connect(clientSigner).createVault(ethers.utils.formatBytes32String("DAOVault Medium-Risk USDC"),
         tokenAddress, strategyContract.address)).not.to.be.revertedWith("Ownable: caller is not the owner")
-      await expect(strategyFactoryContract.connect(clientSigner).createStrategy(ethers.utils.formatBytes32String("Harvest-Farmer DAI"),
+      await expect(strategyFactoryContract.connect(clientSigner).createStrategy(ethers.utils.formatBytes32String("Harvest-Farmer USDC"),
         tokenAddress, hfVaultAddress, hfStakeAddress, FARMAddress, uniswapRouterAddress, WETHAddress)).not.to.be.revertedWith("Ownable: caller is not the owner")
       // Check if original owner neither can execute admin function nor transfer back ownership
       await expect(vaultFactoryContract.transferOwnership(deployerSigner.address)).to.be.revertedWith("Ownable: caller is not the owner")
       await expect(strategyFactoryContract.transferOwnership(deployerSigner.address)).to.be.revertedWith("Ownable: caller is not the owner")
-      await expect(vaultFactoryContract.createVault(ethers.utils.formatBytes32String("DAOVault Medium-Risk DAI"),
+      await expect(vaultFactoryContract.createVault(ethers.utils.formatBytes32String("DAOVault Medium-Risk USDC"),
         tokenAddress, strategyContract.address)).to.be.revertedWith("Ownable: caller is not the owner")
-      await expect(strategyFactoryContract.createStrategy(ethers.utils.formatBytes32String("Harvest-Farmer DAI"),
+      await expect(strategyFactoryContract.createStrategy(ethers.utils.formatBytes32String("Harvest-Farmer USDC"),
         tokenAddress, hfVaultAddress, hfStakeAddress, FARMAddress, uniswapRouterAddress, WETHAddress)).to.be.revertedWith("Ownable: caller is not the owner")
     })
 
@@ -713,8 +713,8 @@ describe("Harvest-Farmer DAI", () => {
       expect(depositAmount).to.equal(decimals(990))
       const poolAmount = await strategyContract.pool()
       expect(poolAmount).to.equal(decimals(990))
-      // // Execute Harvest Finance earn function
-      // await hfVaultContract.doHardWork()
+      // Execute Harvest Finance earn function
+      await hfVaultContract.doHardWork()
       // Check if corresponding function to be reverted if no vesting
       await expect(vaultContract.refund()).to.be.revertedWith("Not in vesting state")
       await expect(strategyContract.revertVesting()).to.be.revertedWith("Not in vesting state")
@@ -790,8 +790,8 @@ describe("Harvest-Farmer DAI", () => {
       // Deposit into Harvest Farmer Vault contract
       await tokenContract.connect(clientSigner).approve(vaultContract.address, decimals(1000))
       await vaultContract.connect(clientSigner).deposit(decimals(500))
-      // // Execute Harvest Finance earn function
-      // await hfVaultContract.doHardWork()
+      // Execute Harvest Finance earn function
+      await hfVaultContract.doHardWork()
       // Vesting the strategy contract and migrate funds to sample contract
       await strategyContract.vesting()
       await vaultContract.setPendingStrategy(sampleContract.address)

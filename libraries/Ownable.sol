@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Modified from OpenZeppelin OwnableUpgradeable.sol to suite cloned contracts
-pragma solidity 0.8.3;
+pragma solidity 0.7.6;
 
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/Initializable.sol";
 /**
  * @dev Contract module which provides a basic access control mechanism, where
  * there is an account (an owner) that can be granted exclusive access to

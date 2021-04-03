@@ -1,8 +1,8 @@
 require("@nomiclabs/hardhat-waffle");
 require("@nomiclabs/hardhat-etherscan");
+require("@nomiclabs/hardhat-solhint");
 require("hardhat-deploy");
 require("hardhat-deploy-ethers");
-require("@nomiclabs/hardhat-solhint");
 require("dotenv").config();
 
 module.exports = {
@@ -10,7 +10,8 @@ module.exports = {
     hardhat: {
       forking: {
         url: process.env.ALCHEMY_URL_MAINNET,
-        blockNumber: 11960000,
+        // url: process.env.INFURA_URL_MAINNET,
+        blockNumber: 12121212,
       },
     },
     // mainnet: {
