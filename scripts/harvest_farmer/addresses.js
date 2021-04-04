@@ -1,26 +1,31 @@
 const { deployments } = require("hardhat");
 
 async function main() {
-  const yfUSDTContract = await deployments.get("YearnFarmerUSDTv2");
-  const dvmUSDTContract = await deployments.get("DAOVaultMediumUSDT");
-  const yfUSDCContract = await deployments.get("YearnFarmerUSDCv2");
-  const dvmUSDCContract = await deployments.get("DAOVaultMediumUSDC");
-  const yfDAIContract = await deployments.get("YearnFarmerDAIv2");
-  const dvmDAIContract = await deployments.get("DAOVaultMediumDAI");
-  const yfTUSDContract = await deployments.get("YearnFarmerTUSDv2");
-  const dvmTUSDContract = await deployments.get("DAOVaultMediumTUSD");
+  const vaultFactoryContract = await ethers.getContract("DAOVaultFactory")
+  const strategyFactoryContract = await ethers.getContract("HarvestFarmerFactory")
+  const vaultContract = await ethers.getContract("DAOVault")
+  const strategyContract = await ethers.getContract("HarvestFarmer")
 
-  console.log("Yearn-Farmer USDT v2 address: ", yfUSDTContract.address);
-  console.log("DAO Vault Medium USDT address: ", dvmUSDTContract.address);
+  const vault_DAI = await vaultFactoryContract.vaults(0)
+  const vault_USDC = await vaultFactoryContract.vaults(1)
+  const vault_USDT = await vaultFactoryContract.vaults(2)
+
+  console.log("Summary contracts for Harvest Farmer:")
+  console.log("DAOVault Medium-Risk DAI address: ", vault_DAI);
   console.log("");
-  console.log("Yearn-Farmer USDC v2 address: ", yfUSDCContract.address);
-  console.log("DAO Vault Medium USDC address: ", dvmUSDCContract.address);
+  console.log("DAOVault Medium-Risk USDC address: ", vault_USDC);
   console.log("");
-  console.log("Yearn-Farmer DAI v2 address: ", yfDAIContract.address);
-  console.log("DAO Vault Medium DAI address: ", dvmDAIContract.address);
+  console.log("DAOVault Medium-Risk USDT address: ", vault_USDT);
   console.log("");
-  console.log("Yearn-Farmer TUSD v2 address: ", yfTUSDContract.address);
-  console.log("DAO Vault Medium TUSD address: ", dvmTUSDContract.address);
+  console.log("*Strategy addresses can be found in DAOVault strategy()");
+  console.log("");
+  console.log("DAOVault factory address: ", vaultFactoryContract.address)
+  console.log("");
+  console.log("HarvestFarmer factory address: ", strategyFactoryContract.address)
+  console.log("");
+  console.log("DAOVault template address: ", vaultContract.address)
+  console.log("");
+  console.log("HarvestFarmer template address: ", strategyContract.address)
 }
 
 main()
