@@ -152,16 +152,17 @@ contract DAOVault is Initializable, ERC20Upgradeable, OwnableUpgradeable {
             // Tier 1
             _networkFeePercentage = networkFeePercentage[0];
         } else if (
-            _amount >= networkFeeTier2[0] && _amount <= networkFeeTier2[1]
+            _amount <= networkFeeTier2[1]
         ) {
             // Tier 2
             _networkFeePercentage = networkFeePercentage[1];
         } else if (
-            _amount > networkFeeTier2[1] && _amount < customNetworkFeeTier
+            _amount < customNetworkFeeTier
         ) {
             // Tier 3
             _networkFeePercentage = networkFeePercentage[2];
         } else {
+            // Custom Tier
             _networkFeePercentage = customNetworkFeePercentage;
         }
 
