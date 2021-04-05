@@ -151,14 +151,10 @@ contract DAOVault is Initializable, ERC20Upgradeable, OwnableUpgradeable {
         if (_amount < networkFeeTier2[0]) {
             // Tier 1
             _networkFeePercentage = networkFeePercentage[0];
-        } else if (
-            _amount <= networkFeeTier2[1]
-        ) {
+        } else if (_amount <= networkFeeTier2[1]) {
             // Tier 2
             _networkFeePercentage = networkFeePercentage[1];
-        } else if (
-            _amount < customNetworkFeeTier
-        ) {
+        } else if (_amount < customNetworkFeeTier) {
             // Tier 3
             _networkFeePercentage = networkFeePercentage[2];
         } else {
@@ -179,10 +175,10 @@ contract DAOVault is Initializable, ERC20Upgradeable, OwnableUpgradeable {
             _fee.mul(communityFee).div(DENOMINATOR)
         );
 
-        uint256 _shares;
-        _shares = totalSupply() == 0
-            ? _amount
-            : _amount.mul(totalSupply()).div(_pool);
+        uint256 _shares =
+            totalSupply() == 0
+                ? _amount
+                : _amount.mul(totalSupply()).div(_pool);
         _mint(msg.sender, _shares);
     }
 
