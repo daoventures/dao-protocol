@@ -11,6 +11,10 @@ DAOVaultLow: https://github.com/daoventures/dao-protocol/blob/master/docs/DAOVau
 
 Compound-Farmer: https://github.com/daoventures/dao-protocol/blob/master/docs/Compound-Farmer.md
 
+DAOVault: https://github.com/daoventures/dao-protocol/blob/master/docs/DAOVault.md
+
+Harvest-Farmer: https://github.com/daoventures/dao-protocol/blob/master/docs/Harvest-Farmer.md
+
 ## Installation
 Clone the repository and install it.
 ```
@@ -26,12 +30,6 @@ Create an .env file within the folder. Type in `ALCHEMY_URL_MAINNET=https://eth-
 npx hardhat compile
 ```
 
-## Deploy
-```
-npx hardhat deploy --tags hardhat
-```
-> Note: First deploy will take some time.
-
 ## Tests
 ```
 npx hardhat test/<strategy-name>/<test-script>
@@ -39,4 +37,4 @@ npx hardhat test/<strategy-name>/<test-script>
 where
 <\strategy-name> refer to strategy name in test folder
 <\test-script> refer to the script file name contain in strategy name in test folder
-> Note: For the first few test run, you may encounter this error `Error: Timeout of 20000ms exceeded.`. If so, please run again `npx hardhat test`.
+> Note: For the first few test run, you may encounter this error `Error: Timeout of 20000ms exceeded.`. If so, please run again test command above.
