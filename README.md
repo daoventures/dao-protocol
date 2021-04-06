@@ -36,5 +36,5 @@ npx hardhat test/<strategy-name>/<test-script>
 ```
 where
 <\strategy-name> refer to strategy name in test folder
-<\test-script> refer to the script file name contain in strategy name in test folder
+<\test-script> refer to the script file name contain in strategy name folder in test folder
 > Note: For the first few test run, you may encounter this error `Error: Timeout of 20000ms exceeded.`. If so, please run again test command above.
