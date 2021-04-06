@@ -10,9 +10,9 @@ import "@openzeppelin/contracts-upgradeable/proxy/Initializable.sol";
 import "../../libraries/Ownable.sol";
 
 /**
- * New strategy contract must utilize ERC20 and with functions below:
+ * New strategy contract must have functions below:
  *
- * In constructor, _setupDecimals(decimals) follow token decimals
+ * Global variable pool
  *
  * function deposit(uint256 _amount)
  * -> require msg.sender == Vault
@@ -45,7 +45,6 @@ contract DAOVault is Initializable, ERC20Upgradeable, OwnableUpgradeable {
     bool public canSetPendingStrategy;
     uint256 public unlockTime;
     uint256 public constant LOCKTIME = 2 days;
-    uint256 private constant MAX_UNIT = 2**256 - 2;
 
     // Calculation for fees
     uint256[] public networkFeeTier2;
@@ -95,6 +94,14 @@ contract DAOVault is Initializable, ERC20Upgradeable, OwnableUpgradeable {
         _;
     }
 
+    /**
+     * @notice Replace constructor function in clone contract
+     * @dev modifier initializer: only allow run this function once
+     * @param _vaultName Name of this vault contract
+     * @param _token Token that vault accept and interact with strategy
+     * @param _strategy Strategy contract that vault interact with
+     * @param _owner Owner of this vault contract
+     */
     function init(
         bytes32 _vaultName,
         address _token,
@@ -117,7 +124,7 @@ contract DAOVault is Initializable, ERC20Upgradeable, OwnableUpgradeable {
         treasuryWallet = 0x59E83877bD248cBFe392dbB5A8a29959bcb48592;
         communityWallet = 0xdd6c35aFF646B2fB7d8A8955Ccbe0994409348d0;
 
-        token.safeApprove(address(strategy), MAX_UNIT);
+        token.safeApprove(address(strategy), type(uint256).max);
     }
 
     /**
@@ -146,7 +153,7 @@ contract DAOVault is Initializable, ERC20Upgradeable, OwnableUpgradeable {
          * which mean network fee for Tier 1 = 1%, Tier 2 = 0.75%, Tier 3 = 0.5%
          *
          * customNetworkFeeTier is treat as tier 4
-         * customNetworkFeePercentage will be used in tier 4
+         * customNetworkFeePercentage will be used in customNetworkFeeTier
          */
         if (_amount < networkFeeTier2[0]) {
             // Tier 1
@@ -193,7 +200,7 @@ contract DAOVault is Initializable, ERC20Upgradeable, OwnableUpgradeable {
         uint256 _shares = _amount.mul(totalSupply()).div(strategy.pool());
         require(balanceOf(tx.origin) >= _shares, "Insufficient balance");
 
-        strategy.withdraw(_amount); // gas: 396024
+        strategy.withdraw(_amount);
         _burn(msg.sender, _shares);
     }
 
@@ -232,7 +239,7 @@ contract DAOVault is Initializable, ERC20Upgradeable, OwnableUpgradeable {
 
     /**
      * @notice Set network fee tier
-     * @notice Details for network fee tier can view at deposit() function below
+     * @notice Details for network fee tier can view at deposit() function above
      * @param _networkFeeTier2  Array [tier2 minimun, tier2 maximun], view additional info below
      * Requirements:
      * - Only owner of this contract can call this function
@@ -262,7 +269,6 @@ contract DAOVault is Initializable, ERC20Upgradeable, OwnableUpgradeable {
     /**
      * @notice Set custom network fee tier
      * @param _customNetworkFeeTier Integar
-     * @dev Custom network fee tier is treat as tier 4. Please check networkFeeTier[1] before set.
      * Requirements:
      * - Only owner of this contract can call this function
      * - Custom network fee tier must greater than maximun amount of network fee tier 2
@@ -286,7 +292,7 @@ contract DAOVault is Initializable, ERC20Upgradeable, OwnableUpgradeable {
 
     /**
      * @notice Set network fee in percentage
-     * @notice Details for network fee percentage can view at deposit() function below
+     * @notice Details for network fee percentage can view at deposit() function above
      * @param _networkFeePercentage An array of integer, view additional info below
      * Requirements:
      * - Only owner of this contract can call this function
@@ -383,7 +389,7 @@ contract DAOVault is Initializable, ERC20Upgradeable, OwnableUpgradeable {
      * - Only owner of this contract call this function
      */
     function unlockMigrateFunds() external onlyOwner {
-        unlockTime = block.timestamp + LOCKTIME;
+        unlockTime = block.timestamp.add(LOCKTIME);
         canSetPendingStrategy = false;
     }
 
@@ -397,7 +403,7 @@ contract DAOVault is Initializable, ERC20Upgradeable, OwnableUpgradeable {
     function migrateFunds() external onlyOwner {
         require(
             unlockTime <= block.timestamp &&
-                unlockTime + 1 days >= block.timestamp,
+                unlockTime.add(1 days) >= block.timestamp,
             "Function locked"
         );
         require(

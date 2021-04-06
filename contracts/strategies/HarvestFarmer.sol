@@ -30,7 +30,6 @@ contract HarvestFarmer is OwnableUpgradeable {
     IFARM public FARM;
     IUniswapV2Router02 public uniswapRouter;
     address public WETH;
-    uint256 private constant MAX_UNIT = 2**256 - 2;
     bool public isVesting;
     uint256 public pool;
 
@@ -62,6 +61,18 @@ contract HarvestFarmer is OwnableUpgradeable {
         _;
     }
 
+    /**
+     * @notice Replace constructor function in clone contract
+     * @dev modifier initializer: only allow run this function once
+     * @param _strategyName Name of this strategy contract
+     * @param _token Token to utilize
+     * @param _hfVault Harvest Finance vault contract for _token
+     * @param _hfStake Harvest Finance stake contract for _hfVault
+     * @param _FARM FARM token contract
+     * @param _uniswapRouter Uniswap Router contract that implement swap
+     * @param _WETH WETH token contract
+     * @param _owner Owner of this strategy contract
+     */
     function init(
         bytes32 _strategyName, address _token, address _hfVault, address _hfStake, address _FARM, address _uniswapRouter, address _WETH, address _owner
     ) external initializer {
@@ -81,8 +92,8 @@ contract HarvestFarmer is OwnableUpgradeable {
         communityWallet = 0xdd6c35aFF646B2fB7d8A8955Ccbe0994409348d0;
         profileSharingFeePercentage = 1000;
         
-        token.safeApprove(address(hfVault), MAX_UNIT);
-        hfVault.safeApprove(address(hfStake), MAX_UNIT);
+        token.safeApprove(address(hfVault), type(uint256).max);
+        hfVault.safeApprove(address(hfStake), type(uint256).max);
     }
 
     /**
@@ -131,7 +142,7 @@ contract HarvestFarmer is OwnableUpgradeable {
      * - Only owner of this contract can call this function
      * - Amount set must less than 3000 (30%)
      */
-    function setProfileSharingFeePercentage(uint256 _percentage) public onlyOwner {
+    function setProfileSharingFeePercentage(uint256 _percentage) external onlyOwner {
         require(_percentage < 3000, "Profile sharing fee percentage cannot be more than 30%");
 
         uint256 oldProfileSharingFeePercentage = profileSharingFeePercentage;
@@ -140,7 +151,7 @@ contract HarvestFarmer is OwnableUpgradeable {
     }
 
     /**
-     * @notice Set amount out minimum percentage for swap COMP token in Uniswap
+     * @notice Set amount out minimum percentage for swap FARM token in Uniswap
      * @param _percentage Integar (100 = 1%)
      * Requirements:
      * - Only owner of this contract can call this function
@@ -153,7 +164,7 @@ contract HarvestFarmer is OwnableUpgradeable {
     }
 
     /**
-     * @notice Set deadline for swap COMP token in Uniswap
+     * @notice Set deadline for swap FARM token in Uniswap
      * @param _seconds Integar
      * Requirements:
      * - Only owner of this contract can call this function
@@ -169,8 +180,8 @@ contract HarvestFarmer is OwnableUpgradeable {
      * @notice Deposit token into Harvest Finance Vault
      * @param _amount Amount of token to deposit
      * Requirements:
-     * - This contract is not in vesting state
      * - Only Vault can call this function
+     * - This contract is not in vesting state
      */
     function deposit(uint256 _amount) external onlyVault notVesting {
         token.safeTransferFrom(msg.sender, address(this), _amount);
@@ -185,9 +196,9 @@ contract HarvestFarmer is OwnableUpgradeable {
      * @notice Withdraw token from Harvest Finance Vault, exchange distributed FARM token to token same as deposit token
      * @param _amount amount of token to withdraw
      * Requirements:
-     * - This contract is not in vesting state
      * - Only Vault can call this function
-     * - Amount of withdraw must lesser than or equal to amount of deposit
+     * - This contract is not in vesting state
+     * - Amount of withdraw must lesser than or equal to total amount of deposit
      */
     function withdraw(uint256 _amount) external onlyVault notVesting {
         // Claim distributed FARM token and calculate sender portion
@@ -232,7 +243,7 @@ contract HarvestFarmer is OwnableUpgradeable {
     }
 
     /**
-     * @notice Vesting this contract, withdraw all token from Compound and claim all distributed COMP token
+     * @notice Vesting this contract, withdraw all token from Harvest Finance and claim all FARM token
      * @notice Disabled the deposit and withdraw functions for public, only allowed users to do refund from this contract
      * Requirements:
      * - Only owner of this contract can call this function
@@ -287,8 +298,8 @@ contract HarvestFarmer is OwnableUpgradeable {
      * @notice Refund all token including profit based on daoToken hold by sender
      * @notice Only available after contract in vesting state
      * Requirements:
-     * - This contract is in vesting state
      * - Only Vault can call this function
+     * - This contract is in vesting state
      */
     function refund(uint256 _shares) external onlyVault {
         require(isVesting, "Not in vesting state");
@@ -328,10 +339,16 @@ contract HarvestFarmer is OwnableUpgradeable {
         require(isVesting, "Not in vesting state");
 
         if (token.allowance(address(this), address(daoVault)) == 0) {
-            token.safeApprove(address(daoVault), MAX_UNIT);
+            token.safeApprove(address(daoVault), type(uint256).max);
         }
     }
 
+    /**
+     * @notice Reuse this contract after vesting and funds migrated
+     * @dev Use this function only for fallback reason(new strategy failed)
+     * Requirements:
+     * - Only owner of this contract can call this function
+     */
     function reuseContract() external onlyOwner {
         pool = token.balanceOf(address(this));
         revertVesting();

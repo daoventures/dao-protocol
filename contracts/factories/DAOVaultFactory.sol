@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/proxy/Clones.sol";
 
 import "../vaults/DAOVault.sol";
 
+/// @title Contract to create standard vault
 contract DAOVaultFactory is Ownable {
     DAOVault[] public vaults;
     address public vaultTemplate;
@@ -14,6 +15,12 @@ contract DAOVaultFactory is Ownable {
         vaultTemplate = _vaultTemplate;
     }
 
+    /**
+     * @notice Create new standard vault
+     * @param _vaultName Name of vault to create
+     * @param _token Token that vault accept and interact with strategy
+     * @param _strategy Strategy contract that vault interact with
+     */
     function createVault(
         bytes32 _vaultName,
         address _token,

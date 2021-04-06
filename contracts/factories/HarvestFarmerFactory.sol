@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/proxy/Clones.sol";
 
 import "../strategies/HarvestFarmer.sol";
 
+/// @title Contract to create Harvest-Farmer strategy
 contract HarvestFarmerFactory is Ownable {
     HarvestFarmer[] public strategies;
     address public strategyTemplate;
@@ -14,6 +15,16 @@ contract HarvestFarmerFactory is Ownable {
         strategyTemplate = _strategyTemplate;
     }
 
+    /**
+     * @notice Create new Harvest-Farmer strategy
+     * @param _strategyName Name of strategy to create
+     * @param _token Token that strategy accept and utilize
+     * @param _hfVault Harvest Finance vault contract for _token
+     * @param _hfStake Harvest Finance stake contract for _hfVault
+     * @param _FARM FARM token contract
+     * @param _uniswapRouter Uniswap Router contract that implement swap
+     * @param _WETH WETH token contract
+     */
     function createStrategy(
         bytes32 _strategyName,
         address _token,
@@ -23,8 +34,7 @@ contract HarvestFarmerFactory is Ownable {
         address _uniswapRouter,
         address _WETH
     ) external onlyOwner {
-        HarvestFarmer strategy =
-            HarvestFarmer(Clones.clone(strategyTemplate));
+        HarvestFarmer strategy = HarvestFarmer(Clones.clone(strategyTemplate));
         strategy.init(
             _strategyName,
             _token,
