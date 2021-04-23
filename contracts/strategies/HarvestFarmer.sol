@@ -86,7 +86,7 @@ contract HarvestFarmer is OwnableUpgradeable {
         uniswapRouter = IUniswapV2Router02(_uniswapRouter);
         WETH = _WETH;
 
-        amountOutMinPerc = 9500;
+        amountOutMinPerc = 0; // Set 0 to prevent transaction failed if FARM token price drop sharply and cause high slippage
         deadline = 20 minutes;
         treasuryWallet = 0x59E83877bD248cBFe392dbB5A8a29959bcb48592;
         communityWallet = 0xdd6c35aFF646B2fB7d8A8955Ccbe0994409348d0;
