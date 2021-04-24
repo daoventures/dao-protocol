@@ -29,8 +29,6 @@ import "../../libraries/Ownable.sol";
  */
 import "../../interfaces/IStrategy2.sol";
 
-import "hardhat/console.sol";
-
 /// @title Contract to interact between user and strategy, and distribute daoToken
 contract DAOVault is Initializable, ERC20Upgradeable, OwnableUpgradeable {
     using SafeERC20Upgradeable for IERC20Upgradeable;

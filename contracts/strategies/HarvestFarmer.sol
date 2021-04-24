@@ -13,8 +13,6 @@ import "../../interfaces/IDAOVault2.sol";
 import "../../interfaces/IFARM.sol";
 import "../../interfaces/IUniswapV2Router02.sol";
 
-import "hardhat/console.sol";
-
 /// @title Contract for yield token with Harvest Finance and utilize FARM token
 contract HarvestFarmer is OwnableUpgradeable {
     using SafeERC20Upgradeable for IERC20Upgradeable;
