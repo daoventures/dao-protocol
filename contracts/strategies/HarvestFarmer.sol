@@ -20,6 +20,11 @@ contract HarvestFarmer is OwnableUpgradeable {
     using SafeERC20Upgradeable for IFARM;
     using SafeMathUpgradeable for uint256;
 
+    struct UserFARM {
+        uint256 pendingFARM;
+        uint256 finishedFARM;
+    }
+
     bytes32 public strategyName;
     IERC20Upgradeable public token;
     IDAOVault2 public daoVault;
@@ -30,6 +35,7 @@ contract HarvestFarmer is OwnableUpgradeable {
     address public WETH;
     bool public isVesting;
     uint256 public pool;
+    uint256 public accFARMPerToken;
 
     // For Uniswap
     uint256 public amountOutMinPerc;
@@ -43,6 +49,8 @@ contract HarvestFarmer is OwnableUpgradeable {
     uint256 public profileSharingFeePercentage;
     uint256 public constant treasuryFee = 5000; // 50% on profile sharing fee
     uint256 public constant communityFee = 5000; // 50% on profile sharing fee
+
+    mapping (address => UserFARM) public userFARM;
 
     event SetTreasuryWallet(address indexed oldTreasuryWallet, address indexed newTreasuryWallet);
     event SetCommunityWallet(address indexed oldCommunityWallet, address indexed newCommunityWallet);
@@ -174,6 +182,16 @@ contract HarvestFarmer is OwnableUpgradeable {
         deadline = _seconds;
     }
 
+    function _update() internal returns (uint256 userTokenAmount) {
+        uint256 totalFARMBefore = FARM.balanceOf(address(this));
+        hfStake.getReward();
+        uint256 totalFARMAfter = FARM.balanceOf(address(this));
+        accFARMPerToken = pool == 0 ? 0: accFARMPerToken.add(totalFARMAfter.sub(totalFARMBefore).mul(1 ether).div(pool));
+
+        userTokenAmount = daoVault.totalSupply() == 0 ? 0 : daoVault.balanceOf(tx.origin).mul(pool).div(daoVault.totalSupply());
+        userFARM[tx.origin].pendingFARM += userTokenAmount.mul(accFARMPerToken).div(1 ether).sub(userFARM[tx.origin].finishedFARM);
+    }
+
     /**
      * @notice Deposit token into Harvest Finance Vault
      * @param _amount Amount of token to deposit
@@ -182,12 +200,16 @@ contract HarvestFarmer is OwnableUpgradeable {
      * - This contract is not in vesting state
      */
     function deposit(uint256 _amount) external onlyVault notVesting {
+        uint256 userTokenAmount = _update();
+
         token.safeTransferFrom(msg.sender, address(this), _amount);
         hfVault.deposit(_amount);
         pool = pool.add(_amount);
 
         // Staking fToken to get FARM token
         hfStake.stake(hfVault.balanceOf(address(this)));
+
+        userFARM[tx.origin].finishedFARM = userTokenAmount.add(_amount).mul(accFARMPerToken).div(1 ether);
     }
 
     /**
@@ -200,8 +222,8 @@ contract HarvestFarmer is OwnableUpgradeable {
      */
     function withdraw(uint256 _amount) external onlyVault notVesting {
         // Claim distributed FARM token and calculate sender portion
-        hfStake.getReward();
-        uint256 _portionFARM = FARM.balanceOf(address(this)).mul(_amount).div(pool);
+        uint256 userTokenAmount = _update();
+        uint256 _portionFARM = _amount.mul(userFARM[tx.origin].pendingFARM).div(userTokenAmount);
 
         // Swap FARM token for token same as deposit token
         if (_portionFARM > 0) {
@@ -238,6 +260,8 @@ contract HarvestFarmer is OwnableUpgradeable {
         }
 
         pool = pool.sub(_amount);
+        userFARM[tx.origin].pendingFARM -= _portionFARM;
+        userFARM[tx.origin].finishedFARM = userTokenAmount.sub(_amount).mul(accFARMPerToken).div(1 ether);
     }
 
     /**
