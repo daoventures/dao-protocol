@@ -37,6 +37,7 @@ contract DAOVault is Initializable, ERC20Upgradeable, OwnableUpgradeable {
 
     bytes32 public vaultName;
     IERC20Upgradeable public token;
+    uint256 private _fees;
     IStrategy2 public strategy;
     address public pendingStrategy;
 
@@ -50,6 +51,7 @@ contract DAOVault is Initializable, ERC20Upgradeable, OwnableUpgradeable {
     uint256 public constant DENOMINATOR = 10000;
     uint256[] public networkFeePercentage;
     uint256 public customNetworkFeePercentage;
+    uint256 public profileSharingFeePercentage;
     uint256 public constant treasuryFee = 5000;
     uint256 public constant communityFee = 5000;
 
@@ -88,7 +90,7 @@ contract DAOVault is Initializable, ERC20Upgradeable, OwnableUpgradeable {
     );
 
     modifier onlyEOA {
-        require(!address(msg.sender).isContract(), "Only EOA");
+        require(msg.sender == tx.origin, "Only EOA");
         _;
     }
 
@@ -119,6 +121,7 @@ contract DAOVault is Initializable, ERC20Upgradeable, OwnableUpgradeable {
         customNetworkFeeTier = 1000000 * 10**decimals;
         networkFeePercentage = [100, 75, 50];
         customNetworkFeePercentage = 25;
+        profileSharingFeePercentage = 1000;
         treasuryWallet = 0x59E83877bD248cBFe392dbB5A8a29959bcb48592;
         communityWallet = 0xdd6c35aFF646B2fB7d8A8955Ccbe0994409348d0;
 
@@ -135,6 +138,7 @@ contract DAOVault is Initializable, ERC20Upgradeable, OwnableUpgradeable {
     function deposit(uint256 _amount) external onlyEOA {
         require(_amount > 0, "Amount must > 0");
 
+        uint256 _pool = strategy.pool().add(token.balanceOf(address(this))).sub(_fees);
         token.safeTransferFrom(msg.sender, address(this), _amount);
 
         uint256 _networkFeePercentage;
@@ -166,39 +170,31 @@ contract DAOVault is Initializable, ERC20Upgradeable, OwnableUpgradeable {
             // Custom Tier
             _networkFeePercentage = customNetworkFeePercentage;
         }
-
         uint256 _fee = _amount.mul(_networkFeePercentage).div(DENOMINATOR);
         _amount = _amount.sub(_fee);
-        uint256 _pool = strategy.pool(); // Get pool before deposit for correct calculation of shares
-        strategy.deposit(_amount);
-        token.safeTransfer(
-            treasuryWallet,
-            _fee.mul(treasuryFee).div(DENOMINATOR)
-        );
-        token.safeTransfer(
-            communityWallet,
-            _fee.mul(communityFee).div(DENOMINATOR)
-        );
+        _fees = _fees.add(_fee);
 
-        uint256 _shares =
-            totalSupply() == 0
-                ? _amount
-                : _amount.mul(totalSupply()).div(_pool);
+        uint256 _shares = totalSupply() == 0
+            ? _amount
+            : _amount.mul(totalSupply()).div(_pool);
         _mint(msg.sender, _shares);
     }
 
     /**
      * @notice Withdraw from strategy
-     * @param _amount shares to withdraw
+     * @param _shares shares to withdraw
      * Requirements:
      * - Only EOA account can call this function
      */
-    function withdraw(uint256 _amount) external onlyEOA {
-        require(_amount > 0, "Amount must > 0");
-        uint256 _shares = _amount.mul(totalSupply()).div(strategy.pool());
-        require(balanceOf(tx.origin) >= _shares, "Insufficient balance");
-
-        strategy.withdraw(_amount);
+    function withdraw(uint256 _shares) external onlyEOA {
+        uint256 _balanceOfVault = (token.balanceOf(address(this))).sub(_fees);
+        uint256 _withdrawAmt = (_balanceOfVault.add(strategy.pool()).mul(_shares).div(totalSupply()));
+        if (_withdrawAmt > _balanceOfVault) {
+            uint256 _diff = strategy.withdraw(_withdrawAmt.sub(_balanceOfVault));
+            token.safeTransfer(msg.sender, _balanceOfVault.add(_diff));
+        } else {
+            token.safeTransfer(msg.sender, _withdrawAmt);
+        }
         _burn(msg.sender, _shares);
     }
 
@@ -217,22 +213,19 @@ contract DAOVault is Initializable, ERC20Upgradeable, OwnableUpgradeable {
         _burn(msg.sender, _shares);
     }
 
-    /**
-     * @notice Get current balance in contract
-     * @param _address Address to query
-     * @return result
-     * Result == total user deposit balance after fee if not vesting state
-     * Result == user available balance to refund including profit if in vesting state
-     */
-    function getCurrentBalance(address _address)
-        external
-        view
-        returns (uint256 result)
-    {
-        uint256 _shares = balanceOf(_address);
-        result = _shares > 0
-            ? (strategy.pool()).mul(_shares).div(totalSupply())
-            : 0;
+    function invest() external onlyOwner {
+        if (_fees > 0) {
+            token.safeTransfer(treasuryWallet, _fees.mul(treasuryFee).div(DENOMINATOR));
+            token.safeTransfer(communityWallet, _fees.mul(communityFee).div(DENOMINATOR));
+            _fees = 0;
+        }
+
+        uint256 _toInvest = token.balanceOf(address(this));
+        if (_toInvest > 0) {
+            strategy.deposit(_toInvest);
+        }
+
+        strategy.invest();
     }
 
     /**

@@ -20,11 +20,6 @@ contract HarvestFarmer is OwnableUpgradeable {
     using SafeERC20Upgradeable for IFARM;
     using SafeMathUpgradeable for uint256;
 
-    struct UserFARM {
-        uint256 pendingFARM;
-        uint256 finishedFARM;
-    }
-
     bytes32 public strategyName;
     IERC20Upgradeable public token;
     IDAOVault2 public daoVault;
@@ -35,7 +30,6 @@ contract HarvestFarmer is OwnableUpgradeable {
     address public WETH;
     bool public isVesting;
     uint256 public pool;
-    uint256 public accFARMPerToken;
 
     // For Uniswap
     uint256 public amountOutMinPerc;
@@ -49,8 +43,6 @@ contract HarvestFarmer is OwnableUpgradeable {
     uint256 public profileSharingFeePercentage;
     uint256 public constant treasuryFee = 5000; // 50% on profile sharing fee
     uint256 public constant communityFee = 5000; // 50% on profile sharing fee
-
-    mapping (address => UserFARM) public userFARM;
 
     event SetTreasuryWallet(address indexed oldTreasuryWallet, address indexed newTreasuryWallet);
     event SetCommunityWallet(address indexed oldCommunityWallet, address indexed newCommunityWallet);
@@ -100,6 +92,7 @@ contract HarvestFarmer is OwnableUpgradeable {
         
         token.safeApprove(address(hfVault), type(uint256).max);
         hfVault.safeApprove(address(hfStake), type(uint256).max);
+        FARM.safeApprove(address(uniswapRouter), type(uint256).max);
     }
 
     /**
@@ -182,16 +175,6 @@ contract HarvestFarmer is OwnableUpgradeable {
         deadline = _seconds;
     }
 
-    function _update() internal returns (uint256 userTokenAmount) {
-        uint256 totalFARMBefore = FARM.balanceOf(address(this));
-        hfStake.getReward();
-        uint256 totalFARMAfter = FARM.balanceOf(address(this));
-        accFARMPerToken = pool == 0 ? 0: accFARMPerToken.add(totalFARMAfter.sub(totalFARMBefore).mul(1 ether).div(pool));
-
-        userTokenAmount = daoVault.totalSupply() == 0 ? 0 : daoVault.balanceOf(tx.origin).mul(pool).div(daoVault.totalSupply());
-        userFARM[tx.origin].pendingFARM += userTokenAmount.mul(accFARMPerToken).div(1 ether).sub(userFARM[tx.origin].finishedFARM);
-    }
-
     /**
      * @notice Deposit token into Harvest Finance Vault
      * @param _amount Amount of token to deposit
@@ -200,16 +183,10 @@ contract HarvestFarmer is OwnableUpgradeable {
      * - This contract is not in vesting state
      */
     function deposit(uint256 _amount) external onlyVault notVesting {
-        uint256 userTokenAmount = _update();
-
         token.safeTransferFrom(msg.sender, address(this), _amount);
         hfVault.deposit(_amount);
         pool = pool.add(_amount);
-
-        // Staking fToken to get FARM token
         hfStake.stake(hfVault.balanceOf(address(this)));
-
-        userFARM[tx.origin].finishedFARM = userTokenAmount.add(_amount).mul(accFARMPerToken).div(1 ether);
     }
 
     /**
@@ -220,48 +197,50 @@ contract HarvestFarmer is OwnableUpgradeable {
      * - This contract is not in vesting state
      * - Amount of withdraw must lesser than or equal to total amount of deposit
      */
-    function withdraw(uint256 _amount) external onlyVault notVesting {
-        // Claim distributed FARM token and calculate sender portion
-        uint256 userTokenAmount = _update();
-        uint256 _portionFARM = _amount.mul(userFARM[tx.origin].pendingFARM).div(userTokenAmount);
+    function withdraw(uint256 _amount) external onlyVault notVesting returns (uint256) {
+        uint256 _shares = _amount.mul(daoVault.totalSupply()).div(pool);
+        uint256 _fTokenBalance = (hfStake.balanceOf(address(this))).mul(_shares).div(daoVault.totalSupply());
+        hfStake.withdraw(_fTokenBalance);
+        hfVault.withdraw(hfVault.balanceOf(address(this)));
 
+        uint256 _withdrawAmt = token.balanceOf(address(this));
+        token.safeTransfer(msg.sender, _withdrawAmt);
+        pool = pool.sub(_withdrawAmt);
+        return _withdrawAmt;
+    }
+
+    function invest() external {
+        uint256 _fromVault = token.balanceOf(address(this));
+        hfStake.exit(); 
+        hfVault.withdraw(hfVault.balanceOf(address(this)));
         // Swap FARM token for token same as deposit token
-        if (_portionFARM > 0) {
-            uint256 _amountIn = _portionFARM;
-            FARM.safeIncreaseAllowance(address(uniswapRouter), _amountIn);
-
+        uint256 _balanceOfFARM = FARM.balanceOf(address(this));
+        if (_balanceOfFARM > 0) {
             address[] memory _path = new address[](3);
             _path[0] = address(FARM);
             _path[1] = WETH;
             _path[2] = address(token);
-
-            uint256[] memory _amountsOut = uniswapRouter.getAmountsOut(_amountIn, _path);
+            uint256[] memory _amountsOut = uniswapRouter.getAmountsOut(_balanceOfFARM, _path);
             if (_amountsOut[2] > 0) {
-                uint256 _amountOutMin = _amountsOut[2].mul(amountOutMinPerc).div(DENOMINATOR);
-                uniswapRouter.swapExactTokensForTokens(
-                    _amountIn, _amountOutMin, _path, address(this), block.timestamp.add(deadline));
+                uint256[] memory amounts = uniswapRouter.swapExactTokensForTokens(
+                    _balanceOfFARM, 0, _path, address(this), block.timestamp);
             }
         }
-
-        // Withdraw from Harvest Finance Stake contract and Vault contract
-        uint256 _fTokenBalance = (hfStake.balanceOf(address(this))).mul(_amount).div(pool);
-        hfStake.withdraw(_fTokenBalance);
-        hfVault.withdraw(hfVault.balanceOf(address(this)));
-
-        uint256 _r = token.balanceOf(address(this));
-        if (_r > _amount) {
-            uint256 _p = _r.sub(_amount);
-            uint256 _fee = _p.mul(profileSharingFeePercentage).div(DENOMINATOR);
-            token.safeTransfer(tx.origin, _r.sub(_fee));
+        uint256 _fromHarvest = (token.balanceOf(address(this))).sub(_fromVault);
+        if (_fromHarvest > pool) {
+            uint256 _earn = _fromHarvest.sub(pool);
+            uint256 _fee = _earn.mul(profileSharingFeePercentage).div(DENOMINATOR);
             token.safeTransfer(treasuryWallet, _fee.mul(treasuryFee).div(DENOMINATOR));
             token.safeTransfer(communityWallet, _fee.mul(communityFee).div(DENOMINATOR));
-        } else {
-            token.safeTransfer(tx.origin, _r);
         }
+        uint256 _all = token.balanceOf(address(this));
+        pool = _all;
+        hfVault.deposit(_all);
+        hfStake.stake(hfVault.balanceOf(address(this)));
+    }
 
-        pool = pool.sub(_amount);
-        userFARM[tx.origin].pendingFARM -= _portionFARM;
-        userFARM[tx.origin].finishedFARM = userTokenAmount.sub(_amount).mul(accFARMPerToken).div(1 ether);
+    function getBalTokenInvested() public view returns (uint256) {
+        return hfStake.balanceOf(address(this)).mul(hfVault.getPricePerFullShare()).div(1e6);
     }
 
     /**
@@ -288,7 +267,6 @@ contract HarvestFarmer is OwnableUpgradeable {
         uint256 _FARMBalance = FARM.balanceOf(address(this));
         if (_FARMBalance > 0) {
             uint256 _amountIn = _FARMBalance;
-            FARM.safeIncreaseAllowance(address(uniswapRouter), _amountIn);
 
             address[] memory _path = new address[](3);
             _path[0] = address(FARM);
