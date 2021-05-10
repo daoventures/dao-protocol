@@ -33,7 +33,6 @@ contract HarvestFarmer is OwnableUpgradeable {
 
     // For Uniswap
     uint256 public amountOutMinPerc;
-    uint256 public deadline;
 
     // Address to collect fees
     address public treasuryWallet;
@@ -85,7 +84,6 @@ contract HarvestFarmer is OwnableUpgradeable {
         WETH = _WETH;
 
         amountOutMinPerc = 0; // Set 0 to prevent transaction failed if FARM token price drop sharply and cause high slippage
-        deadline = 20 minutes;
         treasuryWallet = 0x59E83877bD248cBFe392dbB5A8a29959bcb48592;
         communityWallet = 0xdd6c35aFF646B2fB7d8A8955Ccbe0994409348d0;
         profileSharingFeePercentage = 1000;
@@ -163,19 +161,6 @@ contract HarvestFarmer is OwnableUpgradeable {
     }
 
     /**
-     * @notice Set deadline for swap FARM token in Uniswap
-     * @param _seconds Integar
-     * Requirements:
-     * - Only owner of this contract can call this function
-     * - Deadline set must greater than or equal 60 seconds
-     */
-    function setDeadline(uint256 _seconds) external onlyOwner {
-        require(_seconds >= 60, "Deadline < 60 seconds");
-
-        deadline = _seconds;
-    }
-
-    /**
      * @notice Deposit token into Harvest Finance Vault
      * @param _amount Amount of token to deposit
      * Requirements:
@@ -204,16 +189,25 @@ contract HarvestFarmer is OwnableUpgradeable {
         hfVault.withdraw(hfVault.balanceOf(address(this)));
 
         uint256 _withdrawAmt = token.balanceOf(address(this));
-        token.safeTransfer(msg.sender, _withdrawAmt);
         pool = pool.sub(_withdrawAmt);
+
+        if (_withdrawAmt > _amount) {
+            uint256 _p = _withdrawAmt.sub(_amount);
+            uint256 _fee = _p.mul(profileSharingFeePercentage).div(DENOMINATOR);
+            _withdrawAmt = _withdrawAmt.sub(_fee);
+            token.safeTransfer(msg.sender, _withdrawAmt);
+            token.safeTransfer(treasuryWallet, _fee.mul(treasuryFee).div(DENOMINATOR));
+            token.safeTransfer(communityWallet, _fee.mul(communityFee).div(DENOMINATOR));
+        } else {
+            token.safeTransfer(msg.sender, _withdrawAmt);
+        }
         return _withdrawAmt;
     }
 
     function invest() external {
-        uint256 _fromVault = token.balanceOf(address(this));
-        hfStake.exit(); 
-        hfVault.withdraw(hfVault.balanceOf(address(this)));
-        // Swap FARM token for token same as deposit token
+        hfStake.getReward();
+
+        // Swap the rewarded FARM token for token same as deposit token
         uint256 _balanceOfFARM = FARM.balanceOf(address(this));
         if (_balanceOfFARM > 0) {
             address[] memory _path = new address[](3);
@@ -222,25 +216,21 @@ contract HarvestFarmer is OwnableUpgradeable {
             _path[2] = address(token);
             uint256[] memory _amountsOut = uniswapRouter.getAmountsOut(_balanceOfFARM, _path);
             if (_amountsOut[2] > 0) {
-                uint256[] memory amounts = uniswapRouter.swapExactTokensForTokens(
-                    _balanceOfFARM, 0, _path, address(this), block.timestamp);
+                uniswapRouter.swapExactTokensForTokens(_balanceOfFARM, 0, _path, address(this), block.timestamp);
             }
         }
-        uint256 _fromHarvest = (token.balanceOf(address(this))).sub(_fromVault);
-        if (_fromHarvest > pool) {
-            uint256 _earn = _fromHarvest.sub(pool);
+
+        uint256 _earn = token.balanceOf(address(this));
+        if (_earn > 0) {
             uint256 _fee = _earn.mul(profileSharingFeePercentage).div(DENOMINATOR);
+            _earn = _earn.sub(_fee);
             token.safeTransfer(treasuryWallet, _fee.mul(treasuryFee).div(DENOMINATOR));
             token.safeTransfer(communityWallet, _fee.mul(communityFee).div(DENOMINATOR));
-        }
-        uint256 _all = token.balanceOf(address(this));
-        pool = _all;
-        hfVault.deposit(_all);
-        hfStake.stake(hfVault.balanceOf(address(this)));
-    }
 
-    function getBalTokenInvested() public view returns (uint256) {
-        return hfStake.balanceOf(address(this)).mul(hfVault.getPricePerFullShare()).div(1e6);
+            pool = pool.add(_earn);
+            hfVault.deposit(_earn);
+            hfStake.stake(hfVault.balanceOf(address(this)));
+        }
     }
 
     /**
@@ -277,7 +267,7 @@ contract HarvestFarmer is OwnableUpgradeable {
             if (_amountsOut[2] > 0) {
                 uint256 _amountOutMin = _amountsOut[2].mul(amountOutMinPerc).div(DENOMINATOR);
                 uniswapRouter.swapExactTokensForTokens(
-                    _amountIn, _amountOutMin, _path, address(this), block.timestamp.add(deadline));
+                    _amountIn, _amountOutMin, _path, address(this), block.timestamp);
             }
         }
 

@@ -37,10 +37,6 @@ Set new profile sharing fee percentage. Profile sharing fee is collect in withdr
 Set new amount out minimun percentage for Uniswap swap funtion.
 - *Param*: integer (100 = 1%, maximun 9700)
 
-#### function `setDeadline(integar)`
-Set new deadline for Uniswap swap funtion.
-- *Param*: integer (seconds, minimum 60)
-
 #### function `vesting()`
 Make contract in vesting state. Withdraw all balance from Harvest Finance, swap all mined FARM token to underlying token. Block user interaction function `deposit()` and `withdraw()`.
 - *Param*: -

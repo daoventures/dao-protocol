@@ -448,7 +448,6 @@ describe("Harvest-Farmer USDC", () => {
       await expect(strategyContract.connect(clientSigner).setCommunityWallet(clientSigner.address)).to.be.revertedWith("Ownable: caller is not the owner")
       await expect(strategyContract.connect(clientSigner).setProfileSharingFeePercentage(3000)).to.be.revertedWith("Ownable: caller is not the owner")
       await expect(strategyContract.connect(clientSigner).setAmountOutMinPerc(9000)).to.be.revertedWith("Ownable: caller is not the owner")
-      await expect(strategyContract.connect(clientSigner).setDeadline(12000)).to.be.revertedWith("Ownable: caller is not the owner")
       await expect(strategyContract.connect(clientSigner).vesting()).to.be.revertedWith("Ownable: caller is not the owner")
       await expect(strategyContract.connect(clientSigner).revertVesting()).to.be.revertedWith("Ownable: caller is not the owner")
       await expect(strategyContract.connect(clientSigner).approveMigrate()).to.be.revertedWith("Ownable: caller is not the owner")
@@ -473,7 +472,6 @@ describe("Harvest-Farmer USDC", () => {
       await expect(strategyContract.connect(clientSigner).setCommunityWallet(clientSigner.address)).not.to.be.revertedWith("Ownable: caller is not the owner")
       await expect(strategyContract.connect(clientSigner).setProfileSharingFeePercentage(3000)).not.to.be.revertedWith("Ownable: caller is not the owner")
       await expect(strategyContract.connect(clientSigner).setAmountOutMinPerc(9000)).not.to.be.revertedWith("Ownable: caller is not the owner")
-      await expect(strategyContract.connect(clientSigner).setDeadline(12000)).not.to.be.revertedWith("Ownable: caller is not the owner")
       await expect(strategyContract.connect(clientSigner).vesting()).not.to.be.revertedWith("Ownable: caller is not the owner")
       await expect(strategyContract.connect(clientSigner).revertVesting()).not.to.be.revertedWith("Ownable: caller is not the owner")
       await expect(strategyContract.connect(clientSigner).approveMigrate()).not.to.be.revertedWith("Ownable: caller is not the owner")
@@ -493,7 +491,6 @@ describe("Harvest-Farmer USDC", () => {
       await expect(strategyContract.connect(deployerSigner).setCommunityWallet(clientSigner.address)).to.be.revertedWith("Ownable: caller is not the owner")
       await expect(strategyContract.connect(deployerSigner).setProfileSharingFeePercentage(3000)).to.be.revertedWith("Ownable: caller is not the owner")
       await expect(strategyContract.connect(deployerSigner).setAmountOutMinPerc(9000)).to.be.revertedWith("Ownable: caller is not the owner")
-      await expect(strategyContract.connect(deployerSigner).setDeadline(12000)).to.be.revertedWith("Ownable: caller is not the owner")
       await expect(strategyContract.connect(deployerSigner).vesting()).to.be.revertedWith("Ownable: caller is not the owner")
       await expect(strategyContract.connect(deployerSigner).revertVesting()).to.be.revertedWith("Ownable: caller is not the owner")
       await expect(strategyContract.connect(deployerSigner).approveMigrate()).to.be.revertedWith("Ownable: caller is not the owner")
@@ -646,16 +643,6 @@ describe("Harvest-Farmer USDC", () => {
       await strategyContract.setAmountOutMinPerc(8000)
       // Check if new amount out minimum percentage set correctly
       expect(await strategyContract.amountOutMinPerc()).to.equal(8000)
-    })
-
-    it("should set deadline on Uniswap swap function correctly in strategy contract", async () => {
-      const { strategyContract } = await setup()
-      // Check if meet the requirements
-      await expect(strategyContract.setDeadline(1)).to.be.revertedWith("Deadline < 60 seconds")
-      // Check if able to set new deadline
-      await strategyContract.setDeadline(300)
-      // Check if new amount out minimum percentage set correctly
-      expect(await strategyContract.deadline()).to.equal(300)
     })
 
     it("should able to set pending strategy, migrate funds and set new strategy correctly in vault contract", async () => {
