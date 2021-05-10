@@ -189,25 +189,16 @@ contract HarvestFarmer is OwnableUpgradeable {
         hfVault.withdraw(hfVault.balanceOf(address(this)));
 
         uint256 _withdrawAmt = token.balanceOf(address(this));
+        token.safeTransfer(msg.sender, _withdrawAmt);
         pool = pool.sub(_withdrawAmt);
-
-        if (_withdrawAmt > _amount) {
-            uint256 _p = _withdrawAmt.sub(_amount);
-            uint256 _fee = _p.mul(profileSharingFeePercentage).div(DENOMINATOR);
-            _withdrawAmt = _withdrawAmt.sub(_fee);
-            token.safeTransfer(msg.sender, _withdrawAmt);
-            token.safeTransfer(treasuryWallet, _fee.mul(treasuryFee).div(DENOMINATOR));
-            token.safeTransfer(communityWallet, _fee.mul(communityFee).div(DENOMINATOR));
-        } else {
-            token.safeTransfer(msg.sender, _withdrawAmt);
-        }
         return _withdrawAmt;
     }
 
     function invest() external {
-        hfStake.getReward();
-
-        // Swap the rewarded FARM token for token same as deposit token
+        uint256 _fromVault = token.balanceOf(address(this));
+        hfStake.exit(); 
+        hfVault.withdraw(hfVault.balanceOf(address(this)));
+        // Swap FARM token for token same as deposit token
         uint256 _balanceOfFARM = FARM.balanceOf(address(this));
         if (_balanceOfFARM > 0) {
             address[] memory _path = new address[](3);
@@ -216,21 +207,21 @@ contract HarvestFarmer is OwnableUpgradeable {
             _path[2] = address(token);
             uint256[] memory _amountsOut = uniswapRouter.getAmountsOut(_balanceOfFARM, _path);
             if (_amountsOut[2] > 0) {
-                uniswapRouter.swapExactTokensForTokens(_balanceOfFARM, 0, _path, address(this), block.timestamp);
+                uniswapRouter.swapExactTokensForTokens(
+                    _balanceOfFARM, 0, _path, address(this), block.timestamp);
             }
         }
-
-        uint256 _earn = token.balanceOf(address(this));
-        if (_earn > 0) {
+        uint256 _fromHarvest = (token.balanceOf(address(this))).sub(_fromVault);
+        if (_fromHarvest > pool) {
+            uint256 _earn = _fromHarvest.sub(pool);
             uint256 _fee = _earn.mul(profileSharingFeePercentage).div(DENOMINATOR);
-            _earn = _earn.sub(_fee);
             token.safeTransfer(treasuryWallet, _fee.mul(treasuryFee).div(DENOMINATOR));
             token.safeTransfer(communityWallet, _fee.mul(communityFee).div(DENOMINATOR));
-
-            pool = pool.add(_earn);
-            hfVault.deposit(_earn);
-            hfStake.stake(hfVault.balanceOf(address(this)));
         }
+        uint256 _all = token.balanceOf(address(this));
+        pool = _all;
+        hfVault.deposit(_all);
+        hfStake.stake(hfVault.balanceOf(address(this)));
     }
 
     /**
