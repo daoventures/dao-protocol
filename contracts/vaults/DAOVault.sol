@@ -189,6 +189,10 @@ contract DAOVault is Initializable, ERC20Upgradeable, OwnableUpgradeable {
     function withdraw(uint256 _shares) external onlyEOA {
         uint256 _balanceOfVault = (token.balanceOf(address(this))).sub(_fees);
         uint256 _withdrawAmt = (_balanceOfVault.add(strategy.pool()).mul(_shares).div(totalSupply()));
+
+        // USDT.transfer don't check if amount is 0. Therefor we will check it here.
+        require(0 < _withdrawAmt, "Amount must > 0");
+
         if (_withdrawAmt > _balanceOfVault) {
             uint256 _diff = strategy.withdraw(_withdrawAmt.sub(_balanceOfVault));
             token.safeTransfer(msg.sender, _balanceOfVault.add(_diff));

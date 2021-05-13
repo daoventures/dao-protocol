@@ -161,6 +161,28 @@ contract HarvestFarmer is OwnableUpgradeable {
     }
 
     /**
+     * @notice Get current balance in contract
+     * @param _address Address to query
+     * @return result
+     * Result == total user deposit balance after fee if not vesting state
+     * Result == user available balance to refund including profit if in vesting state
+     */
+    function getCurrentBalance(address _address) external view returns (uint256 result) {
+        uint256 _daoVaultTotalSupply = daoVault.totalSupply();
+        if (0 < _daoVaultTotalSupply) {
+            uint256 _shares = daoVault.balanceOf(_address);
+            if (isVesting == false) {
+                uint256 _fTokenBalance = (hfStake.balanceOf(address(this))).mul(_shares).div(_daoVaultTotalSupply);
+                result = _fTokenBalance.mul(hfVault.getPricePerFullShare()).div(hfVault.underlyingUnit());
+            } else {
+                result = pool.mul(_shares).div(_daoVaultTotalSupply);
+            }
+        } else {
+            result = 0;
+        }
+    }
+
+    /**
      * @notice Deposit token into Harvest Finance Vault
      * @param _amount Amount of token to deposit
      * Requirements:
@@ -183,21 +205,26 @@ contract HarvestFarmer is OwnableUpgradeable {
      * - Amount of withdraw must lesser than or equal to total amount of deposit
      */
     function withdraw(uint256 _amount) external onlyVault notVesting returns (uint256) {
-        uint256 _shares = _amount.mul(daoVault.totalSupply()).div(pool);
-        uint256 _fTokenBalance = (hfStake.balanceOf(address(this))).mul(_shares).div(daoVault.totalSupply());
+        uint256 _fTokenBalance = (hfStake.balanceOf(address(this))).mul(_amount).div(pool);
         hfStake.withdraw(_fTokenBalance);
         hfVault.withdraw(hfVault.balanceOf(address(this)));
 
         uint256 _withdrawAmt = token.balanceOf(address(this));
         token.safeTransfer(msg.sender, _withdrawAmt);
-        pool = pool.sub(_withdrawAmt);
+        pool = pool.sub(_amount);
         return _withdrawAmt;
     }
 
-    function invest() external {
+    function invest() external onlyVault notVesting {
         uint256 _fromVault = token.balanceOf(address(this));
-        hfStake.exit(); 
-        hfVault.withdraw(hfVault.balanceOf(address(this)));
+        if (0 < hfStake.balanceOf(address(this))) {
+            hfStake.exit();
+        }
+        uint256 _fTokenBalance = hfVault.balanceOf(address(this));
+        if (0 < _fTokenBalance) {
+            hfVault.withdraw(_fTokenBalance);
+        }
+
         // Swap FARM token for token same as deposit token
         uint256 _balanceOfFARM = FARM.balanceOf(address(this));
         if (_balanceOfFARM > 0) {
@@ -218,6 +245,7 @@ contract HarvestFarmer is OwnableUpgradeable {
             token.safeTransfer(treasuryWallet, _fee.mul(treasuryFee).div(DENOMINATOR));
             token.safeTransfer(communityWallet, _fee.mul(communityFee).div(DENOMINATOR));
         }
+
         uint256 _all = token.balanceOf(address(this));
         pool = _all;
         hfVault.deposit(_all);

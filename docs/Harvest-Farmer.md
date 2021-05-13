@@ -17,6 +17,13 @@ Withdraw token from Harvest Finance Vault with profit plus exchanged token from 
 Refund from Harvest-Farmer contract with profit plus exchanged token from COMP token. This function only can access through DAOVault contract. This function only available after Harvest-Farmer in vesting state.
 - *Param*: -
 
+#### function `getCurrentBalance(address)`
+Get current balance in contract
+- *Param*: Address to query
+- *Return*: 
+  - total user deposit balance after fee if not vesting state
+  - user available balance to refund including profit if in vesting state
+
 ### Admin functions
 #### function `setTreasuryWallet(address)`
 Set new treasury wallet address in contract.

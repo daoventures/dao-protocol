@@ -17,13 +17,6 @@ Withdraw from strategy.
 Refund from strategy. Only available if strategy in certain condition (for example vesting state).
 - *Param*: -
 
-#### function `getCurrentBalance(address)`
-Get current balance in contract
-- *Param*: Address to query
-- *Return*: 
-  - total user deposit balance after fee if not vesting state
-  - user available balance to refund including profit if in vesting state
-
 ### Admin functions
 #### function `setNetworkFeeTier2(list)`
 Set new network fee tier 2. Network fee is collect in deposit.
