@@ -10,7 +10,8 @@ module.exports = {
     hardhat: {
       forking: {
         url: process.env.ALCHEMY_URL_MAINNET,
-        // blockNumber: 11960000,
+        // url: process.env.INFURA_URL_MAINNET,
+        blockNumber: 12405000,
       },
     },
     // mainnet: {
@@ -34,7 +35,7 @@ module.exports = {
     settings: {
       optimizer: {
         enabled: true,
-        runs: 1000,
+        runs: 200,
       },
     },
   },
