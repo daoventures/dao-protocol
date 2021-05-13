@@ -1,6 +1,5 @@
 const { expect } = require("chai")
 const { ethers, deployments, waffle, network } = require("hardhat")
-const { BigNumber } = require("bignumber.js");
 const { mainnet: network_ } = require("../../addresses/harvest_farmer")
 const IERC20_ABI = require("../../abis/IERC20_ABI.json")
 const sampleContract_JSON = require("../../build/harvest_farmer/SampleContract.json")
@@ -9,6 +8,12 @@ const { FARMAddress, uniswapRouterAddress, WETHAddress, treasuryWalletAddress, c
 const { tokenAddress, hfVaultAddress, hfStakeAddress } = network_.USDT
 const tokenDecimals = 6 // Change this to meet token decimals
 const created_index = 2 // USDT
+
+const { BigNumber } = require('bignumber.js');
+BigNumber.config({
+  EXPONENTIAL_AT: 1e+9,
+  ROUNDING_MODE: BigNumber.ROUND_FLOOR,
+})
 
 const global = require('../utils/global');
 const { increaseTime } = require('../utils/ethereum');

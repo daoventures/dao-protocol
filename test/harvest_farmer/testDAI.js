@@ -9,8 +9,28 @@ const { tokenAddress, hfVaultAddress, hfStakeAddress } = network_.DAI
 const tokenDecimals = 18 // Change this to meet token decimals
 const created_index = 0 // DAI
 
+const { BigNumber } = require('bignumber.js');
+BigNumber.config({
+  EXPONENTIAL_AT: 1e+9,
+  ROUNDING_MODE: BigNumber.ROUND_FLOOR,
+})
+
+const global = require('../utils/global');
+const { increaseTime } = require('../utils/ethereum');
+
 const decimals = (amount) => {
   return ethers.utils.parseUnits(amount.toString(), tokenDecimals)
+}
+
+const closeTo = (value, expected) => {
+  const expectedAmount = new BigNumber(typeof expected === "object" ? expected.toString() : expected);
+  const valueAmount = new BigNumber(typeof value === "object" ? value.toString() : value);
+  const deltaAmount = expectedAmount.shiftedBy(-6);
+  const isEqual = expectedAmount.minus(valueAmount).abs().isLessThanOrEqualTo(deltaAmount);
+  if (!isEqual) {
+    console.log(`|${expectedAmount} - ${valueAmount}| > ${deltaAmount}`)
+  }
+  expect(isEqual).is.true;
 }
 
 describe("Harvest-Farmer DAI", () => {
@@ -30,7 +50,10 @@ describe("Harvest-Farmer DAI", () => {
     const governanceSigner = await ethers.getSigner("0xf00dD244228F51547f0563e60bCa65a30FBF5f7f")
     const sampleContract = await waffle.deployContract(deployerSigner, sampleContract_JSON, [vaultAddress, tokenContract.address])
 
-    const ABI = ["function balanceOf(address) external view returns (uint)", "function doHardWork() external"]
+    const ABI = [
+      "function balanceOf(address) external view returns (uint)",
+      "function doHardWork() external",
+    ]
     const hfVaultContract = new ethers.Contract(hfVaultAddress, ABI, governanceSigner)
     const hfStakeContract = new ethers.Contract(hfStakeAddress, ABI, governanceSigner)
 
@@ -102,13 +125,21 @@ describe("Harvest-Farmer DAI", () => {
     expect(await strategyContract.strategyName()).to.equal(ethers.utils.formatBytes32String("Harvest-Farmer DAI"))
     expect(await strategyContract.isVesting()).is.false
     expect(await strategyContract.pool()).to.equal(0)
-    expect(await strategyContract.amountOutMinPerc()).to.equal(9500)
-    expect(await strategyContract.deadline()).to.equal(60*20) // 20 minutes
+    expect(await strategyContract.amountOutMinPerc()).to.equal(0)
   })
+
+  // Check admin functions
+  describe("Admin functions", () => {
+    it("revert to save gas if nothing deposited token", async () => {
+      const { vaultContract } = await setup()
+      await expect(vaultContract.invest()).to.be.revertedWith("revert Cannot deposit 0")
+    });
+  });
 
   // Check user functions
   describe("User functions", () => {
     it("should able to deposit correctly", async () => {
+      // Get deployer signer and deploy the contracts
       const { clientSigner, tokenContract, strategyContract, vaultContract, sampleContract, hfVaultContract, hfStakeContract } = await setup()
       // Check if meet the function requirements
       let depositAmount = decimals(100)
@@ -119,23 +150,29 @@ describe("Harvest-Farmer DAI", () => {
       await expect(strategyContract.connect(clientSigner).deposit("100")).to.be.revertedWith("Only can call from Vault")
       await sampleContract.approve(vaultContract.address, depositAmount)
       await expect(sampleContract.deposit(depositAmount)).to.be.revertedWith("Only EOA")
+
       // Deposit token into contracts
       await vaultContract.connect(clientSigner).deposit(depositAmount)
-      // Check if amount of deposit is correct
-      expect(await vaultContract.getCurrentBalance(clientSigner.address)).to.equal(decimals("100").mul(99).div(100)) // deposit fee 1%
       expect(await tokenContract.balanceOf(clientSigner.address)).to.equal(0)
+      const depositedAmount = depositAmount.mul(99).div(100); // deposit fee 1%
+      expect(await vaultContract.balanceOf(clientSigner.address)).to.equal(depositedAmount)
+
+      // Check if amount of deposit is correct
+      await vaultContract.invest();
+      closeTo(await strategyContract.getCurrentBalance(clientSigner.address), depositedAmount)
+
       // Check if amount of shares token get is correct
-      depositAmount = depositAmount.sub(depositAmount.mul(1).div(100))
+      depositAmount = depositAmount.mul(99).div(100)
       const shares = depositAmount.mul(await vaultContract.totalSupply()).div(await strategyContract.pool())
-      expect(await vaultContract.balanceOf(clientSigner.address)).to.equal(shares)
-      expect(await strategyContract.pool()).to.equal(depositAmount)
-      expect(await vaultContract.totalSupply()).to.equal(shares)
+      closeTo(await vaultContract.balanceOf(clientSigner.address), shares)
+      closeTo(await strategyContract.pool(), depositAmount)
+      closeTo(await vaultContract.totalSupply(), shares)
       expect(await hfVaultContract.balanceOf(strategyContract.address)).to.equal(0)
       expect(await hfStakeContract.balanceOf(strategyContract.address)).to.gt(0)
     })
 
     it("should deduct correct network fee based on tier in strategy contract", async () => {
-      const { deployerSigner, tokenContract, vaultContract } = await setup()
+      const { deployerSigner, tokenContract, vaultContract, strategyContract } = await setup()
       let treasuryBalance, communityBalance, depositBalance, fee
       treasuryBalance = await tokenContract.balanceOf(treasuryWalletAddress)
       communityBalance = await tokenContract.balanceOf(communityWalletAddress)
@@ -144,67 +181,82 @@ describe("Harvest-Farmer DAI", () => {
       const depositTier3 = decimals(500000)
       const customDepositTier = decimals(1000000)
       await tokenContract.approve(vaultContract.address, depositTier1.add(depositTier2).add(depositTier3).add(customDepositTier))
+
       // Tier 1 deposit
       await vaultContract.deposit(depositTier1)
+      await vaultContract.invest();
       // Check deposit balance in contract and check fees receive by treasury and community wallet
       fee = depositTier1.mul(100).div(10000)
-      expect(await vaultContract.getCurrentBalance(deployerSigner.address)).to.equal(depositTier1.sub(fee))
+      closeTo(await strategyContract.getCurrentBalance(deployerSigner.address), depositTier1.sub(fee))
       depositBalance = depositTier1.sub(fee)
       expect(await tokenContract.balanceOf(treasuryWalletAddress)).to.equal(treasuryBalance.add(fee.mul(1).div(2)))
       treasuryBalance = treasuryBalance.add(fee.mul(1).div(2))
       expect(await tokenContract.balanceOf(communityWalletAddress)).to.equal(communityBalance.add(fee.mul(1).div(2)))
       communityBalance = communityBalance.add(fee.mul(1).div(2))
+
       // Tier 2 deposit
       await vaultContract.deposit(depositTier2)
+      await vaultContract.invest();
       // Check deposit balance in contract and check fees receive by treasury and community wallet
       fee = depositTier2.mul(75).div(10000)
-      expect(await vaultContract.getCurrentBalance(deployerSigner.address)).to.equal(depositBalance.add(depositTier2.sub(fee)))
+      closeTo(await strategyContract.getCurrentBalance(deployerSigner.address), depositBalance.add(depositTier2.sub(fee)))
       depositBalance = depositBalance.add(depositTier2.sub(fee))
-      expect(await tokenContract.balanceOf(treasuryWalletAddress)).to.equal(treasuryBalance.add(fee.mul(1).div(2)))
+      closeTo(await tokenContract.balanceOf(treasuryWalletAddress), treasuryBalance.add(fee.mul(1).div(2)))
       treasuryBalance = treasuryBalance.add(fee.mul(1).div(2))
-      expect(await tokenContract.balanceOf(communityWalletAddress)).to.equal(communityBalance.add(fee.mul(1).div(2)))
+      closeTo(await tokenContract.balanceOf(communityWalletAddress), communityBalance.add(fee.mul(1).div(2)))
       communityBalance = communityBalance.add(fee.mul(1).div(2))
+
       // Tier 3 deposit
       await vaultContract.deposit(depositTier3)
+      await vaultContract.invest();
       // Check deposit balance in contract and check fees receive by treasury and community wallet
       fee = depositTier3.mul(50).div(10000)
-      expect(await vaultContract.getCurrentBalance(deployerSigner.address)).to.equal(depositBalance.add(depositTier3.sub(fee)))
+      closeTo(await strategyContract.getCurrentBalance(deployerSigner.address), depositBalance.add(depositTier3.sub(fee)))
       depositBalance = depositBalance.add(depositTier3.sub(fee))
-      expect(await tokenContract.balanceOf(treasuryWalletAddress)).to.equal(treasuryBalance.add(fee.mul(1).div(2)))
+      closeTo(await tokenContract.balanceOf(treasuryWalletAddress), treasuryBalance.add(fee.mul(1).div(2)))
       treasuryBalance = treasuryBalance.add(fee.mul(1).div(2))
-      expect(await tokenContract.balanceOf(communityWalletAddress)).to.equal(communityBalance.add(fee.mul(1).div(2)))
+      closeTo(await tokenContract.balanceOf(communityWalletAddress), communityBalance.add(fee.mul(1).div(2)))
       communityBalance = communityBalance.add(fee.mul(1).div(2))
+
       // Custom tier deposit
       await vaultContract.deposit(customDepositTier)
+      await vaultContract.invest();
       // Check deposit balance in contract and check fees receive by treasury and community wallet
       fee = customDepositTier.mul(25).div(10000)
-      expect(await vaultContract.getCurrentBalance(deployerSigner.address)).to.equal(depositBalance.add(customDepositTier.sub(fee)))
-      expect(await tokenContract.balanceOf(treasuryWalletAddress)).to.equal(treasuryBalance.add(fee.mul(1).div(2)))
-      expect(await tokenContract.balanceOf(communityWalletAddress)).to.equal(communityBalance.add(fee.mul(1).div(2)))
+      closeTo(await strategyContract.getCurrentBalance(deployerSigner.address), depositBalance.add(customDepositTier.sub(fee)))
+      closeTo(await tokenContract.balanceOf(treasuryWalletAddress), treasuryBalance.add(fee.mul(1).div(2)))
+      closeTo(await tokenContract.balanceOf(communityWalletAddress), communityBalance.add(fee.mul(1).div(2)))
     })
 
     it("should be able to withdraw correctly", async () => {
       // Get deployer signer and deploy the contracts
       const { clientSigner, tokenContract, FARMContract, strategyContract, vaultContract, hfVaultContract, hfStakeContract, sampleContract } = await setup()
+
+      // If there is no deposited token, the withdrawal will be reverted.
+      await expect(vaultContract.withdraw(decimals(200))).to.be.revertedWith("revert SafeMath: division by zero")
+
       // Deposit token into contracts
       const depositAmount = decimals(1000)
       expect(await tokenContract.balanceOf(clientSigner.address)).to.equal(0)
       await tokenContract.transfer(clientSigner.address, depositAmount)
       await tokenContract.connect(clientSigner).approve(vaultContract.address, depositAmount)
       await vaultContract.connect(clientSigner).deposit(depositAmount)
-      const currentBalance = await vaultContract.getCurrentBalance(clientSigner.address)
+      await vaultContract.invest();
+      const currentBalance = await strategyContract.getCurrentBalance(clientSigner.address)
       // // Execute Harvest Finance earn function
       // await hfVaultContract.doHardWork()
+
       // Check if meet the function requirements
       await expect(sampleContract.withdraw(decimals(100))).to.be.revertedWith("Only EOA")
       await expect(vaultContract.connect(clientSigner).withdraw("0")).to.be.revertedWith("Amount must > 0")
       await expect(strategyContract.connect(clientSigner).withdraw(decimals(200))).to.be.revertedWith("Only can call from Vault")
-      await expect(vaultContract.withdraw(decimals(200))).to.be.revertedWith("Insufficient balance")
+      await expect(vaultContract.withdraw(decimals(200))).to.be.revertedWith("revert ERC20: burn amount exceeds balance")
+
       // Withdraw all token from contracts
-      const balance = await vaultContract.getCurrentBalance(clientSigner.address)
-      await vaultContract.connect(clientSigner).withdraw(balance)
+      await vaultContract.connect(clientSigner).withdraw(await vaultContract.balanceOf(clientSigner.address))
+
       // Check if amount of withdraw is correct
-      expect(await tokenContract.balanceOf(clientSigner.address)).to.gt(currentBalance) // Some token will be added in withdraw block
+      closeTo(await tokenContract.balanceOf(clientSigner.address), currentBalance)
       expect(await vaultContract.balanceOf(clientSigner.address)).to.equal(0)
       expect(await hfVaultContract.balanceOf(strategyContract.address)).to.equal(0)
       expect(await hfStakeContract.balanceOf(strategyContract.address)).to.equal(0)
@@ -220,62 +272,76 @@ describe("Harvest-Farmer DAI", () => {
       await tokenContract.transfer(clientSigner.address, depositAmount)
       await tokenContract.connect(clientSigner).approve(vaultContract.address, depositAmount)
       await vaultContract.connect(clientSigner).deposit(depositAmount)
-      // // Execute Harvest Finance earn function
-      // await hfVaultContract.doHardWork()
+      await vaultContract.invest();
+
+      // Execute Harvest Finance earn function
+      await hfVaultContract.doHardWork()
       // Get initial value before withdraw
-      const depositBalanceBoforeWithdraw = await vaultContract.getCurrentBalance(clientSigner.address)
+      const depositBalanceBoforeWithdraw = await strategyContract.getCurrentBalance(clientSigner.address)
       const dvlTokenBalanceBeforeWithdraw = await vaultContract.balanceOf(clientSigner.address)
       const fTokenBalanceBeforeWithdraw = await hfStakeContract.balanceOf(strategyContract.address)
       const totalSupplyBeforeWithdraw = await vaultContract.totalSupply()
       const poolBalanceBeforeWithdraw = await strategyContract.pool()
+
       // Withdraw token from contracts 1st time
-      let withdrawAmount = decimals("373")
-      await vaultContract.connect(clientSigner).withdraw(withdrawAmount)
+      let withdrawShare = decimals("373")
+      await vaultContract.connect(clientSigner).withdraw(withdrawShare)
+      const withdrawnAmount = await tokenContract.balanceOf(clientSigner.address);
+
       // Check if amount of withdraw is correct
-      expect(await tokenContract.balanceOf(clientSigner.address)).to.gte(withdrawAmount)
-      expect(await vaultContract.balanceOf(clientSigner.address)).to.equal(dvlTokenBalanceBeforeWithdraw.sub(withdrawAmount.mul(totalSupplyBeforeWithdraw).div(poolBalanceBeforeWithdraw)))
-      expect(await hfStakeContract.balanceOf(strategyContract.address)).to.equal(fTokenBalanceBeforeWithdraw.sub(fTokenBalanceBeforeWithdraw.mul(withdrawAmount).div(poolBalanceBeforeWithdraw)))
+      expect(await tokenContract.balanceOf(clientSigner.address)).to.gte(withdrawShare)
+      closeTo(await vaultContract.balanceOf(clientSigner.address),
+        dvlTokenBalanceBeforeWithdraw.sub(withdrawShare.mul(totalSupplyBeforeWithdraw).div(poolBalanceBeforeWithdraw)))
+      closeTo(await hfStakeContract.balanceOf(strategyContract.address),
+        fTokenBalanceBeforeWithdraw.sub(fTokenBalanceBeforeWithdraw.mul(withdrawShare).div(poolBalanceBeforeWithdraw)))
       expect(await hfVaultContract.balanceOf(strategyContract.address)).to.equal(0)
-      expect(await FARMContract.balanceOf(strategyContract.address)).to.be.gt(0)
-      expect(await vaultContract.getCurrentBalance(clientSigner.address)).to.equal(depositBalanceBoforeWithdraw.sub(withdrawAmount))
-      expect(await strategyContract.pool()).to.equal(poolBalanceBeforeWithdraw.sub(withdrawAmount))
-      expect(await vaultContract.totalSupply()).to.equal(depositBalanceBoforeWithdraw.sub(withdrawAmount))
+      expect(await FARMContract.balanceOf(strategyContract.address)).to.be.equal(0)
+      closeTo(await strategyContract.getCurrentBalance(clientSigner.address), depositBalanceBoforeWithdraw.sub(withdrawnAmount))
+      const diff = withdrawnAmount - (poolBalanceBeforeWithdraw - await strategyContract.pool());
+      expect(diff).to.gte(0)
+      expect(await vaultContract.totalSupply()).to.equal(totalSupplyBeforeWithdraw.sub(withdrawShare))
+
       // Withdraw token from contracts 2nd time
-      withdrawAmount = decimals("617")
-      await vaultContract.connect(clientSigner).withdraw(withdrawAmount)
+      withdrawShare = await vaultContract.balanceOf(clientSigner.address)
+      await vaultContract.connect(clientSigner).withdraw(withdrawShare)
+
       // Check if amount of withdraw is correct
       expect(await tokenContract.balanceOf(clientSigner.address)).to.gt(depositBalanceBoforeWithdraw)
       expect(await vaultContract.balanceOf(clientSigner.address)).to.equal(0)
       expect(await hfVaultContract.balanceOf(strategyContract.address)).to.equal(0)
       expect(await hfStakeContract.balanceOf(strategyContract.address)).to.equal(0)
       expect(await FARMContract.balanceOf(strategyContract.address)).to.equal(0)
-      expect(await vaultContract.getCurrentBalance(clientSigner.address)).to.equal(0)
+      expect(await strategyContract.getCurrentBalance(clientSigner.address)).to.equal(0)
       expect(await strategyContract.pool()).to.equal(0)
       expect(await vaultContract.totalSupply()).to.equal(0)
     })
 
-    it("should deduct correct profile sharing fee when withdraw in strategy contract", async () => {
-      const { clientSigner, tokenContract, strategyContract, vaultContract, hfVaultContract } = await setup()
-      const treasuryWalletBalance = await tokenContract.balanceOf(treasuryWalletAddress)
-      const communityWalletBalance = await tokenContract.balanceOf(communityWalletAddress)
-      await tokenContract.transfer(clientSigner.address, decimals("1000"))
-      // Deposit into contract
-      await tokenContract.connect(clientSigner).approve(vaultContract.address, decimals("1000"))
-      await vaultContract.connect(clientSigner).deposit(decimals("1000"))
-      const networkFee = decimals("1000").mul(1).div(100)
-      const deployerBalance = await tokenContract.balanceOf(clientSigner.address)
-      // // Execute Harvest Finance earn function
-      // await hfVaultContract.doHardWork()
-      // Transfer some token to contract as profit
-      await tokenContract.transfer(strategyContract.address, decimals("100"))
-      const profileSharingFee = decimals("100").mul(1).div(10)
-      const profit = decimals("100").sub(profileSharingFee)
-      // Withdraw from contract and check if fee deduct correctly
-      await vaultContract.connect(clientSigner).withdraw(decimals("990"))
-      expect(await tokenContract.balanceOf(clientSigner.address)).to.be.closeTo(deployerBalance.add(decimals("990")).add(profit), decimals(1))
-      expect(await tokenContract.balanceOf(treasuryWalletAddress)).to.be.closeTo(treasuryWalletBalance.add(networkFee.mul(1).div(2)).add(profileSharingFee.mul(1).div(2)), decimals(1))
-      expect(await tokenContract.balanceOf(communityWalletAddress)).to.be.closeTo(communityWalletBalance.add(networkFee.mul(1).div(2)).add(profileSharingFee.mul(1).div(2)), decimals(1))
-    })
+    // it("should deduct correct profile sharing fee when withdraw in strategy contract", async () => {
+    //   const { clientSigner, tokenContract, strategyContract, vaultContract, hfVaultContract } = await setup()
+    //   const treasuryWalletBalance = await tokenContract.balanceOf(treasuryWalletAddress)
+    //   const communityWalletBalance = await tokenContract.balanceOf(communityWalletAddress)
+    //   await tokenContract.transfer(clientSigner.address, decimals("1000"))
+    //   // Deposit into contract
+    //   await tokenContract.connect(clientSigner).approve(vaultContract.address, decimals("1000"))
+    //   await vaultContract.connect(clientSigner).deposit(decimals("1000"))
+    //   await vaultContract.invest()
+    //   const networkFee = decimals("1000").mul(1).div(100)
+    //   const deployerBalance = await tokenContract.balanceOf(clientSigner.address)
+
+    //   // // Execute Harvest Finance earn function
+    //   // await hfVaultContract.doHardWork()
+    //   // Transfer some token to contract as profit
+    //   await tokenContract.transfer(strategyContract.address, decimals("100")) // It's not treated as profit in the invest function.
+    //   const profileSharingFee = decimals("100").mul(1).div(10)
+    //   const profit = decimals("100").sub(profileSharingFee)
+    //   await vaultContract.invest()
+
+    //   // Withdraw from contract and check if fee deduct correctly
+    //   await vaultContract.connect(clientSigner).withdraw(decimals("990"))
+    //   expect(await tokenContract.balanceOf(clientSigner.address)).to.be.closeTo(deployerBalance.add(decimals("990")).add(profit), decimals(1))
+    //   expect(await tokenContract.balanceOf(treasuryWalletAddress)).to.be.closeTo(treasuryWalletBalance.add(networkFee.mul(1).div(2)).add(profileSharingFee.mul(1).div(2)), decimals(1))
+    //   expect(await tokenContract.balanceOf(communityWalletAddress)).to.be.closeTo(communityWalletBalance.add(networkFee.mul(1).div(2)).add(profileSharingFee.mul(1).div(2)), decimals(1))
+    // })
 
     it("should be able to mix and match deposit and withdraw correctly", async () => {
       const { deployerSigner, clientSigner, tokenContract, strategyContract, vaultContract, hfVaultContract, hfStakeContract, FARMContract } = await setup()
@@ -286,24 +352,29 @@ describe("Harvest-Farmer DAI", () => {
       const clientBalance = await tokenContract.balanceOf(clientSigner.address)
       const treasuryBalance = await tokenContract.balanceOf(treasuryWalletAddress)
       const communityBalance = await tokenContract.balanceOf(communityWalletAddress)
+
       // Mix and match deposit and withdraw
       await tokenContract.approve(vaultContract.address, decimals("10000"))
       await tokenContract.connect(clientSigner).approve(vaultContract.address, decimals("10000"))
       await vaultContract.deposit(decimals("1234"))
       await vaultContract.connect(clientSigner).deposit(decimals("3210"))
       await vaultContract.deposit(decimals("2345"))
-      // // Execute Harvest Finance earn function
-      // await hfVaultContract.doHardWork()
+      await vaultContract.invest()
+
+      // Execute Harvest Finance earn function
+      await hfVaultContract.doHardWork()
       // Continue mix and match deposit and withdraw
       await vaultContract.connect(clientSigner).withdraw(decimals("2020"))
       await vaultContract.withdraw(decimals("1989"))
       await vaultContract.connect(clientSigner).deposit(decimals("378"))
+      await vaultContract.invest()
       await vaultContract.connect(clientSigner).withdraw("1532120000000000000000")
       await vaultContract.withdraw("1554210000000000000000")
+
       // Check if final number is correct
       expect(await strategyContract.pool()).to.equal(0)
-      expect(await vaultContract.getCurrentBalance(deployerSigner.address)).to.equal(0)
-      expect(await vaultContract.getCurrentBalance(clientSigner.address)).to.equal(0)
+      expect(await strategyContract.getCurrentBalance(deployerSigner.address)).to.equal(0)
+      expect(await strategyContract.getCurrentBalance(clientSigner.address)).to.equal(0)
       expect(await vaultContract.totalSupply()).to.equal(0)
       expect(await vaultContract.balanceOf(deployerSigner.address)).to.equal(0)
       expect(await vaultContract.balanceOf(clientSigner.address)).to.equal(0)
@@ -313,7 +384,7 @@ describe("Harvest-Farmer DAI", () => {
       expect(await tokenContract.balanceOf(deployerSigner.address)).to.gt(deployerBalance.sub("35790000000000000000"))
       expect(await tokenContract.balanceOf(clientSigner.address)).to.gt(clientBalance.sub("35880000000000000000"))
       // Check if treasury and community wallet receive fees correctly
-      expect(await tokenContract.balanceOf(treasuryWalletAddress)).to.gt(treasuryBalance.add("35835000000000000000"))
+      expect(await tokenContract.balanceOf(treasuryWalletAddress)).to.gte(treasuryBalance.add("35835000000000000000"))
       expect(await tokenContract.balanceOf(communityWalletAddress)).to.gt(communityBalance)
     })
 
@@ -326,13 +397,15 @@ describe("Harvest-Farmer DAI", () => {
       await tokenContract.transfer(clientSigner.address, depositAmount)
       await tokenContract.connect(clientSigner).approve(vaultContract.address, depositAmount)
       await vaultContract.connect(clientSigner).deposit(depositAmount)
-      const depositBalance = await vaultContract.getCurrentBalance(deployerSigner.address)
+      await vaultContract.invest();
+
+      const depositBalance = await strategyContract.getCurrentBalance(deployerSigner.address)
       const treasuryBalanceBeforeVesting = await tokenContract.balanceOf(treasuryWalletAddress)
       const communityBalanceBeforeVesting = await tokenContract.balanceOf(communityWalletAddress)
       expect(await vaultContract.balanceOf(deployerSigner.address)).to.equal(decimals(990))
       expect(await vaultContract.balanceOf(clientSigner.address)).to.equal(decimals(990))
       expect(await vaultContract.totalSupply()).to.equal(decimals(1980))
-      expect(await strategyContract.pool()).to.equal(decimals(1980))
+      closeTo(await strategyContract.pool(), decimals(1980));
       expect(await tokenContract.balanceOf(strategyContract.address)).to.equal(0)
       expect(await hfVaultContract.balanceOf(strategyContract.address)).to.equal(0)
       expect(await hfStakeContract.balanceOf(strategyContract.address)).to.gt(0)
@@ -343,7 +416,7 @@ describe("Harvest-Farmer DAI", () => {
       await strategyContract.vesting()
       expect(await tokenContract.balanceOf(treasuryWalletAddress)).to.gte(treasuryBalanceBeforeVesting)
       expect(await tokenContract.balanceOf(communityWalletAddress)).to.gte(communityBalanceBeforeVesting)
-      const refundBalance = await vaultContract.getCurrentBalance(deployerSigner.address)
+      const refundBalance = await strategyContract.getCurrentBalance(deployerSigner.address)
       expect(refundBalance).to.gte(depositBalance)
       expect(await strategyContract.pool()).to.gt(decimals(1980))
       expect(await tokenContract.balanceOf(strategyContract.address)).to.gt(decimals(1980))
@@ -373,6 +446,7 @@ describe("Harvest-Farmer DAI", () => {
       // Deposit into contract
       await tokenContract.connect(clientSigner).approve(vaultContract.address, decimals(1000))
       await vaultContract.connect(clientSigner).deposit(decimals(1000))
+      await vaultContract.invest();
       const deployerBalance = await tokenContract.balanceOf(clientSigner.address)
       // // Execute Harvest Finance earn function
       // await hfVaultContract.doHardWork()
@@ -508,6 +582,7 @@ describe("Harvest-Farmer DAI", () => {
       // Check if new treasury wallet receive fees
       await tokenContract.approve(vaultContract.address, decimals(200))
       await vaultContract.deposit(decimals(200))
+      await vaultContract.invest();
       // Deposit amount within network fee tier 1 hence fee = 0.5%
       expect(await tokenContract.balanceOf(clientSigner.address)).to.equal(decimals(1))
     })
@@ -523,6 +598,7 @@ describe("Harvest-Farmer DAI", () => {
       // Check if new treasury wallet receive fees
       await tokenContract.approve(vaultContract.address, decimals(200))
       await vaultContract.deposit(decimals(200))
+      await vaultContract.invest();
       // Deposit amount within network fee tier 1 hence fee = 0.5%
       expect(await tokenContract.balanceOf(clientSigner.address)).to.equal(decimals(1))
     })
@@ -535,13 +611,15 @@ describe("Harvest-Farmer DAI", () => {
           .withArgs(treasuryWalletAddress, clientSigner.address)
       // Check if new treasury wallet is set to the contract
       expect(await strategyContract.treasuryWallet()).to.equal(clientSigner.address)
-      // Check if new treasury wallet receive fees
-      await tokenContract.approve(vaultContract.address, decimals(200))
-      await vaultContract.deposit(decimals(200))
-      await tokenContract.transfer(strategyContract.address, decimals(50))
-      await vaultContract.withdraw(decimals(198))
-      // Profile sharing fee = 10%
-      expect(await tokenContract.balanceOf(clientSigner.address)).to.gt(decimals(2))
+
+      // // Check if new treasury wallet receive fees
+      // await tokenContract.approve(vaultContract.address, decimals(200))
+      // await vaultContract.deposit(decimals(200))
+      // await vaultContract.invest();
+      // await tokenContract.transfer(strategyContract.address, decimals(50)) // It's not treated as profit in the invest function.
+      // await vaultContract.withdraw(decimals(198))
+      // // Profile sharing fee = 10%
+      // expect(await tokenContract.balanceOf(clientSigner.address)).to.gt(decimals(2))
     })
 
     it("should able to set new community wallet correctly in strategy contract", async () => {
@@ -552,13 +630,15 @@ describe("Harvest-Farmer DAI", () => {
           .withArgs(communityWalletAddress, clientSigner.address)
       // Check if new community wallet is set to the contract
       expect(await strategyContract.communityWallet()).to.equal(clientSigner.address)
-      // Check if new treasury wallet receive fees
-      await tokenContract.approve(vaultContract.address, decimals(200))
-      await vaultContract.deposit(decimals(200))
-      await tokenContract.transfer(strategyContract.address, decimals(50))
-      await vaultContract.withdraw(decimals(198))
-      // Profile sharing fee = 10%
-      expect(await tokenContract.balanceOf(clientSigner.address)).to.gt(decimals(2))
+
+      // // Check if new treasury wallet receive fees
+      // await tokenContract.approve(vaultContract.address, decimals(200))
+      // await vaultContract.deposit(decimals(200))
+      // await vaultContract.invest();
+      // await tokenContract.transfer(strategyContract.address, decimals(50))
+      // await vaultContract.withdraw(decimals(198))
+      // // Profile sharing fee = 10%
+      // expect(await tokenContract.balanceOf(clientSigner.address)).to.gt(decimals(2))
     })
 
     it("should able to set new network fee tier correctly in vault contract", async () => {
@@ -655,6 +735,7 @@ describe("Harvest-Farmer DAI", () => {
       // Deposit into Vault and execute vesting function
       await tokenContract.approve(vaultContract.address, decimals(100000))
       await vaultContract.deposit(decimals(100000))
+      await vaultContract.invest();
       await strategyContract.vesting()
       // Get Yearn Farmer token balance before migrate
       const tokenBalance = await tokenContract.balanceOf(strategyContract.address)
@@ -696,12 +777,13 @@ describe("Harvest-Farmer DAI", () => {
       await tokenContract.approve(vaultContract.address, decimals(10000))
       await vaultContract.deposit(decimals(500))
       await vaultContract.deposit(decimals(500))
-      const depositAmount = await vaultContract.getCurrentBalance(deployerSigner.address)
-      expect(depositAmount).to.equal(decimals(990))
+      await vaultContract.invest();
+      const depositAmount = await strategyContract.getCurrentBalance(deployerSigner.address)
+      closeTo(depositAmount, decimals(990))
       const poolAmount = await strategyContract.pool()
-      expect(poolAmount).to.equal(decimals(990))
-      // // Execute Harvest Finance earn function
-      // await hfVaultContract.doHardWork()
+      closeTo(poolAmount, decimals(990))
+      // Execute Harvest Finance earn function
+      await hfVaultContract.doHardWork()
       // Check if corresponding function to be reverted if no vesting
       await expect(vaultContract.refund()).to.be.revertedWith("Not in vesting state")
       await expect(strategyContract.revertVesting()).to.be.revertedWith("Not in vesting state")
@@ -712,11 +794,12 @@ describe("Harvest-Farmer DAI", () => {
       // Check if vesting state change to true
       expect(await strategyContract.isVesting()).is.true
       // Check if corresponding function to be reverted in vesting state
-      await expect(vaultContract.deposit(decimals(500))).to.be.revertedWith("Contract in vesting state")
+      await vaultContract.deposit(decimals(500))
+      await expect(vaultContract.invest()).to.be.revertedWith("Contract in vesting state")
       await expect(vaultContract.withdraw(decimals(500))).to.be.revertedWith("Contract in vesting state")
       await expect(strategyContract.vesting()).to.be.revertedWith("Contract in vesting state")
       // Check if deployer balance in contract after vesting greater than deposit amount(because of profit)
-      const deployerBalanceAfterVesting = await vaultContract.getCurrentBalance(deployerSigner.address)
+      const deployerBalanceAfterVesting = await strategyContract.getCurrentBalance(deployerSigner.address)
       expect(deployerBalanceAfterVesting).to.gt(depositAmount)
       // Check if pool amount greater than amount before vesting after vesting state
       const poolAmountAfterVesting = await strategyContract.pool()
@@ -739,10 +822,14 @@ describe("Harvest-Farmer DAI", () => {
       await tokenContract.transfer(clientSigner.address, decimals("2000"))
       await tokenContract.connect(clientSigner).approve(vaultContract.address, decimals("2000"))
       await vaultContract.connect(clientSigner).deposit(decimals("1000"))
+      await vaultContract.invest();
       expect(await tokenContract.balanceOf(strategyContract.address)).to.equal(0)
       const hfStakeBalance = await hfStakeContract.balanceOf(strategyContract.address)
+
       // // Execute Harvest Finance earn function
       // await hfVaultContract.doHardWork()
+      await increaseTime(global.SECONDS_IN_DAY);
+
       // Vesting contract
       await strategyContract.vesting()
       expect(await tokenContract.balanceOf(strategyContract.address)).to.gt(decimals("990"))
@@ -756,11 +843,13 @@ describe("Harvest-Farmer DAI", () => {
       expect(await tokenContract.balanceOf(strategyContract.address)).to.equal(0)
       expect(await hfVaultContract.balanceOf(strategyContract.address)).to.equal(0)
       expect(await hfStakeContract.balanceOf(strategyContract.address)).to.be.closeTo(hfStakeBalance, decimals(1))
-      let clientBalance = await vaultContract.getCurrentBalance(clientSigner.address)
+      let clientBalance = await strategyContract.getCurrentBalance(clientSigner.address)
       expect(clientBalance).to.gt(decimals("990"))
       await vaultContract.connect(clientSigner).deposit(decimals("1000"))
-      clientBalance = clientBalance.add(decimals("990"))
-      await vaultContract.connect(clientSigner).withdraw(clientBalance)
+      await vaultContract.invest();
+      clientBalance = await strategyContract.getCurrentBalance(clientSigner.address)
+      expect(clientBalance).to.gt(decimals("1980"))
+      await vaultContract.connect(clientSigner).withdraw(await vaultContract.balanceOf(clientSigner.address))
       expect(await tokenContract.balanceOf(clientSigner.address)).to.gt(clientBalance)
       expect(await vaultContract.balanceOf(clientSigner.address)).to.equal(0)
       expect(await vaultContract.totalSupply()).to.equal(0)
@@ -777,38 +866,43 @@ describe("Harvest-Farmer DAI", () => {
       // Deposit into Harvest Farmer Vault contract
       await tokenContract.connect(clientSigner).approve(vaultContract.address, decimals(1000))
       await vaultContract.connect(clientSigner).deposit(decimals(500))
-      // // Execute Harvest Finance earn function
-      // await hfVaultContract.doHardWork()
+      await vaultContract.invest();
+
+      // Execute Harvest Finance earn function
+      await hfVaultContract.doHardWork()
       // Vesting the strategy contract and migrate funds to sample contract
       await strategyContract.vesting()
       await vaultContract.setPendingStrategy(sampleContract.address)
       await vaultContract.unlockMigrateFunds()
-      network.provider.send("evm_increaseTime", [86400*2 + 1])
+
+      await increaseTime(global.SECONDS_IN_DAY*2 + 1)
       await strategyContract.approveMigrate()
       await vaultContract.migrateFunds()
       // Migrate funds back to Harvest Farmer Strategy contract
       await vaultContract.setPendingStrategy(strategyContract.address)
       await vaultContract.unlockMigrateFunds()
-      network.provider.send("evm_increaseTime", [86400*2 + 1])
+      
+      await increaseTime(global.SECONDS_IN_DAY*2 + 1)
       await sampleContract.approve(vaultContract.address, tokenContract.balanceOf(sampleContract.address))  
       await vaultContract.migrateFunds()
       // Reuse Harvest Farmer Strategy contract
       await strategyContract.reuseContract()
       // Check if everything is working fine
       await vaultContract.connect(clientSigner).deposit(decimals(500))
-      expect(await vaultContract.getCurrentBalance(clientSigner.address)).to.gt(decimals(990))
+      await vaultContract.invest();
+
+      expect(await strategyContract.getCurrentBalance(clientSigner.address)).to.gt(decimals(990))
       const hfStakeBalance = await hfStakeContract.balanceOf(strategyContract.address)
-      await vaultContract.connect(clientSigner).withdraw(decimals(495))
+      await vaultContract.connect(clientSigner).withdraw((await vaultContract.balanceOf(clientSigner.address)).div(2))
       expect(await tokenContract.balanceOf(clientSigner.address)).to.be.closeTo(decimals(495), decimals(1))
-      expect(await vaultContract.balanceOf(clientSigner.address)).to.equal(decimals(495))
-      expect(await vaultContract.totalSupply()).to.equal(decimals(495))
+      expect(await strategyContract.getCurrentBalance(clientSigner.address)).to.gt(decimals(495))
       expect(await strategyContract.pool()).to.gt(decimals(495))
       expect(await hfVaultContract.balanceOf(strategyContract.address)).to.equal(0)
-      expect(await hfStakeContract.balanceOf(strategyContract.address)).to.gt(hfStakeBalance.div(2))
+      expect(await hfStakeContract.balanceOf(strategyContract.address)).to.gte(hfStakeBalance.div(2))
       // expect(await FARMContract.balanceOf(strategyContract.address)).to.gt(0)
-      const currentBalance = await vaultContract.getCurrentBalance(clientSigner.address)
+      const currentBalance = await strategyContract.getCurrentBalance(clientSigner.address)
       expect(currentBalance).to.gt(decimals(495))
-      await vaultContract.connect(clientSigner).withdraw(currentBalance)
+      await vaultContract.connect(clientSigner).withdraw(await vaultContract.balanceOf(clientSigner.address))
       expect(await tokenContract.balanceOf(clientSigner.address)).to.gt(decimals(990))
       expect(await vaultContract.balanceOf(clientSigner.address)).to.equal(0)
       expect(await vaultContract.totalSupply()).to.equal(0)
