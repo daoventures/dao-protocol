@@ -11,6 +11,7 @@ import "hardhat/console.sol";
 interface ICurvePairs {
     function add_liquidity(uint256[2] memory _amounts, uint256 _min_mint_amount) external;
     function remove_liquidity_one_coin(uint256 _token_amount, int128 i, uint256 _min_amount) external;
+    function balances(uint256 i) external view returns (uint256);
 }
 
 interface IGauge {
@@ -68,6 +69,7 @@ interface IRouter {
 interface IPickleJar is IERC20 {
     function deposit(uint256 _amount) external;
     function withdraw(uint256 _amount) external;
+    function balance() external view returns (uint256);
 }
 
 interface IMasterChef {
@@ -97,10 +99,15 @@ interface IChainlink {
     function latestRoundData() external view returns (uint80, int, uint256, uint256, uint80);
 }
 
+interface ISLPToken is IERC20 {
+    function getReserves() external view returns (uint112, uint112, uint32);
+}
+
 contract CitadelStrategy is Ownable {
     using SafeERC20 for IERC20;
     using SafeERC20 for IWETH;
     using SafeERC20 for IPickleJar;
+    using SafeERC20 for ISLPToken;
     using SafeMath for uint256;
 
     IERC20 public WBTC = IERC20(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
@@ -121,8 +128,8 @@ contract CitadelStrategy is Ownable {
     uint256[] public curveSplit = [10000, 0]; // CRV to reinvest, to lock
 
     // Pickle
-    IERC20 public slpWBTC = IERC20(0xCEfF51756c56CeFFCA006cD410B03FFC46dd3a58);
-    IERC20 public slpDAI = IERC20(0xC3D03e4F041Fd4cD388c549Ee2A29a9E5075882f);
+    ISLPToken public slpWBTC = ISLPToken(0xCEfF51756c56CeFFCA006cD410B03FFC46dd3a58);
+    ISLPToken public slpDAI = ISLPToken(0xC3D03e4F041Fd4cD388c549Ee2A29a9E5075882f);
     IERC20 public PICKLE = IERC20(0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5);
     IPickleJar public pickleJarWBTC = IPickleJar(0xde74b6c547bd574c3527316a2eE30cd8F6041525);
     IPickleJar public pickleJarDAI = IPickleJar(0x55282dA27a3a02ffe599f6D11314D239dAC89135);
@@ -131,19 +138,15 @@ contract CitadelStrategy is Ownable {
 
     // Sushiswap Onsen
     IERC20 public DPI = IERC20(0x1494CA1F11D487c2bBe4543E90080AeBa4BA3C2b);
-    IERC20 public slpDPI = IERC20(0x34b13F8CD184F55d0Bd4Dd1fe6C07D46f245c7eD);
+    ISLPToken public slpDPI = ISLPToken(0x34b13F8CD184F55d0Bd4Dd1fe6C07D46f245c7eD);
     IERC20 public SUSHI = IERC20(0x6B3595068778DD592e39A122f4f5a5cF09C90fE2);
     IMasterChef public masterChef = IMasterChef(0xc2EdaD668740f1aA35E4D8f227fB8E17dcA888Cd);
 
     // LP token price in USD (8 decimals)
-    uint256 private _BTCPrice;
-    uint256 private _ETHPrice;
-    uint256 private _DPIPrice;
-    uint256 private _DAIPrice;
-    // uint256 private _BTCPrice = 5600000000000;
-    // uint256 private _ETHPrice = 400000000000;
-    // uint256 private _DPIPrice = 50000000000;
-    // uint256 private _DAIPrice = 100000000;
+    uint256 private _HBTCWBTCLPTokenPrice;
+    uint256 private _WBTCETHLPTokenPrice;
+    uint256 private _DPIETHLPTokenPrice;
+    uint256 private _DAIETHLPTokenPrice;
     enum Price { INCREASE, DECREASE }
 
     // Pool (in ETH)
@@ -204,11 +207,11 @@ contract CitadelStrategy is Ownable {
         DPI.safeApprove(address(router), type(uint256).max);
         slpDPI.safeApprove(address(masterChef), type(uint256).max);
 
-        // (uint _btcPrice, uint _ethPrice, uint _dpiPrice, uint _daiPrice) = _getCryptoPrice();
-        // _BTCPrice = _btcPrice;
-        // _ETHPrice = _ethPrice;
-        // _DPIPrice = _dpiPrice;
-        // _DAIPrice = _daiPrice;
+        (uint256 _clpTokenPriceHBTC, uint256 _pSlpTokenPriceWBTC, uint256 _slpTokenPriceDPI, uint256 _pSlpTokenPriceDAI) = _getLPTokenPrice();
+        _HBTCWBTCLPTokenPrice = _clpTokenPriceHBTC;
+        _WBTCETHLPTokenPrice = _pSlpTokenPriceWBTC;
+        _DPIETHLPTokenPrice = _slpTokenPriceDPI;
+        _DAIETHLPTokenPrice = _pSlpTokenPriceDAI;
     }
 
     function setVault(address _address) external onlyOwner {
@@ -385,7 +388,7 @@ contract CitadelStrategy is Ownable {
 
     /// @return Total strategy TVL in USD (6 decimals follow USDT)
     function getStrategyTVLInUSD() public view returns (uint256) {
-        uint256 _ethPrice = _getCryptoPriceFromChainlink(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419);
+        uint256 _ethPrice = _getTokenPriceFromChainlink(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419);
         return _getTotalPool().mul(_ethPrice).div(1e20);
     }
 
@@ -396,21 +399,57 @@ contract CitadelStrategy is Ownable {
         return _path;
     }
 
-    function _getCryptoPrice() private view returns (uint256, uint256, uint256, uint256) {
-        uint256 _btcPrice = _getCryptoPriceFromChainlink(0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c);
-        uint256 _ethPrice = _getCryptoPriceFromChainlink(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419);
-        uint256 _dpiPrice = _getCryptoPriceFromChainlink(0xD2A593BF7594aCE1faD597adb697b5645d5edDB2);
-        uint256 _daiPrice = _getCryptoPriceFromChainlink(0xAed0c38402a5d19df6E4c03F4E2DceD6e29c1ee9);
-        return (_btcPrice, _ethPrice, _dpiPrice, _daiPrice);
+    function _getLPTokenPrice() private view returns (uint256, uint256, uint256, uint256) {
+        uint256 _wbtcPrice = (router.getAmountsOut(1e18, _getPath(address(WBTC), address(WETH))))[1];
+        uint256 _dpiPrice = _getTokenPriceFromChainlink(0x029849bbc0b1d93b85a8b6190e979fd38F5760E2);
+        uint256 _daiPrice = _getTokenPriceFromChainlink(0x773616E4d11A78F511299002da57A0a94577F1f4);
+
+        // Curve HBTC/WBTC
+        uint256 _amountACurve = cPairs.balances(0); // HBTC, 18 decimals
+        uint256 _amountBCurve = (cPairs.balances(1)).mul(1e10); // WBTC, 8 decimals to 18 decimals
+        uint256 _totalValueOfHBTCWBTC = _calcTotalValueOfLiquidityPool(_amountACurve, _wbtcPrice, _amountBCurve, _wbtcPrice);
+        uint256 _clpTokenPriceHBTC = _calcValueOf1LPToken(_totalValueOfHBTCWBTC, clpToken.totalSupply());
+
+        // Pickle WBTC/ETH
+        uint256 _pSlpTokenPriceWBTC = _calcPslpTokenPrice(pickleJarWBTC, slpWBTC, _wbtcPrice);
+
+        // Sushiswap DPI/ETH
+        uint256 _slpTokenPriceDPI = _calcSlpTokenPrice(slpDPI, _dpiPrice);
+
+        // Pickle DAI/ETH
+        uint256 _pSlpTokenPriceDAI = _calcPslpTokenPrice(pickleJarDAI, slpDAI, _daiPrice);
+
+        return (_clpTokenPriceHBTC, _pSlpTokenPriceWBTC, _slpTokenPriceDPI, _pSlpTokenPriceDAI);
     }
 
-    function _getCryptoPriceFromChainlink(address _priceFeedProxy) private view returns (uint256) {
+    function _calcPslpTokenPrice(IPickleJar _pslpToken, ISLPToken _slpToken, uint256 _tokenAPrice) private view returns (uint256) {
+        uint256 _slpTokenPrice = _calcSlpTokenPrice(_slpToken, _tokenAPrice);
+        uint256 _totalValueOfPSlpToken = _calcTotalValueOfLiquidityPool(_pslpToken.balance(), _slpTokenPrice, 0, 0);
+        return _calcValueOf1LPToken(_totalValueOfPSlpToken, _pslpToken.totalSupply());
+    }
+
+    function _calcSlpTokenPrice(ISLPToken _slpToken, uint256 _tokenAPrice) private view returns (uint256) {
+        (uint112 _reserveA, uint112 _reserveB,) = _slpToken.getReserves();
+        _reserveA = _slpToken == slpWBTC ? _reserveA * 1e10 : _reserveA;
+        uint256 _totalValueOfLiquidityPool = _calcTotalValueOfLiquidityPool(uint256(_reserveA), _tokenAPrice, uint256(_reserveB), 1);
+        return _calcValueOf1LPToken(_totalValueOfLiquidityPool, _slpToken.totalSupply());
+    }
+
+    function _calcTotalValueOfLiquidityPool(uint256 _amountA, uint256 _priceA, uint256 _amountB, uint256 _priceB) private pure returns (uint256) {
+        return (_amountA.mul(_priceA)).add(_amountB.mul(_priceB));
+    }
+
+    function _calcValueOf1LPToken(uint256 _totalValueOfLiquidityPool, uint256 _circulatingSupplyOfLPTokens) private pure returns (uint256) {
+        return _totalValueOfLiquidityPool.div(_circulatingSupplyOfLPTokens);
+    }
+
+    function _getTokenPriceFromChainlink(address _priceFeedProxy) private view returns (uint256) {
         IChainlink pricefeed = IChainlink(_priceFeedProxy);
         (, int256 price, , ,) = pricefeed.latestRoundData();
         return uint256(price);
     }
 
-    function _getCryptoPriceMove(uint256 oldPrice, uint256 newPrice) private pure returns (uint256, Price) {
+    function _getLPTokenPriceMove(uint256 oldPrice, uint256 newPrice) private pure returns (uint256, Price) {
         if (newPrice > oldPrice) {
             uint256 percInc = (newPrice.sub(oldPrice)).mul(DENOMINATOR).div(oldPrice);
             return (percInc, Price.INCREASE);
@@ -434,100 +473,40 @@ contract CitadelStrategy is Ownable {
     }
 
     function _updatePoolForPriceChange() private {
-        (uint _btcPrice, uint _ethPrice, uint _dpiPrice, uint _daiPrice) = _getCryptoPrice();
+        (uint256 _clpTokenPriceHBTC, uint256 _pSlpTokenPriceWBTC, uint256 _slpTokenPriceDPI, uint256 _pSlpTokenPriceDAI) = _getLPTokenPrice();
         // HBTC/WBTC
-        (uint256 _priceMovePercBTC, Price _priceMoveDrBTC) = _getCryptoPriceMove(_BTCPrice, _btcPrice);
-        if (_priceMoveDrBTC == Price.INCREASE) {
-            _poolHBTCWBTC = _poolHBTCWBTC.add(_poolHBTCWBTC.mul(_priceMovePercBTC).div(DENOMINATOR));
+        (uint256 _priceMovePercClp, Price _priceMoveDrClp) = _getLPTokenPriceMove(_HBTCWBTCLPTokenPrice, _clpTokenPriceHBTC);
+        if (_priceMoveDrClp == Price.INCREASE) {
+            _poolHBTCWBTC = _poolHBTCWBTC.add(_poolHBTCWBTC.mul(_priceMovePercClp).div(DENOMINATOR));
         } else {
-            _poolHBTCWBTC = _poolHBTCWBTC.sub(_poolHBTCWBTC.mul(_priceMovePercBTC).div(DENOMINATOR));
+            _poolHBTCWBTC = _poolHBTCWBTC.sub(_poolHBTCWBTC.mul(_priceMovePercClp).div(DENOMINATOR));
         }
         // WBTC/ETH
-        (uint256 _priceMovePercETH, Price _priceMoveDrETH) = _getCryptoPriceMove(_ETHPrice, _ethPrice);
-        if (_priceMoveDrBTC == Price.INCREASE && _priceMoveDrETH == Price.INCREASE) { // ex. +10% +5%
-            uint256 _priceMovePerc = (_priceMovePercBTC.add(_priceMovePercETH)).div(2);
-            _poolWBTCETH = _poolWBTCETH.add(_poolWBTCETH.mul(_priceMovePerc).div(DENOMINATOR));
-        } else if (_priceMoveDrBTC == Price.DECREASE && _priceMoveDrETH == Price.DECREASE) { // ex. -10% -5%
-            uint256 _priceMovePerc = (_priceMovePercBTC.add(_priceMovePercETH)).div(2);
-            _poolWBTCETH = _poolWBTCETH.sub(_poolWBTCETH.mul(_priceMovePerc).div(DENOMINATOR));
+        (uint256 _priceMovePercPslpWBTC, Price _priceMoveDrPslpWBTC) = _getLPTokenPriceMove(_WBTCETHLPTokenPrice, _pSlpTokenPriceWBTC);
+        if (_priceMoveDrPslpWBTC == Price.INCREASE) {
+            _poolWBTCETH = _poolWBTCETH.add(_poolWBTCETH.mul(_priceMovePercPslpWBTC).div(DENOMINATOR));
         } else {
-            if (_priceMoveDrBTC == Price.INCREASE) {
-                if (_priceMovePercBTC > _priceMovePercETH) { // ex. +10% -5%
-                    uint256 _priceMovePerc = (_priceMovePercBTC.sub(_priceMovePercETH)).div(2);
-                    _poolWBTCETH = _poolWBTCETH.add(_poolWBTCETH.mul(_priceMovePerc).div(DENOMINATOR));
-                } else { // ex. +5% -10%
-                    uint256 _priceMovePerc = (_priceMovePercETH.sub(_priceMovePercBTC)).div(2);
-                    _poolWBTCETH = _poolWBTCETH.sub(_poolWBTCETH.mul(_priceMovePerc).div(DENOMINATOR));
-                }
-            } else {
-                if (_priceMovePercBTC > _priceMovePercETH) { // ex. -10% +5%
-                    uint256 _priceMovePerc = (_priceMovePercBTC.sub(_priceMovePercETH)).div(2);
-                    _poolWBTCETH = _poolWBTCETH.sub(_poolWBTCETH.mul(_priceMovePerc).div(DENOMINATOR));
-                } else { // ex. -5% +10%
-                    uint256 _priceMovePerc = (_priceMovePercETH.sub(_priceMovePercBTC)).div(2);
-                    _poolWBTCETH = _poolWBTCETH.add(_poolWBTCETH.mul(_priceMovePerc).div(DENOMINATOR));
-                }
-            }
+            _poolWBTCETH = _poolWBTCETH.sub(_poolWBTCETH.mul(_priceMovePercPslpWBTC).div(DENOMINATOR));
         }
         // DPI/ETH
-        (uint256 _priceMovePercDPI, Price _priceMoveDrDPI) = _getCryptoPriceMove(_DPIPrice, _dpiPrice);
-        if (_priceMoveDrDPI == Price.INCREASE && _priceMoveDrETH == Price.INCREASE) { // ex. +10% +5%
-            uint256 _priceMovePerc = (_priceMovePercDPI.add(_priceMovePercETH)).div(2);
-            _poolDPIETH = _poolDPIETH.add(_poolDPIETH.mul(_priceMovePerc).div(DENOMINATOR));
-        } else if (_priceMoveDrDPI == Price.DECREASE && _priceMoveDrETH == Price.DECREASE) { // ex. -10% -5%
-            uint256 _priceMovePerc = (_priceMovePercDPI.add(_priceMovePercETH)).div(2);
-            _poolDPIETH = _poolDPIETH.sub(_poolDPIETH.mul(_priceMovePerc).div(DENOMINATOR));
+        (uint256 _priceMovePercSlp, Price _priceMoveDrSlp) = _getLPTokenPriceMove(_DPIETHLPTokenPrice, _slpTokenPriceDPI);
+        if (_priceMoveDrSlp == Price.INCREASE) {
+            _poolDPIETH = _poolDPIETH.add(_poolDPIETH.mul(_priceMovePercSlp).div(DENOMINATOR));
         } else {
-            if (_priceMoveDrDPI == Price.INCREASE) {
-                if (_priceMovePercDPI > _priceMovePercETH) { // ex. +10% -5%
-                    uint256 _priceMovePerc = (_priceMovePercDPI.sub(_priceMovePercETH)).div(2);
-                    _poolDPIETH = _poolDPIETH.add(_poolDPIETH.mul(_priceMovePerc).div(DENOMINATOR));
-                } else { // ex. +5% -10%
-                    uint256 _priceMovePerc = (_priceMovePercETH.sub(_priceMovePercDPI)).div(2);
-                    _poolDPIETH = _poolDPIETH.sub(_poolDPIETH.mul(_priceMovePerc).div(DENOMINATOR));
-                }
-            } else {
-                if (_priceMovePercDPI > _priceMovePercETH) { // ex. -10% +5%
-                    uint256 _priceMovePerc = (_priceMovePercDPI.sub(_priceMovePercETH)).div(2);
-                    _poolDPIETH = _poolDPIETH.sub(_poolDPIETH.mul(_priceMovePerc).div(DENOMINATOR));
-                } else { // ex. -5% +10%
-                    uint256 _priceMovePerc = (_priceMovePercETH.sub(_priceMovePercDPI)).div(2);
-                    _poolDPIETH = _poolDPIETH.add(_poolDPIETH.mul(_priceMovePerc).div(DENOMINATOR));
-                }
-            }
+            _poolDPIETH = _poolDPIETH.sub(_poolDPIETH.mul(_priceMovePercSlp).div(DENOMINATOR));
         }
         // DAI/ETH
-        (uint256 _priceMovePercDAI, Price _priceMoveDrDAI) = _getCryptoPriceMove(_DAIPrice, _daiPrice);
-        if (_priceMoveDrDAI == Price.INCREASE && _priceMoveDrETH == Price.INCREASE) { // ex. +10% +5%
-            uint256 _priceMovePerc = (_priceMovePercDAI.add(_priceMovePercETH)).div(2);
-            _poolDAIETH = _poolDAIETH.add(_poolDAIETH.mul(_priceMovePerc).div(DENOMINATOR));
-        } else if (_priceMoveDrDAI == Price.DECREASE && _priceMoveDrETH == Price.DECREASE) { // ex. -10% -5%
-            uint256 _priceMovePerc = (_priceMovePercDAI.add(_priceMovePercETH)).div(2);
-            _poolDAIETH = _poolDAIETH.sub(_poolDAIETH.mul(_priceMovePerc).div(DENOMINATOR));
+        (uint256 _priceMovePercPslpDAI, Price _priceMoveDrPslpDAI) = _getLPTokenPriceMove(_DAIETHLPTokenPrice, _pSlpTokenPriceDAI);
+        if (_priceMoveDrPslpDAI == Price.INCREASE) {
+            _poolDAIETH = _poolDAIETH.add(_poolDAIETH.mul(_priceMovePercPslpDAI).div(DENOMINATOR));
         } else {
-            if (_priceMoveDrDAI == Price.INCREASE) {
-                if (_priceMovePercDAI > _priceMovePercETH) { // ex. +10% -5%
-                    uint256 _priceMovePerc = (_priceMovePercDAI.sub(_priceMovePercETH)).div(2);
-                    _poolDAIETH = _poolDAIETH.add(_poolDAIETH.mul(_priceMovePerc).div(DENOMINATOR));
-                } else { // ex. +5% -10%
-                    uint256 _priceMovePerc = (_priceMovePercETH.sub(_priceMovePercDAI)).div(2);
-                    _poolDAIETH = _poolDAIETH.sub(_poolDAIETH.mul(_priceMovePerc).div(DENOMINATOR));
-                }
-            } else {
-                if (_priceMovePercDAI > _priceMovePercETH) { // ex. -10% +5%
-                    uint256 _priceMovePerc = (_priceMovePercDAI.sub(_priceMovePercETH)).div(2);
-                    _poolDAIETH = _poolDAIETH.sub(_poolDAIETH.mul(_priceMovePerc).div(DENOMINATOR));
-                } else { // ex. -5% +10%
-                    uint256 _priceMovePerc = (_priceMovePercETH.sub(_priceMovePercDAI)).div(2);
-                    _poolDAIETH = _poolDAIETH.add(_poolDAIETH.mul(_priceMovePerc).div(DENOMINATOR));
-                }
-            }
+            _poolDAIETH = _poolDAIETH.sub(_poolDAIETH.mul(_priceMovePercPslpDAI).div(DENOMINATOR));
         }
         // Update new price
-        _BTCPrice = _btcPrice;
-        _ETHPrice = _ethPrice;
-        _DPIPrice = _dpiPrice;
-        _DAIPrice = _daiPrice;
+        _HBTCWBTCLPTokenPrice = _clpTokenPriceHBTC;
+        _WBTCETHLPTokenPrice = _pSlpTokenPriceWBTC;
+        _DPIETHLPTokenPrice = _slpTokenPriceDPI;
+        _DAIETHLPTokenPrice = _pSlpTokenPriceDAI;
     }
 
     function _updatePoolForProvideLiquidity(uint256 _total) private {
