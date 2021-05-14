@@ -163,8 +163,10 @@ contract CitadelStrategy is Ownable {
     // WEIGHTS: 30% Curve HBTC/WBTC, 30% Pickle WBTC/ETH, 30% Sushiswap DPI/ETH, 10% Pickle DAI/ETH
 
     // Fees
+    uint256 public yieldFeePerc = 1000;
     address public admin;
-    uint256 public adminFeePerc = 1000;
+    address public treasuryWallet = 0x59E83877bD248cBFe392dbB5A8a29959bcb48592;
+    address public communityWallet = 0xdd6c35aFF646B2fB7d8A8955Ccbe0994409348d0;
 
     event AddLiquidityCurveWBTC(uint256 amount, uint256 liquidity);
     event AddLiquidityPickleWBTC(uint256 amountA, uint256 amountB, uint256 liquidity);
@@ -226,7 +228,7 @@ contract CitadelStrategy is Ownable {
 
     function _yield() private {
         // 1) Claim all rewards
-        uint256 _adminFees;
+        uint256 _yieldFees;
         // Curve HBTC/WBTC
         // Claim CRV
         mintr.mint(address(gaugeC));
@@ -236,9 +238,9 @@ contract CitadelStrategy is Ownable {
             if (curveSplit[0] > 0) {
                 uint256 _amountIn = _balanceOfCRV.mul(curveSplit[0]).div(DENOMINATOR);
                 uint256[] memory _amounts = _swapExactTokensForTokens(address(CRV), address(WETH), _amountIn);
-                uint256 _fee = _amounts[1].mul(adminFeePerc).div(DENOMINATOR);
+                uint256 _fee = _amounts[1].mul(yieldFeePerc).div(DENOMINATOR);
                 _poolHBTCWBTC = _poolHBTCWBTC.add(_amounts[1].sub(_fee));
-                _adminFees = _adminFees.add(_fee);
+                _yieldFees = _yieldFees.add(_fee);
             }
             if (curveSplit[1] > 0) {
                 veCRV.create_lock(
@@ -253,9 +255,9 @@ contract CitadelStrategy is Ownable {
         uint256 _balanceOfPICKLEForWETH = PICKLE.balanceOf(address(this));
         if (_balanceOfPICKLEForWETH > 0) {
             uint256[] memory _amounts = _swapExactTokensForTokens(address(PICKLE), address(WETH), _balanceOfPICKLEForWETH);
-            uint256 _fee = _amounts[1].mul(adminFeePerc).div(DENOMINATOR);
+            uint256 _fee = _amounts[1].mul(yieldFeePerc).div(DENOMINATOR);
             _poolWBTCETH = _poolWBTCETH.add(_amounts[1].sub(_fee));
-            _adminFees = _adminFees.add(_fee);
+            _yieldFees = _yieldFees.add(_fee);
         }
         // Sushiswap DPI/ETH
         // Claim SUSHI
@@ -266,9 +268,9 @@ contract CitadelStrategy is Ownable {
             uint256 _balanceOfSUSHI = SUSHI.balanceOf(address(this));
             if (_balanceOfSUSHI > 0) {
                 uint256[] memory _amounts = _swapExactTokensForTokens(address(SUSHI), address(WETH), _balanceOfSUSHI);
-                uint256 _fee = _amounts[1].mul(adminFeePerc).div(DENOMINATOR);
+                uint256 _fee = _amounts[1].mul(yieldFeePerc).div(DENOMINATOR);
                 _poolDPIETH = _poolDPIETH.add(_amounts[1].sub(_fee));
-                _adminFees = _adminFees.add(_fee);
+                _yieldFees = _yieldFees.add(_fee);
             }
         }
         // Pickle DAI/ETH
@@ -277,15 +279,15 @@ contract CitadelStrategy is Ownable {
         uint256 _balanceOfPICKLEForDAI = PICKLE.balanceOf(address(this));
         if (_balanceOfPICKLEForDAI > 0) {
             uint256[] memory _amounts = _swapExactTokensForTokens(address(PICKLE), address(WETH), _balanceOfPICKLEForDAI);
-            uint256 _fee = _amounts[1].mul(adminFeePerc).div(DENOMINATOR);
+            uint256 _fee = _amounts[1].mul(yieldFeePerc).div(DENOMINATOR);
             _poolDAIETH = _poolDAIETH.add(_amounts[1].sub(_fee));
-            _adminFees = _adminFees.add(_fee);
+            _yieldFees = _yieldFees.add(_fee);
         }
 
-        // 2) portion rewards transfer to admin
-        _transferRewardsToAdmin(_adminFees);
+        // 2) Split yield fees
+        _splitYieldFees(_yieldFees);
 
-        // 3) reinvest rewards
+        // 3) Reinvest rewards
         _updatePoolForProvideLiquidity(_getTotalPool());
     }
 
@@ -355,8 +357,8 @@ contract CitadelStrategy is Ownable {
         _swapExactTokensForTokens(address(SUSHI), address(WETH), SUSHI.balanceOf(address(this)));
         // Send portion rewards to admin
         uint256 _rewards = (WETH.balanceOf(address(this))).sub(balanceOfWETHBefore);
-        uint256 _adminFees = _rewards.mul(adminFeePerc).div(DENOMINATOR);
-        _transferRewardsToAdmin(_adminFees);
+        uint256 _adminFees = _rewards.mul(yieldFeePerc).div(DENOMINATOR);
+        _splitYieldFees(_adminFees);
 
         // Swap all token to WETH
         _swapAllToETH();
@@ -424,10 +426,11 @@ contract CitadelStrategy is Ownable {
     }
 
     /// @param _amount WETH to transfer
-    function _transferRewardsToAdmin(uint256 _amount) private {
+    function _splitYieldFees(uint256 _amount) private {
         WETH.withdraw(_amount);
-        (bool success, ) = admin.call{value: address(this).balance}("");
-        require(success, "Failed transfer ETH to admin");
+        admin.call{value: (address(this).balance).mul(4).div(10)}("");
+        treasuryWallet.call{value: (address(this).balance).mul(4).div(10)}("");
+        communityWallet.call{value: (address(this).balance).mul(2).div(10)}("");
     }
 
     function _updatePoolForPriceChange() private {
