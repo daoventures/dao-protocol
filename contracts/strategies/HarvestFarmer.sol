@@ -13,6 +13,10 @@ import "../../interfaces/IDAOVault2.sol";
 import "../../interfaces/IFARM.sol";
 import "../../interfaces/IUniswapV2Router02.sol";
 
+uint256 constant DENOMINATOR = 10000;
+uint256 constant treasuryFee = 5000; // 50% on profile sharing fee
+uint256 constant communityFee = 5000; // 50% on profile sharing fee
+
 /// @title Contract for yield token with Harvest Finance and utilize FARM token
 contract HarvestFarmer is OwnableUpgradeable {
     using SafeERC20Upgradeable for IERC20Upgradeable;
@@ -38,10 +42,7 @@ contract HarvestFarmer is OwnableUpgradeable {
     address public treasuryWallet;
     address public communityWallet;
 
-    uint256 public constant DENOMINATOR = 10000;
     uint256 public profileSharingFeePercentage;
-    uint256 public constant treasuryFee = 5000; // 50% on profile sharing fee
-    uint256 public constant communityFee = 5000; // 50% on profile sharing fee
 
     event SetTreasuryWallet(address indexed oldTreasuryWallet, address indexed newTreasuryWallet);
     event SetCommunityWallet(address indexed oldCommunityWallet, address indexed newCommunityWallet);

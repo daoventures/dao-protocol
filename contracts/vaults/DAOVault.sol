@@ -29,6 +29,11 @@ import "../../libraries/Ownable.sol";
  */
 import "../../interfaces/IStrategy2.sol";
 
+uint256 constant DENOMINATOR = 10000;
+uint256 constant treasuryFee = 5000;
+uint256 constant communityFee = 5000;
+uint256 constant LOCKTIME = 2 days;
+
 /// @title Contract to interact between user and strategy, and distribute daoToken
 contract DAOVault is Initializable, ERC20Upgradeable, OwnableUpgradeable {
     using SafeERC20Upgradeable for IERC20Upgradeable;
@@ -43,17 +48,12 @@ contract DAOVault is Initializable, ERC20Upgradeable, OwnableUpgradeable {
 
     bool public canSetPendingStrategy;
     uint256 public unlockTime;
-    uint256 public constant LOCKTIME = 2 days;
 
     // Calculation for fees
     uint256[] public networkFeeTier2;
     uint256 public customNetworkFeeTier;
-    uint256 public constant DENOMINATOR = 10000;
     uint256[] public networkFeePercentage;
     uint256 public customNetworkFeePercentage;
-    uint256 public profileSharingFeePercentage;
-    uint256 public constant treasuryFee = 5000;
-    uint256 public constant communityFee = 5000;
 
     // Address to collect fees
     address public treasuryWallet;
@@ -121,7 +121,6 @@ contract DAOVault is Initializable, ERC20Upgradeable, OwnableUpgradeable {
         customNetworkFeeTier = 1000000 * 10**decimals;
         networkFeePercentage = [100, 75, 50];
         customNetworkFeePercentage = 25;
-        profileSharingFeePercentage = 1000;
         treasuryWallet = 0x59E83877bD248cBFe392dbB5A8a29959bcb48592;
         communityWallet = 0xdd6c35aFF646B2fB7d8A8955Ccbe0994409348d0;
 
@@ -415,6 +414,9 @@ contract DAOVault is Initializable, ERC20Upgradeable, OwnableUpgradeable {
         strategy = IStrategy2(pendingStrategy);
         pendingStrategy = address(0);
         canSetPendingStrategy = true;
+
+        token.safeApprove(address(oldStrategy), 0);
+        token.safeApprove(address(strategy), type(uint256).max);
 
         unlockTime = 0; // Lock back this function
         emit MigrateFunds(oldStrategy, address(strategy), _amount);

@@ -94,18 +94,18 @@ describe("Harvest-Farmer DAI", () => {
     expect(await vaultContract.vaultName()).to.equal(ethers.utils.formatBytes32String("DAOVault Medium-Risk DAI"))
     expect(await vaultContract.canSetPendingStrategy()).is.true
     expect(await vaultContract.unlockTime()).to.equal(0)
-    expect(await vaultContract.LOCKTIME()).to.equal(2*24*60*60)
+    // expect(await vaultContract.LOCKTIME()).to.equal(2*24*60*60)
     // Check if all pre-set fees are correct in vault contract
     expect(await vaultContract.networkFeeTier2(0)).to.equal(decimals(50000).add(1))
     expect(await vaultContract.networkFeeTier2(1)).to.equal(decimals(100000))
     expect(await vaultContract.customNetworkFeeTier()).to.equal(decimals(1000000))
-    expect(await vaultContract.DENOMINATOR()).to.equal("10000")
+    // expect(await vaultContract.DENOMINATOR()).to.equal("10000")
     expect(await vaultContract.networkFeePercentage(0)).to.equal("100")
     expect(await vaultContract.networkFeePercentage(1)).to.equal("75")
     expect(await vaultContract.networkFeePercentage(2)).to.equal("50")
     expect(await vaultContract.customNetworkFeePercentage()).to.equal("25")
-    expect(await vaultContract.treasuryFee()).to.equal("5000")
-    expect(await vaultContract.communityFee()).to.equal("5000")
+    // expect(await vaultContract.treasuryFee()).to.equal("5000")
+    // expect(await vaultContract.communityFee()).to.equal("5000")
     // Check if all pre-set addresses are correct in strategy contract
     expect(await strategyContract.token()).to.equal(tokenAddress)
     expect(await strategyContract.daoVault()).to.equal(vaultContract.address)
@@ -117,10 +117,10 @@ describe("Harvest-Farmer DAI", () => {
     expect(await strategyContract.treasuryWallet()).to.equal(treasuryWalletAddress)
     expect(await strategyContract.communityWallet()).to.equal(communityWalletAddress)
     // Check if all pre-set fees are correct in strategy contract
-    expect(await strategyContract.DENOMINATOR()).to.equal("10000")
+    // expect(await strategyContract.DENOMINATOR()).to.equal("10000")
     expect(await strategyContract.profileSharingFeePercentage()).to.equal("1000")
-    expect(await strategyContract.treasuryFee()).to.equal("5000")
-    expect(await strategyContract.communityFee()).to.equal("5000")
+    // expect(await strategyContract.treasuryFee()).to.equal("5000")
+    // expect(await strategyContract.communityFee()).to.equal("5000")
     // Check if all other pre-set variables are correct in strategy contract
     expect(await strategyContract.strategyName()).to.equal(ethers.utils.formatBytes32String("Harvest-Farmer DAI"))
     expect(await strategyContract.isVesting()).is.false

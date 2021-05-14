@@ -116,11 +116,6 @@ Get current amount out minimum percentage for Uniswap swap function used.
 - *Param*: -
 - *Return*: Current amount out minimum percentage used(100 = 1%)
 
-#### function `deadline()`
-Get current deadline used.
-- *Param*: -
-- *Return*: Current deadline used(in seconds)
-
 #### function `profileSharingFeePercentage()`
 Get current profile sharing fee percentage.
 - *Param*: -
