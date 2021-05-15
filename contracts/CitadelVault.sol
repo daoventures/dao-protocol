@@ -63,12 +63,12 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
     address public admin;
 
     uint256 public constant DENOMINATOR = 10000;
-    // uint256 public keepUSDT = 200;
-    // uint256 public keepUSDC = 200;
-    // uint256 public keepDAI = 200;
-    uint256 public keepUSDT = 0; // Temporarily for testing
-    uint256 public keepUSDC = 0; // Temporarily for testing
-    uint256 public keepDAI = 0; // Temporarily for testing
+    uint256 public keepUSDT = 200;
+    uint256 public keepUSDC = 200;
+    uint256 public keepDAI = 200;
+    // uint256 public keepUSDT = 0; // Temporarily for testing
+    // uint256 public keepUSDC = 0; // Temporarily for testing
+    // uint256 public keepDAI = 0; // Temporarily for testing
 
     address public pendingStrategy;
     bool public canSetPendingStrategy;
@@ -81,7 +81,8 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
     // uint256[] public networkFeePercentage = [100, 75, 50];
     uint256[] public networkFeePercentage = [0, 0, 0]; // Temporarily for testing
     uint256 public customNetworkFeePercentage = 25;
-    uint256 public profitSharingFeePercentage = 2000;
+    // uint256 public profitSharingFeePercentage = 2000;
+    uint256 public profitSharingFeePercentage = 0; // Temporarily for testing
     uint256 private fees;
 
     // Address to collect fees
@@ -192,9 +193,12 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
         _balanceOfDeposit[msg.sender] = _balanceOfDeposit[msg.sender].sub(_depositAmt);
 
         // Calculate withdraw amount
-        uint256 _pool = _getAllPoolInETH();
-        uint256 _withdrawAmt = _pool.mul(_shares).div(totalSupply());
-        if (_withdrawAmt > _token.balanceOf(address(this))) {
+        uint256 _withdrawAmt = _getAllPoolInETH().mul(_shares).div(totalSupply());
+        uint256 _withdrawAmtInUSD = _withdrawAmt.mul(_getPriceFromChainlink(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419)).div(1e8); // ETH/USD
+        uint256 _balanceOfToken = _token.balanceOf(address(this));
+        _balanceOfToken = _token == DAI ? _balanceOfToken : _balanceOfToken.mul(1e12);
+        // console.log(_withdrawAmtInUSD, _balanceOfToken); // 297.924325442337744962 600.414506000000000000
+        if (_withdrawAmtInUSD > _balanceOfToken) {
             // Not encough token in vault, need to get from strategy
             if (_token == DAI) {
                 _withdrawAmt = _withdrawAmt.div(10e11);
@@ -205,7 +209,8 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
         }
 
         // Calculate profit sharing fee
-        if (_withdrawAmt > _depositAmt) {
+        // console.log(_withdrawAmtInUSD, _depositAmt); // 297.924325442337744962 300.000000000000000000
+        if (_withdrawAmtInUSD > _depositAmt) {
             uint256 _profit = _withdrawAmt.sub(_depositAmt);
             uint256 _fee = _profit.mul(profitSharingFeePercentage).div(DENOMINATOR);
             _withdrawAmt = _withdrawAmt.sub(_fee);
@@ -213,7 +218,8 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
         }
 
         _burn(msg.sender, _shares);
-        _token.safeTransfer(msg.sender, _withdrawAmt);
+        _withdrawAmtInUSD = _token == DAI ? _withdrawAmtInUSD : _withdrawAmtInUSD.div(1e12);
+        _token.safeTransfer(msg.sender, _withdrawAmtInUSD);
     }
 
     function invest() external onlyAdmin {
