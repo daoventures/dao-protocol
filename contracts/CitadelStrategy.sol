@@ -90,7 +90,7 @@ interface IWETH is IERC20 {
 }
 
 interface ICitadelVault {
-    function getVaultTVLInUSD() external view returns (uint256);
+    function getVaultPoolInETH() external view returns (uint256);
     function getReimburseTokenAmount(uint8) external view returns (uint256);
     function balanceOf(address) external view returns (uint256);
 }
@@ -222,7 +222,7 @@ contract CitadelStrategy is Ownable {
 
     function invest(uint256 _amount) external onlyVault {
         WETH.safeTransferFrom(address(vault), address(this), _amount);
-        if (_getTotalPool() > 0) { // Not first invest
+        if (getTotalPool() > 0) { // Not first invest
             _updatePoolForPriceChange();
             _yield();
         }
@@ -291,14 +291,14 @@ contract CitadelStrategy is Ownable {
         _splitYieldFees(_yieldFees);
 
         // 3) Reinvest rewards
-        _updatePoolForProvideLiquidity(_getTotalPool());
+        _updatePoolForProvideLiquidity(getTotalPool());
     }
 
     // To enable receive ETH from WETH
     receive() external payable {}
 
     function _farming() private {
-        uint256 _totalPoolAddTotalDeposit = _getTotalPool().add(WETH.balanceOf(address(this)));
+        uint256 _totalPoolAddTotalDeposit = getTotalPool().add(WETH.balanceOf(address(this)));
         _updatePoolForProvideLiquidity(_totalPoolAddTotalDeposit);
         // console.log("_poolHBTCWBTC", _poolHBTCWBTC);
         // console.log("_poolWBTCETH", _poolWBTCETH);
@@ -386,11 +386,10 @@ contract CitadelStrategy is Ownable {
         }
     }
 
-    /// @return Total strategy TVL in USD (6 decimals follow USDT)
-    function getStrategyTVLInUSD() public view returns (uint256) {
-        uint256 _ethPrice = _getTokenPriceFromChainlink(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419);
-        return _getTotalPool().mul(_ethPrice).div(1e20);
-    }
+    // function getStrategyTVLInETH() public view returns (uint256) {
+    //     uint256 _ethPrice = _getTokenPriceFromChainlink(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419);
+    //     return getTotalPool().mul(_ethPrice).div(1e20);
+    // }
 
     function _getPath(address _tokenA, address _tokenB) private pure returns (address[] memory) {
         address[] memory _path = new address[](2);
@@ -460,7 +459,7 @@ contract CitadelStrategy is Ownable {
     }
 
     /// @notice Get total pool in ETH (18 decimals)
-    function _getTotalPool() private view returns (uint256) {
+    function getTotalPool() public view returns (uint256) {
         return _poolHBTCWBTC.add(_poolWBTCETH).add(_poolDPIETH).add(_poolDAIETH);
     }
 
@@ -643,7 +642,7 @@ contract CitadelStrategy is Ownable {
 
     function withdraw(uint256 _amount) external {
         uint256 _WETHAmt = WETH.balanceOf(address(this));
-        uint256 _poolAmt = getStrategyTVLInUSD().add(vault.getVaultTVLInUSD());
+        uint256 _poolAmt = getTotalPool().add(vault.getVaultPoolInETH());
         uint256 _shares = _amount.mul(DENOMINATOR).div(_poolAmt);
         _withdraw(_shares);
         WETH.safeTransfer(msg.sender, (WETH.balanceOf(address(this))).sub(_WETHAmt));

@@ -10,7 +10,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "hardhat/console.sol";
 
 interface ICitadelStrategy {
-    function getStrategyTVLInUSD() external view returns (uint256);
+    function getTotalPool() external view returns (uint256);
     function invest(uint256 _amount) external;
     function withdraw(uint256 _amount) external;
     function reimburse() external;
@@ -38,6 +38,10 @@ interface IRouter {
 
 interface ICurveSwap {
     function exchange(int128 i, int128 j, uint256 _dx, uint256 _min_dy) external;
+}
+
+interface IChainlink {
+    function latestRoundData() external view returns (uint80, int, uint256, uint256, uint80);
 }
 
 /// @title Contract to interact between user and strategy, and distribute daoToken
@@ -118,7 +122,7 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
 
         uint256 _shares;
         // Change total pool to 18 decimals to calculate distributed LP token in 18 decimals
-        uint256 _pool = getAllTVLInUSD().mul(1e12);
+        uint256 _pool = getAllPoolInETH();
         if (_tokenType == TokenType.USDT) {
             USDT.safeTransferFrom(msg.sender, address(this), _amount);
             _amount = _amount.mul(10e11);
@@ -185,7 +189,7 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
         _balanceOfDeposit[msg.sender] = _balanceOfDeposit[msg.sender].sub(_depositAmt);
 
         // Calculate withdraw amount
-        uint256 _pool = getAllTVLInUSD().mul(10e11);
+        uint256 _pool = getAllPoolInETH();
         uint256 _withdrawAmt = _pool.mul(_shares).div(totalSupply());
         if (_withdrawAmt > _token.balanceOf(address(this))) {
             // Not encough token in vault, need to get from strategy
@@ -219,9 +223,9 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
         }
 
         // Calculation for keep portion of token and swap remainder to WETH
-        uint256 _toKeepUSDT = getAllTVLInUSD().mul(keepUSDT).div(DENOMINATOR);
-        uint256 _toKeepUSDC = getAllTVLInUSD().mul(keepUSDC).div(DENOMINATOR);
-        uint256 _toKeepDAI = getAllTVLInUSD().mul(keepDAI).div(DENOMINATOR);
+        uint256 _toKeepUSDT = getAllPoolInUSD().mul(keepUSDT).div(DENOMINATOR);
+        uint256 _toKeepUSDC = getAllPoolInUSD().mul(keepUSDC).div(DENOMINATOR);
+        uint256 _toKeepDAI = getAllPoolInUSD().mul(keepDAI).div(DENOMINATOR);
         _invest(USDT, _toKeepUSDT);
         _invest(USDC, _toKeepUSDC);
         _toKeepDAI = _toKeepDAI.mul(1e12); // Follow decimals of DAI
@@ -425,20 +429,31 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
         // emit MigrateFunds(oldStrategy, address(strategy), _amount);
     }
 
-    /// @return All TVL in USD (6 decimals follow USDT)
-    function getAllTVLInUSD() public view returns (uint256) {
-        return strategy.getStrategyTVLInUSD().add(getVaultTVLInUSD());
+    /// return All pool in USD (6 decimals follow USDT)
+    function getAllPoolInUSD() public view returns (uint256) {
+        uint256 _price = _getPriceFromChainlink(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419); // ETH/USD
+        return _getAllPoolInETH().mul(_price).div(1e20);
     }
 
-    /// @return Vault TVL in USD (6 decimals follow USDT)
-    function getVaultTVLInUSD() public view returns (uint256) {
-        return (
-            USDT.balanceOf(address(this))
-                .add(USDC.balanceOf(address(this)))
-                .add(DAI.balanceOf(address(this)).div(1e12))
-        );
+    function _getAllPoolInETH() private view returns (uint256) {
+        return strategy.getTotalPool().add(getVaultPoolInETH());
     }
 
+    function getVaultPoolInETH() public view returns (uint256) {
+        // Get exact USD amount of value (no decimals) 
+        uint256 _totalPoolInUSD = (USDT.balanceOf(address(this)).div(1e6))
+            .add(USDC.balanceOf(address(this)).div(1e6))
+            .add(DAI.balanceOf(address(this)).div(1e18));
+        return _totalPoolInUSD.mul(_getPriceFromChainlink(0xEe9F2375b4bdF6387aa8265dD4FB8F16512A1d46)); // USDT/ETH
+    }
+
+    function _getPriceFromChainlink(address _priceFeedProxy) private view returns (uint256) {
+        IChainlink pricefeed = IChainlink(_priceFeedProxy);
+        (, int256 price, , ,) = pricefeed.latestRoundData();
+        return uint256(price);
+    }
+
+    /// return Amount to reimburse (USDT, USDC 6 decimals, DAI 18 decimals)
     function getReimburseTokenAmount(TokenType _tokenType) public view returns (uint256) {
         uint256 _keepToken;
         IERC20 _token;
@@ -452,7 +467,7 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
             _keepToken = keepDAI;
             _token = DAI;
         }
-        uint256 _toKeepToken = getAllTVLInUSD().mul(_keepToken).div(DENOMINATOR);
+        uint256 _toKeepToken = getAllPoolInUSD().mul(_keepToken).div(DENOMINATOR);
         if (_tokenType == TokenType.DAI) {
             _toKeepToken = _toKeepToken.mul(10e11); // Follow decimals of DAI
         }
