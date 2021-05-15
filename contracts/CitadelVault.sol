@@ -122,31 +122,34 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
 
         uint256 _shares;
         // Change total pool to 18 decimals to calculate distributed LP token in 18 decimals
-        uint256 _pool = getAllPoolInETH();
+        uint256 _pool = _getAllPoolInETH();
         if (_tokenType == TokenType.USDT) {
             USDT.safeTransferFrom(msg.sender, address(this), _amount);
-            _amount = _amount.mul(10e11);
-            _amount = _deposit(_amount);
-            _shares = totalSupply() == 0 ? _amount : _amount.mul(totalSupply()).div(_pool);
-            _balanceOfDeposit[msg.sender] = _balanceOfDeposit[msg.sender].add(_amount);
+            _amount = _amount.mul(1e12);
+            _shares = _deposit(_amount, _pool);
         } else if (_tokenType == TokenType.USDC) {
             USDC.safeTransferFrom(msg.sender, address(this), _amount);
-            _amount = _amount.mul(10e11);
-            _amount = _deposit(_amount);
-            _shares = totalSupply() == 0 ? _amount : _amount.mul(totalSupply()).div(_pool);
-            _balanceOfDeposit[msg.sender] = _balanceOfDeposit[msg.sender].add(_amount);
+            _amount = _amount.mul(1e12);
+            _shares = _deposit(_amount, _pool);
         } else {
             DAI.safeTransferFrom(msg.sender, address(this), _amount);
-            _amount = _deposit(_amount);
-            _shares = totalSupply() == 0 ? _amount : _amount.mul(totalSupply()).div(_pool);
-            _balanceOfDeposit[msg.sender] = _balanceOfDeposit[msg.sender].add(_amount);
+            _shares = _deposit(_amount, _pool);
         }
         _mint(msg.sender, _shares);
     }
 
+    function _deposit(uint256 _amount, uint256 _pool) private returns (uint256 _shares) {
+        _amount = _calcNetworkFee(_amount);
+        _balanceOfDeposit[msg.sender] = _balanceOfDeposit[msg.sender].add(_amount);
+        uint256 _amountInETH = _amount.mul(_getPriceFromChainlink(0xEe9F2375b4bdF6387aa8265dD4FB8F16512A1d46)).div(1e18);
+        _shares = totalSupply() == 0 ? _amountInETH : _amountInETH.mul(totalSupply()).div(_pool);
+        // console.log(_amountInETH, totalSupply(), _getAllPoolInETH());
+        // console.log(_shares);
+    }
+
     /// @notice Function to calculate network fee
     /// @return Deposit amount after network fee
-    function _deposit(uint256 _amount) private returns (uint256) {
+    function _calcNetworkFee(uint256 _amount) private returns (uint256) {
         uint256 _networkFeePercentage;
         if (_amount < networkFeeTier2[0]) {
             // Tier 1
@@ -189,7 +192,7 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
         _balanceOfDeposit[msg.sender] = _balanceOfDeposit[msg.sender].sub(_depositAmt);
 
         // Calculate withdraw amount
-        uint256 _pool = getAllPoolInETH();
+        uint256 _pool = _getAllPoolInETH();
         uint256 _withdrawAmt = _pool.mul(_shares).div(totalSupply());
         if (_withdrawAmt > _token.balanceOf(address(this))) {
             // Not encough token in vault, need to get from strategy
