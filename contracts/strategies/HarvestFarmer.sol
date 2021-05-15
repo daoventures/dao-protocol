@@ -13,10 +13,6 @@ import "../../interfaces/IDAOVault2.sol";
 import "../../interfaces/IFARM.sol";
 import "../../interfaces/IUniswapV2Router02.sol";
 
-uint256 constant DENOMINATOR = 10000;
-uint256 constant treasuryFee = 5000; // 50% on profile sharing fee
-uint256 constant communityFee = 5000; // 50% on profile sharing fee
-
 /// @title Contract for yield token with Harvest Finance and utilize FARM token
 contract HarvestFarmer is OwnableUpgradeable {
     using SafeERC20Upgradeable for IERC20Upgradeable;
@@ -242,9 +238,10 @@ contract HarvestFarmer is OwnableUpgradeable {
         uint256 _fromHarvest = (token.balanceOf(address(this))).sub(_fromVault);
         if (_fromHarvest > pool) {
             uint256 _earn = _fromHarvest.sub(pool);
-            uint256 _fee = _earn.mul(profileSharingFeePercentage).div(DENOMINATOR);
-            token.safeTransfer(treasuryWallet, _fee.mul(treasuryFee).div(DENOMINATOR));
-            token.safeTransfer(communityWallet, _fee.mul(communityFee).div(DENOMINATOR));
+            uint256 _fee = _earn.mul(profileSharingFeePercentage).div(10000 /*DENOMINATOR*/);
+            uint256 treasuryFee = _fee.div(2); // 50% on profile sharing fee
+            token.safeTransfer(treasuryWallet, treasuryFee);
+            token.safeTransfer(communityWallet, _fee.sub(treasuryFee));
         }
 
         uint256 _all = token.balanceOf(address(this));
@@ -285,7 +282,7 @@ contract HarvestFarmer is OwnableUpgradeable {
 
             uint256[] memory _amountsOut = uniswapRouter.getAmountsOut(_amountIn, _path);
             if (_amountsOut[2] > 0) {
-                uint256 _amountOutMin = _amountsOut[2].mul(amountOutMinPerc).div(DENOMINATOR);
+                uint256 _amountOutMin = _amountsOut[2].mul(amountOutMinPerc).div(10000 /*DENOMINATOR*/);
                 uniswapRouter.swapExactTokensForTokens(
                     _amountIn, _amountOutMin, _path, address(this), block.timestamp);
             }
@@ -295,9 +292,10 @@ contract HarvestFarmer is OwnableUpgradeable {
         uint256 _allTokenBalance = token.balanceOf(address(this));
         if (_allTokenBalance > pool) {
             uint256 _profit = _allTokenBalance.sub(pool);
-            uint256 _fee = _profit.mul(profileSharingFeePercentage).div(DENOMINATOR);
-            token.safeTransfer(treasuryWallet, _fee.mul(treasuryFee).div(DENOMINATOR));
-            token.safeTransfer(communityWallet, _fee.mul(communityFee).div(DENOMINATOR));
+            uint256 _fee = _profit.mul(profileSharingFeePercentage).div(10000 /*DENOMINATOR*/);
+            uint256 treasuryFee = _fee.div(2);
+            token.safeTransfer(treasuryWallet, treasuryFee);
+            token.safeTransfer(communityWallet, _fee.sub(treasuryFee));
         }
 
         pool = token.balanceOf(address(this));

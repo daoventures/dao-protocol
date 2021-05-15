@@ -29,11 +29,6 @@ import "../../libraries/Ownable.sol";
  */
 import "../../interfaces/IStrategy2.sol";
 
-uint256 constant DENOMINATOR = 10000;
-uint256 constant treasuryFee = 5000;
-uint256 constant communityFee = 5000;
-uint256 constant LOCKTIME = 2 days;
-
 /// @title Contract to interact between user and strategy, and distribute daoToken
 contract DAOVault is Initializable, ERC20Upgradeable, OwnableUpgradeable {
     using SafeERC20Upgradeable for IERC20Upgradeable;
@@ -169,7 +164,7 @@ contract DAOVault is Initializable, ERC20Upgradeable, OwnableUpgradeable {
             // Custom Tier
             _networkFeePercentage = customNetworkFeePercentage;
         }
-        uint256 _fee = _amount.mul(_networkFeePercentage).div(DENOMINATOR);
+        uint256 _fee = _amount.mul(_networkFeePercentage).div(10000 /*DENOMINATOR*/);
         _amount = _amount.sub(_fee);
         _fees = _fees.add(_fee);
 
@@ -218,8 +213,9 @@ contract DAOVault is Initializable, ERC20Upgradeable, OwnableUpgradeable {
 
     function invest() external onlyOwner {
         if (_fees > 0) {
-            token.safeTransfer(treasuryWallet, _fees.mul(treasuryFee).div(DENOMINATOR));
-            token.safeTransfer(communityWallet, _fees.mul(communityFee).div(DENOMINATOR));
+            uint256 treasuryFee = _fees.div(2);
+            token.safeTransfer(treasuryWallet, treasuryFee);
+            token.safeTransfer(communityWallet, _fees.sub(treasuryFee));
             _fees = 0;
         }
 
@@ -383,7 +379,7 @@ contract DAOVault is Initializable, ERC20Upgradeable, OwnableUpgradeable {
      * - Only owner of this contract call this function
      */
     function unlockMigrateFunds() external onlyOwner {
-        unlockTime = block.timestamp.add(LOCKTIME);
+        unlockTime = block.timestamp.add(2 days /*LOCKTIME*/);
         canSetPendingStrategy = false;
     }
 

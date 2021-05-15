@@ -16,7 +16,7 @@ BigNumber.config({
 })
 
 const global = require('../utils/global');
-const { increaseTime } = require('../utils/ethereum');
+const { increaseTime, UInt256Max } = require('../utils/ethereum');
 
 const decimals = (amount) => {
   return ethers.utils.parseUnits(amount.toString(), tokenDecimals)
@@ -756,6 +756,9 @@ describe("Harvest-Farmer USDT", () => {
       // Execute unlock migrate funds function again
       await vaultContract.unlockMigrateFunds()
       network.provider.send("evm_increaseTime", [86400*2]) // advance for 2 days
+      // Check if migration is failed till the strategy approve the migration
+      await expect(vaultContract.migrateFunds()).to.be.revertedWith("SafeERC20: low-level call failed")
+
       // Approve for token transfer from Yearn Farmer to new strategy
       await strategyContract.approveMigrate()
       // Check if migrate funds function meet the requirements
@@ -763,12 +766,18 @@ describe("Harvest-Farmer USDT", () => {
       // await expect(vaultContract.migrateFunds()).to.be.revertedWith("No balance to migrate")
       // Need to comment out set/check pending strategy function and all code below this to test this
       // await expect(vaultContract.migrateFunds()).to.be.revertedWith("No pendingStrategy")
+
+      // Check if the pending strategy doesn't have allowance for valut contract
+      expect(await tokenContract.allowance(vaultContract.address, sampleContract.address)).to.equal(0)
       // Execute migrate funds function and check if event for migrateFunds is logged
       await expect(vaultContract.migrateFunds()).to.emit(vaultContract, "MigrateFunds")
           .withArgs(strategyContract.address, sampleContract.address, tokenBalance)
       // Check if token transfer correctly
       expect(await tokenContract.balanceOf(sampleContract.address)).to.equal(tokenBalance)
       expect(await tokenContract.balanceOf(strategyContract.address)).to.equal(0)
+      // Check if the strategy approved the vault for the token
+      expect(await tokenContract.allowance(vaultContract.address, sampleContract.address)).to.equal(UInt256Max())
+      expect(await tokenContract.allowance(vaultContract.address, strategyContract.address)).to.equal(0)
       // Check if new strategy set and pending strategy reset to 0
       expect(await vaultContract.strategy()).to.equal(sampleContract.address)
       expect(await vaultContract.pendingStrategy()).to.equal(ethers.constants.AddressZero)
