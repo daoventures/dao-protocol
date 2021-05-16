@@ -14,7 +14,7 @@ interface ICurvePairs {
     function balances(uint256 i) external view returns (uint256);
 }
 
-interface IGauge {
+interface IGaugeC {
     function balanceOf(address _address) external view returns (uint256);
     function deposit(uint256 _amount) external;
     function withdraw(uint256 _amount) external;
@@ -26,7 +26,6 @@ interface IMintr {
 
 interface IveCRV {
     function create_lock(uint256 _amount, uint256 _unlock_time) external;
-    function withdraw() external;
 }
 
 interface IRouter {
@@ -91,7 +90,6 @@ interface IWETH is IERC20 {
 
 interface ICitadelVault {
     function getReimburseTokenAmount(uint8) external view returns (uint256);
-    function balanceOf(address) external view returns (uint256);
 }
 
 interface IChainlink {
@@ -114,21 +112,21 @@ contract CitadelStrategy is Ownable {
     IERC20 public constant USDT = IERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7);
     IERC20 public constant USDC = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
     IERC20 public constant DAI = IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
-    IRouter public constant router = IRouter(0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F);
+    IRouter public constant router = IRouter(0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F); // SushiSwap
     ICitadelVault public vault;
 
     // Curve
     ICurvePairs public constant cPairs = ICurvePairs(0x4CA9b3063Ec5866A4B82E437059D2C43d1be596F); // HBTC/WBTC
     IERC20 public constant clpToken = IERC20(0xb19059ebb43466C323583928285a49f558E572Fd);
     IERC20 public constant CRV = IERC20(0xD533a949740bb3306d119CC777fa900bA034cd52);
-    IGauge public constant gaugeC = IGauge(0x4c18E409Dc8619bFb6a1cB56D114C3f592E0aE79);
+    IGaugeC public constant gaugeC = IGaugeC(0x4c18E409Dc8619bFb6a1cB56D114C3f592E0aE79);
     IMintr public constant mintr = IMintr(0xd061D61a4d941c39E5453435B6345Dc261C2fcE0);
     IveCRV public constant veCRV = IveCRV(0x5f3b5DfEb7B28CDbD7FAba78963EE202a494e2A2);
     uint256[] public curveSplit = [10000, 0]; // CRV to reinvest, to lock
 
     // Pickle
-    ISLPToken public constant slpWBTC = ISLPToken(0xCEfF51756c56CeFFCA006cD410B03FFC46dd3a58);
-    ISLPToken public constant slpDAI = ISLPToken(0xC3D03e4F041Fd4cD388c549Ee2A29a9E5075882f);
+    ISLPToken public constant slpWBTC = ISLPToken(0xCEfF51756c56CeFFCA006cD410B03FFC46dd3a58); // WBTC/ETH
+    ISLPToken public constant slpDAI = ISLPToken(0xC3D03e4F041Fd4cD388c549Ee2A29a9E5075882f); // DAI/ETH
     IERC20 public constant PICKLE = IERC20(0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5);
     IPickleJar public constant pickleJarWBTC = IPickleJar(0xde74b6c547bd574c3527316a2eE30cd8F6041525);
     IPickleJar public constant pickleJarDAI = IPickleJar(0x55282dA27a3a02ffe599f6D11314D239dAC89135);
@@ -137,11 +135,11 @@ contract CitadelStrategy is Ownable {
 
     // Sushiswap Onsen
     IERC20 public constant DPI = IERC20(0x1494CA1F11D487c2bBe4543E90080AeBa4BA3C2b);
-    ISLPToken public constant slpDPI = ISLPToken(0x34b13F8CD184F55d0Bd4Dd1fe6C07D46f245c7eD);
+    ISLPToken public constant slpDPI = ISLPToken(0x34b13F8CD184F55d0Bd4Dd1fe6C07D46f245c7eD); // DPI/ETH
     IERC20 public constant SUSHI = IERC20(0x6B3595068778DD592e39A122f4f5a5cF09C90fE2);
     IMasterChef public constant masterChef = IMasterChef(0xc2EdaD668740f1aA35E4D8f227fB8E17dcA888Cd);
 
-    // LP token price in USD (8 decimals)
+    // LP token price in ETH
     uint256 private _HBTCWBTCLPTokenPrice;
     uint256 private _WBTCETHLPTokenPrice;
     uint256 private _DPIETHLPTokenPrice;
@@ -395,10 +393,12 @@ contract CitadelStrategy is Ownable {
         return _path;
     }
 
+    /// @return 
     function _getLPTokenPrice() private view returns (uint256, uint256, uint256, uint256) {
-        uint256 _wbtcPrice = (router.getAmountsOut(1e18, _getPath(address(WBTC), address(WETH))))[1];
-        uint256 _dpiPrice = _getTokenPriceFromChainlink(0x029849bbc0b1d93b85a8b6190e979fd38F5760E2);
-        uint256 _daiPrice = _getTokenPriceFromChainlink(0x773616E4d11A78F511299002da57A0a94577F1f4);
+        // All price is in ETH (18 decimals)
+        uint256 _wbtcPrice = (router.getAmountsOut(1e8, _getPath(address(WBTC), address(WETH))))[1];
+        uint256 _dpiPrice = _getTokenPriceFromChainlink(0x029849bbc0b1d93b85a8b6190e979fd38F5760E2); // DPI/ETH
+        uint256 _daiPrice = _getTokenPriceFromChainlink(0x773616E4d11A78F511299002da57A0a94577F1f4); // DAI/ETH
 
         // Curve HBTC/WBTC
         uint256 _amountACurve = cPairs.balances(0); // HBTC, 18 decimals
@@ -418,16 +418,17 @@ contract CitadelStrategy is Ownable {
         return (_clpTokenPriceHBTC, _pSlpTokenPriceWBTC, _slpTokenPriceDPI, _pSlpTokenPriceDAI);
     }
 
-    /// @notice This function is for testing purpose
-    function _getLPTokenPriceTemp() private view returns (uint256, uint256, uint256, uint256) {
-        uint256 _clpTokenPriceHBTC = _HBTCWBTCLPTokenPrice.add(_HBTCWBTCLPTokenPrice.mul(200).div(DENOMINATOR)); // 102%
-        uint256 _pSlpTokenPriceWBTC = _WBTCETHLPTokenPrice.add(_WBTCETHLPTokenPrice.mul(200).div(DENOMINATOR)); // 102%
-        uint256 _slpTokenPriceDPI = _DPIETHLPTokenPrice.sub(_DPIETHLPTokenPrice.mul(100).div(DENOMINATOR)); // 99%
-        uint256 _pSlpTokenPriceDAI = _DAIETHLPTokenPrice; // 100%
+    // /// @notice This function is for testing purpose
+    // function _getLPTokenPriceTemp() private view returns (uint256, uint256, uint256, uint256) {
+    //     uint256 _clpTokenPriceHBTC = _HBTCWBTCLPTokenPrice.add(_HBTCWBTCLPTokenPrice.mul(200).div(DENOMINATOR)); // 102%
+    //     uint256 _pSlpTokenPriceWBTC = _WBTCETHLPTokenPrice.add(_WBTCETHLPTokenPrice.mul(200).div(DENOMINATOR)); // 102%
+    //     uint256 _slpTokenPriceDPI = _DPIETHLPTokenPrice.sub(_DPIETHLPTokenPrice.mul(100).div(DENOMINATOR)); // 99%
+    //     uint256 _pSlpTokenPriceDAI = _DAIETHLPTokenPrice; // 100%
 
-        return (_clpTokenPriceHBTC, _pSlpTokenPriceWBTC, _slpTokenPriceDPI, _pSlpTokenPriceDAI);
-    }
+    //     return (_clpTokenPriceHBTC, _pSlpTokenPriceWBTC, _slpTokenPriceDPI, _pSlpTokenPriceDAI);
+    // }
 
+    /// @return Price of Pickle LP token
     function _calcPslpTokenPrice(IPickleJar _pslpToken, ISLPToken _slpToken, uint256 _tokenAPrice) private view returns (uint256) {
         uint256 _slpTokenPrice = _calcSlpTokenPrice(_slpToken, _tokenAPrice);
         uint256 _totalValueOfPSlpToken = _calcTotalValueOfLiquidityPool(_pslpToken.balance(), _slpTokenPrice, 0, 0);
@@ -436,19 +437,24 @@ contract CitadelStrategy is Ownable {
 
     function _calcSlpTokenPrice(ISLPToken _slpToken, uint256 _tokenAPrice) private view returns (uint256) {
         (uint112 _reserveA, uint112 _reserveB,) = _slpToken.getReserves();
+        // Change WBTC to 18 decimals
         _reserveA = _slpToken == slpWBTC ? _reserveA * 1e10 : _reserveA;
-        uint256 _totalValueOfLiquidityPool = _calcTotalValueOfLiquidityPool(uint256(_reserveA), _tokenAPrice, uint256(_reserveB), 1);
+        uint256 _totalValueOfLiquidityPool = _calcTotalValueOfLiquidityPool(uint256(_reserveA), _tokenAPrice, uint256(_reserveB), 1e18);
         return _calcValueOf1LPToken(_totalValueOfLiquidityPool, _slpToken.totalSupply());
     }
 
-    function _calcTotalValueOfLiquidityPool(uint256 _amountA, uint256 _priceA, uint256 _amountB, uint256 _priceB) private pure returns (uint256) {
+    /// @return Total value of liquidity pool ()
+    // function _calcTotalValueOfLiquidityPool(uint256 _amountA, uint256 _priceA, uint256 _amountB, uint256 _priceB) private pure returns (uint256) {
+    function _calcTotalValueOfLiquidityPool(uint256 _amountA, uint256 _priceA, uint256 _amountB, uint256 _priceB) private view returns (uint256) {
         return (_amountA.mul(_priceA)).add(_amountB.mul(_priceB));
     }
 
+    /// @return Price of 1 LP Token ()
     function _calcValueOf1LPToken(uint256 _totalValueOfLiquidityPool, uint256 _circulatingSupplyOfLPTokens) private pure returns (uint256) {
         return _totalValueOfLiquidityPool.div(_circulatingSupplyOfLPTokens);
     }
 
+    /// @return Price in ETH (get ETH price only for DPI and DAI in this contract)
     function _getTokenPriceFromChainlink(address _priceFeedProxy) private view returns (uint256) {
         IChainlink pricefeed = IChainlink(_priceFeedProxy);
         (, int256 price, , ,) = pricefeed.latestRoundData();
@@ -480,8 +486,8 @@ contract CitadelStrategy is Ownable {
 
     function _updatePoolForPriceChange() private {
     // function _updatePoolForPriceChange() public {
-        // (uint256 _clpTokenPriceHBTC, uint256 _pSlpTokenPriceWBTC, uint256 _slpTokenPriceDPI, uint256 _pSlpTokenPriceDAI) = _getLPTokenPrice();
-        (uint256 _clpTokenPriceHBTC, uint256 _pSlpTokenPriceWBTC, uint256 _slpTokenPriceDPI, uint256 _pSlpTokenPriceDAI) = _getLPTokenPriceTemp(); // Temporarily for testing purpose
+        (uint256 _clpTokenPriceHBTC, uint256 _pSlpTokenPriceWBTC, uint256 _slpTokenPriceDPI, uint256 _pSlpTokenPriceDAI) = _getLPTokenPrice();
+        // (uint256 _clpTokenPriceHBTC, uint256 _pSlpTokenPriceWBTC, uint256 _slpTokenPriceDPI, uint256 _pSlpTokenPriceDAI) = _getLPTokenPriceTemp(); // Temporarily for testing purpose
         // HBTC/WBTC
         (uint256 _priceMovePercClp, Price _priceMoveDrClp) = _getLPTokenPriceMove(_HBTCWBTCLPTokenPrice, _clpTokenPriceHBTC);
         if (_priceMoveDrClp == Price.INCREASE) {

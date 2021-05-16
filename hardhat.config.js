@@ -12,6 +12,7 @@ module.exports = {
         url: process.env.ALCHEMY_URL_MAINNET,
         // url: process.env.INFURA_URL_MAINNET,
         blockNumber: 12405000,
+        // blockNumber: 12446500,
       },
     },
     // mainnet: {
