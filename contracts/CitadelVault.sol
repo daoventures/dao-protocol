@@ -19,11 +19,6 @@ interface ICitadelStrategy {
     function reinvest() external;
 }
 
-interface IWETH is IERC20 {
-    function deposit() external payable;
-    function withdraw(uint256 _amount) external;
-}
-
 interface IRouter {
     function swapExactTokensForTokens(
         uint256 amountIn,
@@ -47,7 +42,6 @@ interface IChainlink {
 /// @title Contract to interact between user and strategy, and distribute daoToken
 contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
     using SafeERC20 for IERC20;
-    using SafeERC20 for IWETH;
     using Address for address;
     using SafeMath for uint256;
 
@@ -55,7 +49,7 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
     IERC20 public constant USDT = IERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7);
     IERC20 public constant USDC = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
     IERC20 public constant DAI = IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
-    IWETH public constant WETH = IWETH(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+    IERC20 public constant WETH = IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
 
     ICitadelStrategy public strategy;
     IRouter public constant router = IRouter(0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F);
@@ -251,7 +245,10 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
         (IERC20 _from, int128 i) = _determineTokenType(_tokenFrom);
         (IERC20 _to, int128 j) = _determineTokenType(_tokenTo);
         uint256 _reimburseAmt = getReimburseTokenAmount(_tokenTo);
-        require(_from.balanceOf(address(this)) > _reimburseAmt, "Insufficient amount to swap");
+        uint256 _balanceOfFrom = _from.balanceOf(address(this));
+        _balanceOfFrom = _from == DAI ? _balanceOfFrom.div(1e12) : _balanceOfFrom;
+        _reimburseAmt = _to == DAI ? _reimburseAmt.div(1e12) : _reimburseAmt;
+        require(_balanceOfFrom > _reimburseAmt, "Insufficient amount to swap");
         c3pool.exchange(i, j, _reimburseAmt, 0);
     }
 
@@ -473,9 +470,8 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
             _token = DAI;
         }
         uint256 _toKeepToken = getAllPoolInUSD().mul(_keepToken).div(DENOMINATOR);
-        if (_tokenType == TokenType.DAI) {
-            _toKeepToken = _toKeepToken.mul(10e11); // Follow decimals of DAI
-        }
+        // Follow decimals of DAI
+        _toKeepToken = _tokenType == TokenType.DAI ? _toKeepToken = _toKeepToken.mul(1e12) : _toKeepToken;
         uint256 _balanceOfToken = _token.balanceOf(address(this));
         if (_balanceOfToken < _toKeepToken) {
             return _toKeepToken.sub(_balanceOfToken);
