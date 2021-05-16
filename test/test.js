@@ -40,20 +40,24 @@ describe("DAO Citadel Strategy", () => {
         await USDTContract.approve(citadelVault.address, ethers.constants.MaxUint256)
         await USDCContract.approve(citadelVault.address, ethers.constants.MaxUint256)
         await DAIContract.approve(citadelVault.address, ethers.constants.MaxUint256)
-        await citadelVault.deposit(ethers.utils.parseUnits("10000", 6), 0)
+        tx = await citadelVault.deposit(ethers.utils.parseUnits("10000", 6), 0)
+        // receipt = await tx.wait()
+        // console.log(receipt.gasUsed.toString())
         // console.log(ethers.utils.formatEther(await citadelVault.balanceOf(deployer.address)))
         await citadelVault.deposit(ethers.utils.parseUnits("10000", 6), 0)
         // console.log(ethers.utils.formatEther(await citadelVault.balanceOf(deployer.address)))
         await citadelVault.deposit(ethers.utils.parseUnits("10000", 6), 0)
         // console.log(ethers.utils.formatEther(await citadelVault.balanceOf(deployer.address)))
         tx = await citadelVault.invest()
+
+        // // Withdraw
         // console.log(ethers.utils.formatUnits(await USDTContract.balanceOf(citadelVault.address), 6))
-        // const withdrawShares = (await citadelVault.balanceOf(deployer.address)).mul(50).div(100) // 14840.487957
-        // tx = await citadelVault.withdraw(withdrawShares, 0);
+        const withdrawShares = (await citadelVault.balanceOf(deployer.address)).mul(50).div(100) // 14840.487957
+        tx = await citadelVault.withdraw(withdrawShares, 0);
         // receipt = await tx.wait()
         // console.log(receipt.gasUsed.toString())
         // await citadelVault.withdraw(citadelVault.balanceOf(deployer.address), 0);
-        // console.log(ethers.utils.formatUnits(await USDTContract.balanceOf(deployer.address), 6))
+        console.log(ethers.utils.formatUnits(await USDTContract.balanceOf(deployer.address), 6))
 
         // await citadelStrategy._updatePoolForPriceChange()
         // console.log(ethers.utils.formatUnits(await citadelVault.getAllPoolInUSD(), 6))

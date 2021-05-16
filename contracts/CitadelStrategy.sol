@@ -90,7 +90,6 @@ interface IWETH is IERC20 {
 }
 
 interface ICitadelVault {
-    function getVaultPoolInETH() external view returns (uint256);
     function getReimburseTokenAmount(uint8) external view returns (uint256);
     function balanceOf(address) external view returns (uint256);
 }
@@ -660,7 +659,7 @@ contract CitadelStrategy is Ownable {
     function withdraw(uint256 _amount) external {
         uint256 _WETHAmtBefore = WETH.balanceOf(address(this));
         uint256 _shares = _amount.mul(1e18).div(getTotalPool());
-        
+
         // Withdraw from Curve HBTC/WBTC
         _withdrawCurve(_poolHBTCWBTC.mul(_shares).div(1e18));
         // Withdraw from Pickle WBTC/ETH

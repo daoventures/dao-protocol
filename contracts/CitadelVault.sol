@@ -41,7 +41,6 @@ interface IChainlink {
 
 contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
     using SafeERC20 for IERC20;
-    using Address for address;
     using SafeMath for uint256;
 
     enum TokenType { USDT, USDC, DAI }
@@ -70,11 +69,11 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
     // Calculation for fees
     uint256[] public networkFeeTier2 = [50000*1e18+1, 100000*1e18];
     uint256 public customNetworkFeeTier = 1000000*1e18;
-    uint256[] public networkFeePercentage = [100, 75, 50];
-    // uint256[] public networkFeePercentage = [0, 0, 0]; // Temporarily for testing
-    uint256 public customNetworkFeePercentage = 25;
-    // uint256 public profitSharingFeePercentage = 2000;
-    uint256 public profitSharingFeePercentage = 0; // Temporarily for testing
+    uint256[] public networkFeePerc = [100, 75, 50];
+    // uint256[] public networkFeePerc = [0, 0, 0]; // Temporarily for testing
+    uint256 public customNetworkFeePerc = 25;
+    // uint256 public profitSharingFeePerc = 2000;
+    uint256 public profitSharingFeePerc = 0; // Temporarily for testing
     uint256 private _fees; // 18 decimals
 
     // Address to collect fees
@@ -86,14 +85,14 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
     // Record deposit amount (USD in 18 decimals)
     mapping(address => uint256) private _balanceOfDeposit;
 
-
+    event TransferredOutFees(uint256 fees);
+    event ETHToInvest(uint256 _balanceOfWETH);
     event SetNetworkFeeTier2(uint256[] oldNetworkFeeTier2, uint256[] newNetworkFeeTier2);
-    event SetNetworkFeePercentage(uint256[] oldNetworkFeePercentage, uint256[] newNetworkFeePercentage);
+    event SetNetworkFeePerc(uint256[] oldNetworkFeePerc, uint256[] newNetworkFeePerc);
     event SetCustomNetworkFeeTier(uint256 indexed oldCustomNetworkFeeTier, uint256 indexed newCustomNetworkFeeTier);
-    event SetCustomNetworkFeePercentage(uint256 oldCustomNetworkFeePercentage, uint256 newCustomNetworkFeePercentage);
-    event SetTreasuryWallet(address indexed oldTreasuryWallet, address indexed newTreasuryWallet);
-    event SetCommunityWallet(address indexed oldCommunityWallet, address indexed newCommunityWallet);
-    event MigrateFunds(address indexed fromStrategy, address indexed toStrategy,uint256 amount);
+    event SetCustomNetworkFeePerc(uint256 oldCustomNetworkFeePerc, uint256 newCustomNetworkFeePerc);
+    event SetProfitSharingFeePerc(uint256 indexed oldProfileSharingFeePerc, uint256 indexed newProfileSharingFeePerc);
+    event MigrateFunds(address indexed fromStrategy, address indexed toStrategy, uint256 amount);
 
     modifier onlyEOA {
         require(msg.sender == tx.origin, "Only EOA");
@@ -122,6 +121,9 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
         DAI.safeApprove(address(c3pool), type(uint256).max);
     }
 
+    /// @notice Function to deposit stablecoins
+    /// @param _amount Amount to deposit
+    /// @param _tokenType Type of stablecoin to deposit
     function deposit(uint256 _amount, TokenType _tokenType) external onlyEOA {
         require(_amount > 0, "Amount must > 0");
 
@@ -143,40 +145,40 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
         _mint(msg.sender, _shares);
     }
 
+    /// @notice deposit() nested function
     /// @param _amount Amount to deposit (18 decimals)
-    /// @param _pool Total amount of pool in ETH include vault and strategy 
+    /// @param _pool Total amount of pool in ETH include vault and strategy
+    /// @return _shares Amount of shares (18 decimals)
     function _deposit(uint256 _amount, uint256 _pool) private returns (uint256 _shares) {
-        _amount = _calcNetworkFee(_amount);
+        // Calculate network fee
+        uint256 _networkFeePerc;
+        if (_amount < networkFeeTier2[0]) {
+            // Tier 1
+            _networkFeePerc = networkFeePerc[0];
+        } else if (_amount <= networkFeeTier2[1]) {
+            // Tier 2
+            _networkFeePerc = networkFeePerc[1];
+        } else if (_amount < customNetworkFeeTier) {
+            // Tier 3
+            _networkFeePerc = networkFeePerc[2];
+        } else {
+            // Custom Tier
+            _networkFeePerc = customNetworkFeePerc;
+        }
+        uint256 _fee = _amount.mul(_networkFeePerc).div(DENOMINATOR);
+        _fees = _fees.add(_fee);
+        _amount = _amount.sub(_fee);
+
         _balanceOfDeposit[msg.sender] = _balanceOfDeposit[msg.sender].add(_amount);
         uint256 _amountInETH = _amount.mul(_getPriceFromChainlink(0xEe9F2375b4bdF6387aa8265dD4FB8F16512A1d46)).div(1e18);
         _shares = totalSupply() == 0 ? _amountInETH : _amountInETH.mul(totalSupply()).div(_pool);
     }
 
-    /// @notice Function to calculate network fee
-    /// @param _amount Amount to calculate network fee (18 decimals)
-    /// @return Deposit amount after network fee
-    function _calcNetworkFee(uint256 _amount) private returns (uint256) {
-        uint256 _networkFeePercentage;
-        if (_amount < networkFeeTier2[0]) {
-            // Tier 1
-            _networkFeePercentage = networkFeePercentage[0];
-        } else if (_amount <= networkFeeTier2[1]) {
-            // Tier 2
-            _networkFeePercentage = networkFeePercentage[1];
-        } else if (_amount < customNetworkFeeTier) {
-            // Tier 3
-            _networkFeePercentage = networkFeePercentage[2];
-        } else {
-            // Custom Tier
-            _networkFeePercentage = customNetworkFeePercentage;
-        }
-        uint256 _fee = _amount.mul(_networkFeePercentage).div(DENOMINATOR);
-        _fees = _fees.add(_fee);
-        return _amount.sub(_fee);
-    }
-
+    /// @notice Function to withdraw
+    /// @param _shares Amount of shares to withdraw (from LP token, 18 decimals)
+    /// @param _tokenType Type of stablecoin to withdraw
     function withdraw(uint256 _shares, TokenType _tokenType) external onlyEOA {
-        require(_shares > 0, "Amount must > 0");
+        require(_shares > 0, "Shares must > 0");
         
         if (_tokenType == TokenType.USDT) {
             _withdraw(_shares, USDT);
@@ -187,6 +189,9 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
         }
     }
 
+    /// @notice withdraw() nested function
+    /// @param _shares Amount of shares to withdraw (18 decimals)
+    /// @param _token Type of stablecoin to withdraw
     function _withdraw(uint256 _shares, IERC20 _token) private {
         uint256 _totalShares = balanceOf(msg.sender);
         require(_totalShares >= _shares, "Insufficient balance to withdraw");
@@ -203,28 +208,28 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
         uint256 _balanceOfToken = _token.balanceOf(address(this));
         _balanceOfToken = _token == DAI ? _balanceOfToken : _balanceOfToken.mul(1e12);
         if (_withdrawAmtInUSD > _balanceOfToken) {
-            // Not encough token in vault, need to get from strategy
-            if (_token == DAI) {
-                _withdrawAmt = _withdrawAmt.div(10e11);
-            }
+            // Not enough stablecoin in vault, need to get from strategy
             strategy.withdraw(_withdrawAmt);
             uint256[] memory _amounts = _swapExactTokensForTokens(WETH.balanceOf(address(this)), address(WETH), address(_token));
+            // Change withdraw amount to 18 decimals if not DAI (for calculate profit sharing fee)
             _withdrawAmtInUSD = _token == DAI ? _amounts[1] : _amounts[1].mul(1e12);
         }
 
         // Calculate profit sharing fee
         if (_withdrawAmtInUSD > _depositAmt) {
             uint256 _profit = _withdrawAmt.sub(_depositAmt);
-            uint256 _fee = _profit.mul(profitSharingFeePercentage).div(DENOMINATOR);
+            uint256 _fee = _profit.mul(profitSharingFeePerc).div(DENOMINATOR);
             _withdrawAmt = _withdrawAmt.sub(_fee);
             _fees = _fees.add(_fee);
         }
 
         _burn(msg.sender, _shares);
+        // Change back withdraw amount to 6 decimals if not DAI
         _withdrawAmtInUSD = _token == DAI ? _withdrawAmtInUSD : _withdrawAmtInUSD.div(1e12);
         _token.safeTransfer(msg.sender, _withdrawAmtInUSD);
     }
 
+    /// @notice Function to invest funds into strategy
     function invest() external onlyAdmin {
         // Transfer out network fees
         _fees = _fees.div(1e12); // Convert to USDT decimals
@@ -232,10 +237,11 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
             USDT.safeTransfer(treasuryWallet, _fees.mul(4000).div(DENOMINATOR));
             USDT.safeTransfer(communityWallet, _fees.mul(4000).div(DENOMINATOR));
             USDT.safeTransfer(strategist, _fees.mul(2000).div(DENOMINATOR));
+            emit TransferredOutFees(_fees);
             _fees = 0;
         }
 
-        // Calculation for keep portion of token and swap remainder to WETH
+        // Calculation for keep portion of stablecoins and swap remainder to WETH
         uint256 _toKeepUSDT = getAllPoolInUSD().mul(keepUSDT).div(DENOMINATOR);
         uint256 _toKeepUSDC = getAllPoolInUSD().mul(keepUSDC).div(DENOMINATOR);
         uint256 _toKeepDAI = getAllPoolInUSD().mul(keepDAI).div(DENOMINATOR);
@@ -245,27 +251,41 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
         _invest(DAI, _toKeepDAI);
 
         // Invest all swapped WETH to strategy
-        strategy.invest(WETH.balanceOf(address(this)));
+        uint256 _balanceOfWETH = WETH.balanceOf(address(this));
+        strategy.invest(_balanceOfWETH);
+        emit ETHToInvest(_balanceOfWETH);
     }
 
-    function _invest(IERC20 _token, uint256 _toKeepToken) private {
+    /// @notice Function to swap stablecoin to WETH
+    /// @param _token Stablecoin to swap
+    /// @param _toKeepAmt Amount to keep in vault (decimals follow stablecoins)
+    function _invest(IERC20 _token, uint256 _toKeepAmt) private {
         uint256 _balanceOfToken = _token.balanceOf(address(this));
-        if (_balanceOfToken > _toKeepToken) {
-            _swapExactTokensForTokens(_balanceOfToken.sub(_toKeepToken), address(_token), address(WETH));
+        if (_balanceOfToken > _toKeepAmt) {
+            _swapExactTokensForTokens(_balanceOfToken.sub(_toKeepAmt), address(_token), address(WETH));
         }
     }
 
+    /// @notice Function to swap stablecoin within vault with Curve
+    /// @notice Amount to swap == amount to keep in vault of _tokenTo stablecoin
+    /// @param _tokenFrom Type of stablecoin to be swapped
+    /// @param _tokenTo Type of stablecoin to be received
     function swapTokenWithinVault(TokenType _tokenFrom, TokenType _tokenTo) external onlyAdmin {
         (IERC20 _from, int128 i) = _determineTokenType(_tokenFrom);
         (IERC20 _to, int128 j) = _determineTokenType(_tokenTo);
         uint256 _reimburseAmt = getReimburseTokenAmount(_tokenTo);
         uint256 _balanceOfFrom = _from.balanceOf(address(this));
+        // Make all variable consistent with 6 decimals 
         _balanceOfFrom = _from == DAI ? _balanceOfFrom.div(1e12) : _balanceOfFrom;
         _reimburseAmt = _to == DAI ? _reimburseAmt.div(1e12) : _reimburseAmt;
+
         require(_balanceOfFrom > _reimburseAmt, "Insufficient amount to swap");
         c3pool.exchange(i, j, _reimburseAmt, 0);
     }
 
+    /// @notice Function to determine stablecoin type for swapTokenWithinVault()
+    /// @param _token Type of stablecoin (in enum)
+    /// @return Type of stablecoin (in ERC20) and stablecoin index use in Curve
     function _determineTokenType(TokenType _token) private pure returns (IERC20, int128) {
         if (_token == TokenType.USDT) {
             return (USDT, 2);
@@ -276,20 +296,27 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
         }
     }
 
-    /// @notice Reimburse keep Tokens from strategy
+    /// @notice Function to reimburse keep Tokens from strategy
     /// @notice This function remove liquidity from all strategy farm and will cost massive gas fee. Only call when needed.
     function reimburseTokenFromStrategy() external onlyAdmin {
         strategy.reimburse();
     }
 
+    /// @notice Function to withdraw all farms and swap to WETH in strategy
     function emergencyWithdraw() external onlyAdmin {
         strategy.emergencyWithdraw();
     }
 
+    /// @notice Function to reinvest all WETH back to farms in strategy
     function reinvest() external onlyAdmin {
         strategy.reinvest();
     }
 
+    /// @notice Function to swap between tokens with Uniswap
+    /// @param _amountIn Amount to swap
+    /// @param _fromToken Token to be swapped
+    /// @param _toToken Token to be received
+    /// @return _amounts Array that contain amount swapped
     function _swapExactTokensForTokens(uint256 _amountIn, address _fromToken, address _toToken) private returns (uint256[] memory _amounts) {
         address[] memory _path = new address[](2);
         _path[0] = _fromToken;
@@ -306,15 +333,11 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
         }
     }
 
-    function setNetworkFeeTier2(uint256[] calldata _networkFeeTier2)
-        external
-        onlyOwner
-    {
+    /// @notice Function to set new network fee for deposit amount tier 2
+    /// @param _networkFeeTier2 Array that contains minimum and maximum amount of tier 2
+    function setNetworkFeeTier2(uint256[] calldata _networkFeeTier2) external onlyOwner {
         require(_networkFeeTier2[0] != 0, "Minimun amount cannot be 0");
-        require(
-            _networkFeeTier2[1] > _networkFeeTier2[0],
-            "Maximun amount must greater than minimun amount"
-        );
+        require(_networkFeeTier2[1] > _networkFeeTier2[0], "Maximun amount must greater than minimun amount");
         /**
          * Network fees have three tier, but it is sufficient to have minimun and maximun amount of tier 2
          * Tier 1: deposit amount < minimun amount of tier 2
@@ -323,116 +346,98 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
          */
         uint256[] memory oldNetworkFeeTier2 = networkFeeTier2;
         networkFeeTier2 = _networkFeeTier2;
-        // emit SetNetworkFeeTier2(oldNetworkFeeTier2, _networkFeeTier2);
+        emit SetNetworkFeeTier2(oldNetworkFeeTier2, _networkFeeTier2);
     }
 
-    function setCustomNetworkFeeTier(uint256 _customNetworkFeeTier)
-        external
-        onlyOwner
-    {
-        require(
-            _customNetworkFeeTier > networkFeeTier2[1],
-            "Custom network fee tier must greater than tier 2"
-        );
+    /// @notice Function to set new custom network fee tier
+    /// @param _customNetworkFeeTier Amount of new custom network fee tier
+    function setCustomNetworkFeeTier(uint256 _customNetworkFeeTier) external onlyOwner {
+        require(_customNetworkFeeTier > networkFeeTier2[1], "Custom network fee tier must greater than tier 2");
 
         uint256 oldCustomNetworkFeeTier = customNetworkFeeTier;
         customNetworkFeeTier = _customNetworkFeeTier;
-        // emit SetCustomNetworkFeeTier(
-        //     oldCustomNetworkFeeTier,
-        //     _customNetworkFeeTier
-        // );
+        emit SetCustomNetworkFeeTier(oldCustomNetworkFeeTier, _customNetworkFeeTier);
     }
 
-    function setNetworkFeePercentage(uint256[] calldata _networkFeePercentage)
-        external
-        onlyOwner
-    {
+    /// @notice Function to set new network fee percentage
+    /// @param _networkFeePerc Array that contains new network fee percentage for tier 1, tier 2 and tier 3
+    function setNetworkFeePerc(uint256[] calldata _networkFeePerc) external onlyOwner {
         require(
-            _networkFeePercentage[0] < 3000 &&
-                _networkFeePercentage[1] < 3000 &&
-                _networkFeePercentage[2] < 3000,
+            _networkFeePerc[0] < 3000 &&
+                _networkFeePerc[1] < 3000 &&
+                _networkFeePerc[2] < 3000,
             "Network fee percentage cannot be more than 30%"
         );
         /**
-         * _networkFeePercentage content a array of 3 element, representing network fee of tier 1, tier 2 and tier 3
-         * For example networkFeePercentage is [100, 75, 50]
+         * _networkFeePerc content a array of 3 element, representing network fee of tier 1, tier 2 and tier 3
+         * For example networkFeePerc is [100, 75, 50]
          * which mean network fee for Tier 1 = 1%, Tier 2 = 0.75% and Tier 3 = 0.5%
          */
-        uint256[] memory oldNetworkFeePercentage = networkFeePercentage;
-        networkFeePercentage = _networkFeePercentage;
-        // emit SetNetworkFeePercentage(
-        //     oldNetworkFeePercentage,
-        //     _networkFeePercentage
-        // );
+        uint256[] memory oldNetworkFeePerc = networkFeePerc;
+        networkFeePerc = _networkFeePerc;
+        emit SetNetworkFeePerc(oldNetworkFeePerc, _networkFeePerc);
     }
 
-    function setCustomNetworkFeePercentage(uint256 _percentage)
-        public
-        onlyOwner
-    {
-        require(
-            _percentage < networkFeePercentage[2],
-            "Custom network fee percentage cannot be more than tier 2"
-        );
+    /// @notice Function to set new custom network fee percentage
+    /// @param _percentage Percentage of new custom network fee
+    function setCustomNetworkFeePerc(uint256 _percentage) public onlyOwner {
+        require(_percentage < networkFeePerc[2], "Custom network fee percentage cannot be more than tier 2");
 
-        uint256 oldCustomNetworkFeePercentage = customNetworkFeePercentage;
-        customNetworkFeePercentage = _percentage;
-        // emit SetCustomNetworkFeePercentage(
-        //     oldCustomNetworkFeePercentage,
-        //     _percentage
-        // );
+        uint256 oldCustomNetworkFeePerc = customNetworkFeePerc;
+        customNetworkFeePerc = _percentage;
+        emit SetCustomNetworkFeePerc(oldCustomNetworkFeePerc, _percentage);
     }
 
-    function setProfitSharingFeePercentage(uint256 _percentage) external onlyOwner {
+    /// @notice Function to set new profit sharing fee percentage
+    /// @param _percentage Percentage of new profit sharing fee percentage
+    function setProfitSharingFeePerc(uint256 _percentage) external onlyOwner {
         require(_percentage < 3000, "Profile sharing fee percentage cannot be more than 30%");
 
-        uint256 oldProfitSharingFeePercentage = profitSharingFeePercentage;
-        profitSharingFeePercentage = _percentage;
-        // emit SetProfitSharingFeePercentage(oldProfitSharingFeePercentage, _percentage);
+        uint256 oldProfitSharingFeePerc = profitSharingFeePerc;
+        profitSharingFeePerc = _percentage;
+        emit SetProfitSharingFeePerc(oldProfitSharingFeePerc, _percentage);
     }
 
+    /// @notice Function to set new treasury wallet address
+    /// @param _treasuryWallet Address of new treasury wallet
     function setTreasuryWallet(address _treasuryWallet) external onlyOwner {
-        address oldTreasuryWallet = treasuryWallet;
         treasuryWallet = _treasuryWallet;
-        // emit SetTreasuryWallet(oldTreasuryWallet, _treasuryWallet);
     }
 
+    /// @notice Function to set new community wallet address
+    /// @param _communityWallet Address of new community wallet
     function setCommunityWallet(address _communityWallet) external onlyOwner {
-        address oldCommunityWallet = communityWallet;
         communityWallet = _communityWallet;
-        // emit SetCommunityWallet(oldCommunityWallet, _communityWallet);
     }
 
+    /// @notice Function to set new admin address
+    /// @param _admin Address of new admin
     function setAdmin(address _admin) external onlyOwner {
         admin = _admin;
         strategy.setAdmin(_admin);
     }
 
+    /// @notice Function to set pending strategy address
+    /// @notice Address of pending strategy
     function setPendingStrategy(address _pendingStrategy) external onlyOwner {
         require(canSetPendingStrategy, "Cannot set pending strategy now");
-        require(_pendingStrategy.isContract(), "New strategy is not contract");
 
         pendingStrategy = _pendingStrategy;
     }
 
+    /// @notice Function to unlock migrate funds function
     function unlockMigrateFunds() external onlyOwner {
         unlockTime = block.timestamp.add(LOCKTIME);
         canSetPendingStrategy = false;
     }
 
+    /// @notice Function to migrate all funds from old strategy contract to new strategy contract
     function migrateFunds() external onlyOwner {
-        require(
-            unlockTime <= block.timestamp &&
-                unlockTime.add(1 days) >= block.timestamp,
-            "Function locked"
-        );
-        require(
-            WETH.balanceOf(address(strategy)) > 0,
-            "No balance to migrate"
-        );
+        require(unlockTime <= block.timestamp && unlockTime.add(1 days) >= block.timestamp, "Function locked");
+        require(WETH.balanceOf(address(strategy)) > 0, "No balance to migrate");
         require(pendingStrategy != address(0), "No pendingStrategy");
-        uint256 _amount = WETH.balanceOf(address(strategy));
 
+        uint256 _amount = WETH.balanceOf(address(strategy));
         WETH.safeTransferFrom(address(strategy), pendingStrategy, _amount);
 
         // Set new strategy
@@ -446,36 +451,41 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
         WETH.safeApprove(oldStrategy, 0);
 
         unlockTime = 0; // Lock back this function
-        // emit MigrateFunds(oldStrategy, address(strategy), _amount);
+        emit MigrateFunds(oldStrategy, address(strategy), _amount);
     }
 
-    /// return All pool in USD (6 decimals follow USDT)
+    /// @notice Function to get all pool amount(vault+strategy) in USD
+    /// @return All pool in USD (6 decimals follow USDT)
     function getAllPoolInUSD() public view returns (uint256) {
         uint256 _price = _getPriceFromChainlink(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419); // ETH/USD
         return _getAllPoolInETH().mul(_price).div(1e20);
     }
 
+    /// @notice Function to get all pool amount(vault+strategy) in ETH
+    /// @return All pool in ETH (18 decimals)
     function _getAllPoolInETH() private view returns (uint256) {
-        return strategy.getTotalPool().add(getVaultPoolInETH());
-    }
-
-    function getVaultPoolInETH() public view returns (uint256) {
         // Get exact USD amount of value (no decimals) 
-        uint256 _totalPoolInUSD = (USDT.balanceOf(address(this)).div(1e6))
+        uint256 _vaultPoolInUSD = (USDT.balanceOf(address(this)).div(1e6))
             .add(USDC.balanceOf(address(this)).div(1e6))
             .add(DAI.balanceOf(address(this)).div(1e18));
-        return _totalPoolInUSD.mul(_getPriceFromChainlink(0xEe9F2375b4bdF6387aa8265dD4FB8F16512A1d46)); // USDT/ETH
+        uint256 _vaultPoolInETH = _vaultPoolInUSD.mul(_getPriceFromChainlink(0xEe9F2375b4bdF6387aa8265dD4FB8F16512A1d46)); // USDT/ETH
+        return strategy.getTotalPool().add(_vaultPoolInETH);
     }
 
+    /// @notice Function to get price from ChainLink contract
+    /// @param _priceFeedProxy Address of ChainLink contract that provide price
+    /// @return Price (8 decimals for USD, 18 decimals for ETH)
     function _getPriceFromChainlink(address _priceFeedProxy) private view returns (uint256) {
         IChainlink pricefeed = IChainlink(_priceFeedProxy);
         (, int256 price, , ,) = pricefeed.latestRoundData();
         return uint256(price);
     }
 
-    /// return Amount to reimburse (USDT, USDC 6 decimals, DAI 18 decimals)
+    /// @notice Function to get amount need to fill up minimum amount keep in vault
+    /// @param _tokenType Type of stablecoin requested
+    /// @return Amount to reimburse (USDT, USDC 6 decimals, DAI 18 decimals)
     function getReimburseTokenAmount(TokenType _tokenType) public view returns (uint256) {
-        uint256 _keepToken;
+        uint256 _keepToken; // Percentage to keep in vault
         IERC20 _token;
         if (_tokenType == TokenType.USDT) {
             _keepToken = keepUSDT;
@@ -487,13 +497,13 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
             _keepToken = keepDAI;
             _token = DAI;
         }
-        uint256 _toKeepToken = getAllPoolInUSD().mul(_keepToken).div(DENOMINATOR);
-        // Follow decimals of DAI
-        _toKeepToken = _tokenType == TokenType.DAI ? _toKeepToken = _toKeepToken.mul(1e12) : _toKeepToken;
+        uint256 _toKeepAmt = getAllPoolInUSD().mul(_keepToken).div(DENOMINATOR);
+        // Change _toKeepAmt to 18 decimals if _token == DAI
+        _toKeepAmt = _token == DAI ? _toKeepAmt = _toKeepAmt.mul(1e12) : _toKeepAmt;
         uint256 _balanceOfToken = _token.balanceOf(address(this));
-        if (_balanceOfToken < _toKeepToken) {
-            return _toKeepToken.sub(_balanceOfToken);
+        if (_balanceOfToken < _toKeepAmt) {
+            return _toKeepAmt.sub(_balanceOfToken);
         }
-        return 0;
+        return 0; // amount keep in vault is full
     }
 }
