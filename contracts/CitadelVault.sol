@@ -144,8 +144,6 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
         _balanceOfDeposit[msg.sender] = _balanceOfDeposit[msg.sender].add(_amount);
         uint256 _amountInETH = _amount.mul(_getPriceFromChainlink(0xEe9F2375b4bdF6387aa8265dD4FB8F16512A1d46)).div(1e18);
         _shares = totalSupply() == 0 ? _amountInETH : _amountInETH.mul(totalSupply()).div(_pool);
-        // console.log(_amountInETH, totalSupply(), _getAllPoolInETH());
-        // console.log(_shares);
     }
 
     /// @notice Function to calculate network fee
@@ -197,19 +195,17 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
         uint256 _withdrawAmtInUSD = _withdrawAmt.mul(_getPriceFromChainlink(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419)).div(1e8); // ETH/USD
         uint256 _balanceOfToken = _token.balanceOf(address(this));
         _balanceOfToken = _token == DAI ? _balanceOfToken : _balanceOfToken.mul(1e12);
-        // console.log(_withdrawAmtInUSD, _balanceOfToken); // 297.924325442337744962 600.414506000000000000
         if (_withdrawAmtInUSD > _balanceOfToken) {
             // Not encough token in vault, need to get from strategy
             if (_token == DAI) {
                 _withdrawAmt = _withdrawAmt.div(10e11);
             }
             strategy.withdraw(_withdrawAmt);
-            uint256[] memory amounts = _swapExactTokensForTokens(WETH.balanceOf(address(this)), address(WETH), address(_token));
-            _withdrawAmt = amounts[1];
+            uint256[] memory _amounts = _swapExactTokensForTokens(WETH.balanceOf(address(this)), address(WETH), address(_token));
+            _withdrawAmtInUSD = _token == DAI ? _amounts[1] : _amounts[1].mul(1e12);
         }
 
         // Calculate profit sharing fee
-        // console.log(_withdrawAmtInUSD, _depositAmt); // 297.924325442337744962 300.000000000000000000
         if (_withdrawAmtInUSD > _depositAmt) {
             uint256 _profit = _withdrawAmt.sub(_depositAmt);
             uint256 _fee = _profit.mul(profitSharingFeePercentage).div(DENOMINATOR);

@@ -656,93 +656,61 @@ contract CitadelStrategy is Ownable {
         }
     }
 
+    /// @param _amount Amount to withdraw in ETH
     function withdraw(uint256 _amount) external {
-        uint256 _WETHAmt = WETH.balanceOf(address(this));
-        uint256 _poolAmt = getTotalPool().add(vault.getVaultPoolInETH());
-        uint256 _shares = _amount.mul(DENOMINATOR).div(_poolAmt);
-        _withdraw(_shares);
-        WETH.safeTransfer(msg.sender, (WETH.balanceOf(address(this))).sub(_WETHAmt));
-    }
-
-    function _withdraw(uint256 _shares) private {
-        pool = pool.sub(pool.mul(_shares).div(DENOMINATOR));
+        uint256 _WETHAmtBefore = WETH.balanceOf(address(this));
+        uint256 _shares = _amount.mul(1e18).div(getTotalPool());
+        
         // Withdraw from Curve HBTC/WBTC
-        uint256 _clpTokenAmt = gaugeC.balanceOf(address(this));
-        if (_clpTokenAmt > 0) {
-            uint256 _clpTokenShare = _clpTokenAmt.mul(_shares).div(DENOMINATOR);
-            gaugeC.withdraw(_clpTokenShare);
-            cPairs.remove_liquidity_one_coin(_clpTokenShare, 1, 0);
-        }
+        _withdrawCurve(_poolHBTCWBTC.mul(_shares).div(1e18));
         // Withdraw from Pickle WBTC/ETH
-        uint256 _slpWBTCAmt = gaugeP_WBTC.balanceOf(address(this));
-        if (_slpWBTCAmt > 0) {
-            uint256 _slpWBTCShare = _slpWBTCAmt.mul(_shares).div(DENOMINATOR);
-            gaugeP_WBTC.withdraw(_slpWBTCShare);
-            pickleJarWBTC.withdraw(_slpWBTCShare);
-            router.removeLiquidity(address(WBTC), address(WETH), slpWBTC.balanceOf(address(this)), 0, 0, address(this), block.timestamp);
-        }
-        // Swap all WBTC to WETH
-        uint256 _WBTCAmt = WBTC.balanceOf(address(this));
-        if (_WBTCAmt > 0) {
-                _swapExactTokensForTokens(address(WBTC), address(WETH), _WBTCAmt);
-        }
+        _withdrawPickleWBTC(_poolWBTCETH.mul(_shares).div(1e18));
         // Withdraw from Sushiswap DPI/ETH
-        (uint256 _slpDPIAmt,) = masterChef.userInfo(42, address(this));
-        if (_slpDPIAmt > 0) {
-            uint256 _slpDPIShare = _slpDPIAmt.mul(_shares).div(DENOMINATOR);
-            masterChef.withdraw(42, _slpDPIShare);
-            router.removeLiquidity(address(DPI), address(WETH), _slpDPIShare, 0, 0, address(this), block.timestamp);
-            _swapExactTokensForTokens(address(DPI), address(WETH), DPI.balanceOf(address(this)));
-        }
+        _withdrawSushiswap(_poolDPIETH.mul(_shares).div(1e18));
         // Withdraw from Pickle DAI/ETH
-        uint256 _slpDAIAmt = gaugeP_DAI.balanceOf(address(this));
-        if (_slpDAIAmt > 0) {
-            uint256 _slpDAIShare = _slpDAIAmt.mul(_shares).div(DENOMINATOR);
-            // masterChefP.withdraw(17, _slpDAIShare);
-            gaugeP_DAI.withdraw(_slpDAIShare);
-            pickleJarDAI.withdraw(_slpDAIShare);
-            router.removeLiquidity(address(DAI), address(WETH), slpDAI.balanceOf(address(this)), 0, 0, address(this), block.timestamp);
-            _swapExactTokensForTokens(address(DAI), address(WETH), DAI.balanceOf(address(this)));
-        }
+        _withdrawPickleDAI(_poolDAIETH.mul(_shares).div(1e18));
+
+        _swapAllToETH();
+        WETH.safeTransfer(msg.sender, (WETH.balanceOf(address(this))).sub(_WETHAmtBefore));
     }
 
     /// @param _amount Amount to withdraw in ETH
     function _withdrawCurve(uint256 _amount) private {
-        _poolHBTCWBTC = _poolHBTCWBTC.sub(_amount);
         uint256 _shares = _amount.mul(1e18).div(_poolHBTCWBTC);
         uint256 _totalClpToken = gaugeC.balanceOf(address(this));
         uint256 _clpTokenShare = _totalClpToken.mul(_shares).div(1e18);
         gaugeC.withdraw(_clpTokenShare);
         cPairs.remove_liquidity_one_coin(_clpTokenShare, 1, 0);
+        _poolHBTCWBTC = _poolHBTCWBTC.sub(_amount);
     }
 
     function _withdrawPickleWBTC(uint256 _amount) private {
-        _poolWBTCETH = _poolWBTCETH.sub(_amount);
         uint256 _shares = _amount.mul(1e18).div(_poolWBTCETH);
         uint256 _totalPlpToken = gaugeP_WBTC.balanceOf(address(this));
         uint256 _plpTokenShare = _totalPlpToken.mul(_shares).div(1e18);
         gaugeP_WBTC.withdraw(_plpTokenShare);
         pickleJarWBTC.withdraw(_plpTokenShare);
         router.removeLiquidity(address(WBTC), address(WETH), slpWBTC.balanceOf(address(this)), 0, 0, address(this), block.timestamp);
+        _poolWBTCETH = _poolWBTCETH.sub(_amount);
     }
 
     function _withdrawSushiswap(uint256 _amount) private {
-        _poolDPIETH = _poolDPIETH.sub(_amount);
         uint256 _shares = _amount.mul(1e18).div(_poolDPIETH);
         (uint256 _totalSlpToken,) = masterChef.userInfo(42, address(this));
-        uint256 _slpTokenShare = _totalSlpToken.mul(_shares).div(DENOMINATOR);
+        uint256 _slpTokenShare = _totalSlpToken.mul(_shares).div(1e18);
         masterChef.withdraw(42, _slpTokenShare);
         router.removeLiquidity(address(DPI), address(WETH), _slpTokenShare, 0, 0, address(this), block.timestamp);
+        _poolDPIETH = _poolDPIETH.sub(_amount);
     }
 
     function _withdrawPickleDAI(uint256 _amount) private {
-        _poolDAIETH = _poolDAIETH.sub(_amount);
         uint256 _shares = _amount.mul(1e18).div(_poolDAIETH);
         uint256 _totalPlpToken = gaugeP_DAI.balanceOf(address(this));
         uint256 _plpTokenShare = _totalPlpToken.mul(_shares).div(1e18);
         gaugeP_DAI.withdraw(_plpTokenShare);
         pickleJarDAI.withdraw(_plpTokenShare);
         router.removeLiquidity(address(DAI), address(WETH), slpDAI.balanceOf(address(this)), 0, 0, address(this), block.timestamp);
+        _poolDAIETH = _poolDAIETH.sub(_amount);
     }
 
     function _swapAllToETH() private {

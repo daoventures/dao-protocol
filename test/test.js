@@ -48,11 +48,11 @@ describe("DAO Citadel Strategy", () => {
         // console.log(ethers.utils.formatEther(await citadelVault.balanceOf(deployer.address)))
         tx = await citadelVault.invest()
         // console.log(ethers.utils.formatUnits(await USDTContract.balanceOf(citadelVault.address), 6))
-        const withdrawShares = (await citadelVault.balanceOf(deployer.address)).mul(1).div(100)
+        const withdrawShares = (await citadelVault.balanceOf(deployer.address)).mul(50).div(100) // 14840.487957
         tx = await citadelVault.withdraw(withdrawShares, 0);
-        receipt = await tx.wait()
-        console.log(receipt.gasUsed.toString())
-        // await citadelVault.withdraw(citadelVault.balanceOf(deployer.address));
+        // receipt = await tx.wait()
+        // console.log(receipt.gasUsed.toString())
+        // await citadelVault.withdraw(citadelVault.balanceOf(deployer.address), 0);
         console.log(ethers.utils.formatUnits(await USDTContract.balanceOf(deployer.address), 6))
 
         // await citadelStrategy._updatePoolForPriceChange()
