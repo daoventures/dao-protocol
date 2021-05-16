@@ -70,8 +70,8 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
     // Calculation for fees
     uint256[] public networkFeeTier2 = [50000*1e18+1, 100000*1e18];
     uint256 public customNetworkFeeTier = 1000000*1e18;
-    // uint256[] public networkFeePercentage = [100, 75, 50];
-    uint256[] public networkFeePercentage = [0, 0, 0]; // Temporarily for testing
+    uint256[] public networkFeePercentage = [100, 75, 50];
+    // uint256[] public networkFeePercentage = [0, 0, 0]; // Temporarily for testing
     uint256 public customNetworkFeePercentage = 25;
     // uint256 public profitSharingFeePercentage = 2000;
     uint256 public profitSharingFeePercentage = 0; // Temporarily for testing
@@ -226,7 +226,7 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
     }
 
     function invest() external onlyAdmin {
-        // Transfer network fees to treasury and community wallet
+        // Transfer out network fees
         _fees = _fees.div(1e12); // Convert to USDT decimals
         if (_fees != 0 && USDT.balanceOf(address(this)) > _fees) {
             USDT.safeTransfer(treasuryWallet, _fees.mul(4000).div(DENOMINATOR));
