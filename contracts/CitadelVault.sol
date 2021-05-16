@@ -39,7 +39,6 @@ interface IChainlink {
     function latestRoundData() external view returns (uint80, int, uint256, uint256, uint80);
 }
 
-/// @title Contract to interact between user and strategy, and distribute daoToken
 contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
     using SafeERC20 for IERC20;
     using Address for address;
@@ -54,7 +53,6 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
     ICitadelStrategy public strategy;
     IRouter public constant router = IRouter(0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F);
     ICurveSwap public constant c3pool = ICurveSwap(0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7);
-    address public admin;
 
     uint256 public constant DENOMINATOR = 10000;
     uint256 public keepUSDT = 200;
@@ -70,22 +68,32 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
     uint256 public constant LOCKTIME = 2 days;
 
     // Calculation for fees
-    uint256[] public networkFeeTier2 = [50000*10e17+1, 100000*10e17];
-    uint256 public customNetworkFeeTier = 1000000*10e17;
+    uint256[] public networkFeeTier2 = [50000*1e18+1, 100000*1e18];
+    uint256 public customNetworkFeeTier = 1000000*1e18;
     // uint256[] public networkFeePercentage = [100, 75, 50];
     uint256[] public networkFeePercentage = [0, 0, 0]; // Temporarily for testing
     uint256 public customNetworkFeePercentage = 25;
     // uint256 public profitSharingFeePercentage = 2000;
     uint256 public profitSharingFeePercentage = 0; // Temporarily for testing
-    uint256 private fees;
+    uint256 private _fees; // 18 decimals
 
     // Address to collect fees
-    address public treasuryWallet = 0x59E83877bD248cBFe392dbB5A8a29959bcb48592;
-    address public communityWallet = 0xdd6c35aFF646B2fB7d8A8955Ccbe0994409348d0;
+    address public treasuryWallet;
+    address public communityWallet;
+    address public admin;
     address public strategist;
 
-    // Record deposit amount
-    mapping(address => uint256) private _balanceOfDeposit; // USD in 18 decimals
+    // Record deposit amount (USD in 18 decimals)
+    mapping(address => uint256) private _balanceOfDeposit;
+
+
+    event SetNetworkFeeTier2(uint256[] oldNetworkFeeTier2, uint256[] newNetworkFeeTier2);
+    event SetNetworkFeePercentage(uint256[] oldNetworkFeePercentage, uint256[] newNetworkFeePercentage);
+    event SetCustomNetworkFeeTier(uint256 indexed oldCustomNetworkFeeTier, uint256 indexed newCustomNetworkFeeTier);
+    event SetCustomNetworkFeePercentage(uint256 oldCustomNetworkFeePercentage, uint256 newCustomNetworkFeePercentage);
+    event SetTreasuryWallet(address indexed oldTreasuryWallet, address indexed newTreasuryWallet);
+    event SetCommunityWallet(address indexed oldCommunityWallet, address indexed newCommunityWallet);
+    event MigrateFunds(address indexed fromStrategy, address indexed toStrategy,uint256 amount);
 
     modifier onlyEOA {
         require(msg.sender == tx.origin, "Only EOA");
@@ -97,8 +105,10 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
         _;
     }
 
-    constructor(address _strategy, address _admin, address _strategist) {
+    constructor(address _strategy, address _treasuryWallet, address _communityWallet, address _admin, address _strategist) {
         strategy = ICitadelStrategy(_strategy);
+        treasuryWallet = _treasuryWallet;
+        communityWallet = _communityWallet;
         admin = _admin;
         strategist = _strategist;
 
@@ -133,6 +143,8 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
         _mint(msg.sender, _shares);
     }
 
+    /// @param _amount Amount to deposit (18 decimals)
+    /// @param _pool Total amount of pool in ETH include vault and strategy 
     function _deposit(uint256 _amount, uint256 _pool) private returns (uint256 _shares) {
         _amount = _calcNetworkFee(_amount);
         _balanceOfDeposit[msg.sender] = _balanceOfDeposit[msg.sender].add(_amount);
@@ -141,6 +153,7 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
     }
 
     /// @notice Function to calculate network fee
+    /// @param _amount Amount to calculate network fee (18 decimals)
     /// @return Deposit amount after network fee
     function _calcNetworkFee(uint256 _amount) private returns (uint256) {
         uint256 _networkFeePercentage;
@@ -158,7 +171,7 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
             _networkFeePercentage = customNetworkFeePercentage;
         }
         uint256 _fee = _amount.mul(_networkFeePercentage).div(DENOMINATOR);
-        fees = fees.add(_fee);
+        _fees = _fees.add(_fee);
         return _amount.sub(_fee);
     }
 
@@ -204,7 +217,7 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
             uint256 _profit = _withdrawAmt.sub(_depositAmt);
             uint256 _fee = _profit.mul(profitSharingFeePercentage).div(DENOMINATOR);
             _withdrawAmt = _withdrawAmt.sub(_fee);
-            fees = fees.add(_fee);
+            _fees = _fees.add(_fee);
         }
 
         _burn(msg.sender, _shares);
@@ -214,11 +227,12 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
 
     function invest() external onlyAdmin {
         // Transfer network fees to treasury and community wallet
-        if (fees != 0 && USDT.balanceOf(address(this)) > fees) {
-            USDT.safeTransfer(treasuryWallet, fees.mul(4000).div(DENOMINATOR));
-            USDT.safeTransfer(communityWallet, fees.mul(4000).div(DENOMINATOR));
-            USDT.safeTransfer(strategist, fees.mul(2000).div(DENOMINATOR));
-            fees = 0;
+        _fees = _fees.div(1e12); // Convert to USDT decimals
+        if (_fees != 0 && USDT.balanceOf(address(this)) > _fees) {
+            USDT.safeTransfer(treasuryWallet, _fees.mul(4000).div(DENOMINATOR));
+            USDT.safeTransfer(communityWallet, _fees.mul(4000).div(DENOMINATOR));
+            USDT.safeTransfer(strategist, _fees.mul(2000).div(DENOMINATOR));
+            _fees = 0;
         }
 
         // Calculation for keep portion of token and swap remainder to WETH
@@ -426,6 +440,10 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
         strategy = ICitadelStrategy(pendingStrategy);
         pendingStrategy = address(0);
         canSetPendingStrategy = true;
+
+        // Approve new strategy
+        WETH.safeApprove(address(strategy), type(uint256).max);
+        WETH.safeApprove(oldStrategy, 0);
 
         unlockTime = 0; // Lock back this function
         // emit MigrateFunds(oldStrategy, address(strategy), _amount);

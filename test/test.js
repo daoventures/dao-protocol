@@ -20,7 +20,7 @@ describe("DAO Citadel Strategy", () => {
         const CitadelStrategy = await ethers.getContractFactory("CitadelStrategy", deployer)
         const citadelStrategy = await CitadelStrategy.deploy(treasuryWallet, communityWallet, deployer.address)
         const CitadelVault = await ethers.getContractFactory("CitadelVault", deployer)
-        const citadelVault = await CitadelVault.deploy(citadelStrategy.address, deployer.address, deployer.address)
+        const citadelVault = await CitadelVault.deploy(citadelStrategy.address, treasuryWallet, communityWallet, deployer.address, deployer.address)
         await citadelStrategy.setVault(citadelVault.address)
         await network.provider.request({method: "hardhat_impersonateAccount",params: [unlockedAddress],});
         const unlockedSigner = await ethers.getSigner(unlockedAddress);
@@ -85,11 +85,11 @@ describe("DAO Citadel Strategy", () => {
         // const percIncrease = after.mul(DENOMINATOR).div(before)
         // console.log(percIncrease.toString())
 
-        // Swap token within vault
-        console.log(ethers.utils.formatUnits(await USDTContract.balanceOf(citadelVault.address), 6))
-        console.log(ethers.utils.formatUnits(await DAIContract.balanceOf(citadelVault.address), 18))
-        await citadelVault.swapTokenWithinVault(0, 2)
-        console.log(ethers.utils.formatUnits(await USDTContract.balanceOf(citadelVault.address), 6))
-        console.log(ethers.utils.formatUnits(await DAIContract.balanceOf(citadelVault.address), 18))
+        // // Swap token within vault
+        // console.log(ethers.utils.formatUnits(await USDTContract.balanceOf(citadelVault.address), 6))
+        // console.log(ethers.utils.formatUnits(await DAIContract.balanceOf(citadelVault.address), 18))
+        // await citadelVault.swapTokenWithinVault(0, 2)
+        // console.log(ethers.utils.formatUnits(await USDTContract.balanceOf(citadelVault.address), 6))
+        // console.log(ethers.utils.formatUnits(await DAIContract.balanceOf(citadelVault.address), 18))
     })
 })
