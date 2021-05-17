@@ -15,6 +15,7 @@ interface ICitadelStrategy {
     function withdraw(uint256 _amount) external;
     function reimburse() external;
     function setAdmin(address _admin) external;
+    function setStrategist(address _strategist) external;
     function emergencyWithdraw() external;
     function reinvest() external;
 }
@@ -57,9 +58,6 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
     uint256 public keepUSDT = 200;
     uint256 public keepUSDC = 200;
     uint256 public keepDAI = 200;
-    // uint256 public keepUSDT = 0; // Temporarily for testing
-    // uint256 public keepUSDC = 0; // Temporarily for testing
-    // uint256 public keepDAI = 0; // Temporarily for testing
 
     address public pendingStrategy;
     bool public canSetPendingStrategy;
@@ -70,10 +68,8 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
     uint256[] public networkFeeTier2 = [50000*1e18+1, 100000*1e18];
     uint256 public customNetworkFeeTier = 1000000*1e18;
     uint256[] public networkFeePerc = [100, 75, 50];
-    // uint256[] public networkFeePerc = [0, 0, 0]; // Temporarily for testing
     uint256 public customNetworkFeePerc = 25;
-    // uint256 public profitSharingFeePerc = 2000;
-    uint256 public profitSharingFeePerc = 0; // Temporarily for testing
+    uint256 public profitSharingFeePerc = 2000;
     uint256 private _fees; // 18 decimals
 
     // Address to collect fees
@@ -415,6 +411,15 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
     function setAdmin(address _admin) external onlyOwner {
         admin = _admin;
         strategy.setAdmin(_admin);
+    }
+
+    /// @notice Function to set new strategist address
+    /// @param _strategist Address of new strategist
+    function setStrategist(address _strategist) external {
+        require(msg.sender == strategist || msg.sender == owner(), "Not authorized");
+
+        strategist = _strategist;
+        strategy.setStrategist(_strategist);
     }
 
     /// @notice Function to set pending strategy address

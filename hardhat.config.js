@@ -10,9 +10,7 @@ module.exports = {
     hardhat: {
       forking: {
         url: process.env.ALCHEMY_URL_MAINNET,
-        // url: process.env.INFURA_URL_MAINNET,
         blockNumber: 12405000,
-        // blockNumber: 12446500,
       },
     },
     // mainnet: {
@@ -21,10 +19,6 @@ module.exports = {
     // },
     // kovan: {
     //   url: process.env.ALCHEMY_URL_KOVAN,
-    //   accounts: [`0x${process.env.PRIVATE_KEY}`],
-    // },
-    // rinkeby: {
-    //   url: process.env.ALCHEMY_URL_RINKEBY,
     //   accounts: [`0x${process.env.PRIVATE_KEY}`],
     // },
   },
