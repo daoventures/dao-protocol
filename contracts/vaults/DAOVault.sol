@@ -132,7 +132,7 @@ contract DAOVault is Initializable, ERC20Upgradeable, OwnableUpgradeable {
     function deposit(uint256 _amount) external onlyEOA {
         require(_amount > 0, "Amount must > 0");
 
-        uint256 _pool = strategy.pool().add(token.balanceOf(address(this))).sub(_fees);
+        uint256 _pool = strategy.getPseudoPool().add(token.balanceOf(address(this))).sub(_fees);
         token.safeTransferFrom(msg.sender, address(this), _amount);
 
         uint256 _networkFeePercentage;
@@ -184,7 +184,7 @@ contract DAOVault is Initializable, ERC20Upgradeable, OwnableUpgradeable {
         uint256 _balanceOfVault = (token.balanceOf(address(this))).sub(_fees);
         uint256 _withdrawAmt = (_balanceOfVault.add(strategy.pool()).mul(_shares).div(totalSupply()));
 
-        // USDT.transfer don't check if amount is 0. Therefor we will check it here.
+        // USDT.transfer doesn't check if amount is 0. Therefor we will check it here.
         require(0 < _withdrawAmt, "Amount must > 0");
 
         if (_withdrawAmt > _balanceOfVault) {
@@ -193,6 +193,7 @@ contract DAOVault is Initializable, ERC20Upgradeable, OwnableUpgradeable {
         } else {
             token.safeTransfer(msg.sender, _withdrawAmt);
         }
+
         _burn(msg.sender, _shares);
     }
 
@@ -207,15 +208,24 @@ contract DAOVault is Initializable, ERC20Upgradeable, OwnableUpgradeable {
         require(balanceOf(msg.sender) > 0, "No balance to refund");
 
         uint256 _shares = balanceOf(msg.sender);
-        strategy.refund(_shares);
+        uint256 _balanceOfVault = (token.balanceOf(address(this))).sub(_fees);
+        uint256 _refundAmt = (_balanceOfVault.add(strategy.pool()).mul(_shares).div(totalSupply()));
+
+        if (_balanceOfVault < _refundAmt) {
+            strategy.refund(_refundAmt.sub(_balanceOfVault));
+            token.safeTransfer(tx.origin, _balanceOfVault);
+        } else {
+            token.safeTransfer(tx.origin, _refundAmt);
+        }
+
         _burn(msg.sender, _shares);
     }
 
     function invest() external onlyOwner {
         if (_fees > 0) {
-            uint256 treasuryFee = _fees.div(2);
-            token.safeTransfer(treasuryWallet, treasuryFee);
-            token.safeTransfer(communityWallet, _fees.sub(treasuryFee));
+            uint256 _treasuryFee = _fees.div(2);
+            token.safeTransfer(treasuryWallet, _treasuryFee);
+            token.safeTransfer(communityWallet, _fees.sub(_treasuryFee));
             _fees = 0;
         }
 

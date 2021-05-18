@@ -179,6 +179,10 @@ contract HarvestFarmer is OwnableUpgradeable {
         }
     }
 
+    function getPseudoPool() external view notVesting returns (uint256 pseudoPool) {
+        pseudoPool = (hfStake.balanceOf(address(this))).mul(hfVault.getPricePerFullShare()).div(hfVault.underlyingUnit());
+    }
+
     /**
      * @notice Deposit token into Harvest Finance Vault
      * @param _amount Amount of token to deposit
@@ -309,12 +313,11 @@ contract HarvestFarmer is OwnableUpgradeable {
      * - Only Vault can call this function
      * - This contract is in vesting state
      */
-    function refund(uint256 _shares) external onlyVault {
+    function refund(uint256 _amount) external onlyVault {
         require(isVesting, "Not in vesting state");
 
-        uint256 _refundAmount = pool.mul(_shares).div(daoVault.totalSupply());
-        token.safeTransfer(tx.origin, _refundAmount);
-        pool = pool.sub(_refundAmount);
+        token.safeTransfer(tx.origin, _amount);
+        pool = pool.sub(_amount);
     }
 
     /**

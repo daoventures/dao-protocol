@@ -2,6 +2,7 @@ require("@nomiclabs/hardhat-waffle");
 require("@nomiclabs/hardhat-etherscan");
 require("hardhat-deploy");
 require("hardhat-deploy-ethers");
+require("hardhat-gas-reporter");
 require("@nomiclabs/hardhat-solhint");
 require("dotenv").config();
 
@@ -37,5 +38,8 @@ module.exports = {
         runs: 1000,
       },
     },
+  },
+  gasReporter: {
+    enabled: (process.env.REPORT_GAS) ? true : false
   },
 };

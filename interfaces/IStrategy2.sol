@@ -12,5 +12,7 @@ interface IStrategy2 {
 
     function pool() external view returns (uint256);
 
+    function getPseudoPool() external view returns (uint256);
+
     function invest() external;
 }
