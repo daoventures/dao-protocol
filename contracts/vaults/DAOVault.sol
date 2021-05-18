@@ -103,7 +103,7 @@ contract DAOVault is Initializable, ERC20Upgradeable, OwnableUpgradeable {
         address _strategy,
         address _owner
     ) external initializer {
-        __ERC20_init("DAO Vault", "DAOVault");
+        __ERC20_init("DAO Harvest Fighter", "daoDHF");
         __Ownable_init(_owner);
 
         vaultName = _vaultName;
