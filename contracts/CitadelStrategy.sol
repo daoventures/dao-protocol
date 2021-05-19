@@ -420,14 +420,15 @@ contract CitadelStrategy is Ownable {
                 }
             }
             // 2. Put all the yield into the farm that is furthest from target composition
+            uint256 _balanceOfWETH = WETH.balanceOf(address(this));
             if (_farmIndex == 0) {
-                _reinvestHBTCWBTC(_furthest);
+                _reinvestHBTCWBTC(_balanceOfWETH);
             } else if (_farmIndex == 1) {
-                _reinvestWBTCETH(_furthest);
+                _reinvestWBTCETH(_balanceOfWETH);
             } else if (_farmIndex == 2) {
-                _reinvestDPIETH(_furthest);
+                _reinvestDPIETH(_balanceOfWETH);
             } else {
-                _reinvestDAIETH(_furthest);
+                _reinvestDAIETH(_balanceOfWETH);
             }
         }
         emit CurrentComposition(_poolHBTCWBTC, _poolWBTCETH, _poolDPIETH, _poolDAIETH);
