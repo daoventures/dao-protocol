@@ -427,17 +427,25 @@ contract CitadelVault is ERC20("DAO Citadel", "daoCDV"), Ownable {
     }
 
     /// @notice Function to set pending strategy address
-    /// @notice Address of pending strategy
+    /// @param _pendingStrategy Address of pending strategy
     function setPendingStrategy(address _pendingStrategy) external onlyOwner {
         require(canSetPendingStrategy, "Cannot set pending strategy now");
 
         pendingStrategy = _pendingStrategy;
     }
 
-    /// @notice Function to set trusted forwarder address (Biconomy)
-    /// @notice Address of trusted forwarder
+    /// @notice Function to set new trusted forwarder address (Biconomy)
+    /// @param _trustedForwarder Address of new trusted forwarder
     function setTrustedForwarder(address _trustedForwarder) external onlyOwner {
         trustedForwarder = _trustedForwarder;
+    }
+
+    /// @notice Function to set percentage of stablecoins that keep in vault
+    /// @param _percentages Array with new percentages of stablecoins that keep in vault
+    function setPercTokenKeepInVault(uint256[] memory _percentages) external onlyAdmin {
+        keepUSDT = _percentages[0];
+        keepUSDC = _percentages[1];
+        keepDAI = _percentages[2];
     }
 
     /// @notice Function to unlock migrate funds function
