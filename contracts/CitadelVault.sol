@@ -40,7 +40,7 @@ interface IChainlink {
     function latestRoundData() external view returns (uint80, int, uint256, uint256, uint80);
 }
 
-contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
+contract CitadelVault is ERC20("DAO Citadel", "daoCDV"), Ownable {
     using SafeERC20 for IERC20;
     using SafeMath for uint256;
 
@@ -77,6 +77,7 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
     address public communityWallet;
     address public admin;
     address public strategist;
+    address public trustedForwarder;
 
     // Record deposit amount (USD in 18 decimals)
     mapping(address => uint256) private _balanceOfDeposit;
@@ -90,22 +91,23 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
     event SetProfitSharingFeePerc(uint256 indexed oldProfileSharingFeePerc, uint256 indexed newProfileSharingFeePerc);
     event MigrateFunds(address indexed fromStrategy, address indexed toStrategy, uint256 amount);
 
-    modifier onlyEOA {
-        require(msg.sender == tx.origin, "Only EOA");
-        _;
-    }
-
     modifier onlyAdmin {
         require(msg.sender == address(admin), "Only admin");
         _;
     }
 
-    constructor(address _strategy, address _treasuryWallet, address _communityWallet, address _admin, address _strategist) {
+    constructor(
+        address _strategy, 
+        address _treasuryWallet, address _communityWallet, 
+        address _admin, address _strategist, 
+        address _trustedForwarder
+    ) {
         strategy = ICitadelStrategy(_strategy);
         treasuryWallet = _treasuryWallet;
         communityWallet = _communityWallet;
         admin = _admin;
         strategist = _strategist;
+        trustedForwarder = _trustedForwarder;
 
         WETH.safeApprove(_strategy, type(uint256).max);
         WETH.safeApprove(address(router), type(uint256).max);
@@ -120,25 +122,26 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
     /// @notice Function to deposit stablecoins
     /// @param _amount Amount to deposit
     /// @param _tokenType Type of stablecoin to deposit
-    function deposit(uint256 _amount, TokenType _tokenType) external onlyEOA {
+    function deposit(uint256 _amount, TokenType _tokenType) external {
+        require(msg.sender == tx.origin || msg.sender == trustedForwarder, "Only EOA or trusted forwarder");
         require(_amount > 0, "Amount must > 0");
 
         uint256 _shares;
         // Change total pool to 18 decimals to calculate distributed LP token in 18 decimals
         uint256 _pool = _getAllPoolInETH();
         if (_tokenType == TokenType.USDT) {
-            USDT.safeTransferFrom(msg.sender, address(this), _amount);
+            USDT.safeTransferFrom(tx.origin, address(this), _amount);
             _amount = _amount.mul(1e12);
             _shares = _deposit(_amount, _pool);
         } else if (_tokenType == TokenType.USDC) {
-            USDC.safeTransferFrom(msg.sender, address(this), _amount);
+            USDC.safeTransferFrom(tx.origin, address(this), _amount);
             _amount = _amount.mul(1e12);
             _shares = _deposit(_amount, _pool);
         } else {
-            DAI.safeTransferFrom(msg.sender, address(this), _amount);
+            DAI.safeTransferFrom(tx.origin, address(this), _amount);
             _shares = _deposit(_amount, _pool);
         }
-        _mint(msg.sender, _shares);
+        _mint(tx.origin, _shares);
     }
 
     /// @notice deposit() nested function
@@ -165,7 +168,7 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
         _fees = _fees.add(_fee);
         _amount = _amount.sub(_fee);
 
-        _balanceOfDeposit[msg.sender] = _balanceOfDeposit[msg.sender].add(_amount);
+        _balanceOfDeposit[tx.origin] = _balanceOfDeposit[tx.origin].add(_amount);
         uint256 _amountInETH = _amount.mul(_getPriceFromChainlink(0xEe9F2375b4bdF6387aa8265dD4FB8F16512A1d46)).div(1e18);
         _shares = totalSupply() == 0 ? _amountInETH : _amountInETH.mul(totalSupply()).div(_pool);
     }
@@ -173,7 +176,8 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
     /// @notice Function to withdraw
     /// @param _shares Amount of shares to withdraw (from LP token, 18 decimals)
     /// @param _tokenType Type of stablecoin to withdraw
-    function withdraw(uint256 _shares, TokenType _tokenType) external onlyEOA {
+    function withdraw(uint256 _shares, TokenType _tokenType) external {
+        require(msg.sender == tx.origin, "Only EOA");
         require(_shares > 0, "Shares must > 0");
         
         if (_tokenType == TokenType.USDT) {
@@ -193,8 +197,8 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
         require(_totalShares >= _shares, "Insufficient balance to withdraw");
 
         // Calculate deposit amount
-        uint256 _percWithdraw = _shares.mul(DENOMINATOR).div(_totalShares);
-        uint256 _depositAmt = _balanceOfDeposit[msg.sender].mul(_percWithdraw).div(DENOMINATOR);
+        uint256 _percWithdraw = _shares.mul(1e18).div(_totalShares);
+        uint256 _depositAmt = _balanceOfDeposit[msg.sender].mul(_percWithdraw).div(1e18);
         // Subtract deposit amount
         _balanceOfDeposit[msg.sender] = _balanceOfDeposit[msg.sender].sub(_depositAmt);
 
@@ -428,6 +432,12 @@ contract CitadelVault is ERC20("DAO Citadel Vault", "DCV"), Ownable {
         require(canSetPendingStrategy, "Cannot set pending strategy now");
 
         pendingStrategy = _pendingStrategy;
+    }
+
+    /// @notice Function to set trusted forwarder address (Biconomy)
+    /// @notice Address of trusted forwarder
+    function setTrustedForwarder(address _trustedForwarder) external onlyOwner {
+        trustedForwarder = _trustedForwarder;
     }
 
     /// @notice Function to unlock migrate funds function
