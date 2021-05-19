@@ -163,13 +163,12 @@ contract CitadelStrategy is Ownable {
     address public communityWallet;
     address public strategist;
 
-    event ETHToInvest(uint256 _amount);
-    event CurrentCompositionInETH(uint256 _poolHBTCWBTC, uint256 _poolWBTCETH, uint256 _poolDPIETH, uint256 _poolDAIETH);
-    event TargetCompositionInETH(uint256 _poolHBTCWBTCTarget, uint256 _poolWBTCETHTarget, uint256 _poolDPIETHTarget, uint256 _poolDAIETHTarget);
-    event AddLiquidityCurveWBTC(uint256 amount, uint256 liquidity);
-    event AddLiquidityPickleWBTC(uint256 amountA, uint256 amountB, uint256 liquidity);
-    event AddLiquidityIndexDPI(uint256 amountA, uint256 amountB, uint256 liquidity);
-    event AddLiquidityPickleDAI(uint256 amountA, uint256 amountB, uint256 liquidity);
+    event ETHToInvest(uint256);
+    event LatestLPTokenPrice(uint256, uint256, uint256, uint256);
+    event YieldAmount(uint256, uint256, uint256, uint256); // in ETH
+    event CurrentComposition(uint256, uint256, uint256, uint256); // in ETH
+    event TargetComposition(uint256, uint256, uint256, uint256); // in ETH
+    event AddLiquidity(uint256, uint256, uint256, uint256); // in ETH
 
     modifier onlyVault {
         require(msg.sender == address(vault), "Only vault");
@@ -270,10 +269,12 @@ contract CitadelStrategy is Ownable {
         _WBTCETHLPTokenPrice = _pSlpTokenPriceWBTC;
         _DPIETHLPTokenPrice = _slpTokenPriceDPI;
         _DAIETHLPTokenPrice = _pSlpTokenPriceDAI;
+        emit LatestLPTokenPrice(_HBTCWBTCLPTokenPrice, _WBTCETHLPTokenPrice, _DPIETHLPTokenPrice, _DAIETHLPTokenPrice);
     }
 
     /// @notice Function to harvest rewards from farms and reinvest into farms based on composition
     function _yield() private {
+        uint256[] memory _yieldAmts = new uint256[](4); // For emit yield amount of each farm
         // 1) Claim all rewards
         uint256 _yieldFees;
         // Curve HBTC/WBTC
@@ -284,6 +285,7 @@ contract CitadelStrategy is Ownable {
             if (curveSplit[0] > 0) {
                 uint256 _amountIn = _balanceOfCRV.mul(curveSplit[0]).div(DENOMINATOR);
                 uint256[] memory _amounts = _swapExactTokensForTokens(address(CRV), address(WETH), _amountIn);
+                _yieldAmts[0] = _amounts[1];
                 uint256 _fee = _amounts[1].mul(yieldFeePerc).div(DENOMINATOR);
                 _poolHBTCWBTC = _poolHBTCWBTC.add(_amounts[1].sub(_fee));
                 _yieldFees = _yieldFees.add(_fee);
@@ -300,6 +302,7 @@ contract CitadelStrategy is Ownable {
         uint256 _balanceOfPICKLEForWETH = PICKLE.balanceOf(address(this));
         if (_balanceOfPICKLEForWETH > 0) {
             uint256[] memory _amounts = _swapExactTokensForTokens(address(PICKLE), address(WETH), _balanceOfPICKLEForWETH);
+            _yieldAmts[1] = _amounts[1];
             uint256 _fee = _amounts[1].mul(yieldFeePerc).div(DENOMINATOR);
             _poolWBTCETH = _poolWBTCETH.add(_amounts[1].sub(_fee));
             _yieldFees = _yieldFees.add(_fee);
@@ -313,6 +316,7 @@ contract CitadelStrategy is Ownable {
             if (_balanceOfSUSHI > 0) {
                 uint256[] memory _amounts = _swapExactTokensForTokens(address(SUSHI), address(WETH), _balanceOfSUSHI);
                 uint256 _fee = _amounts[1].mul(yieldFeePerc).div(DENOMINATOR);
+                _yieldAmts[2] = _amounts[1];
                 _poolDPIETH = _poolDPIETH.add(_amounts[1].sub(_fee));
                 _yieldFees = _yieldFees.add(_fee);
             }
@@ -322,16 +326,18 @@ contract CitadelStrategy is Ownable {
         uint256 _balanceOfPICKLEForDAI = PICKLE.balanceOf(address(this));
         if (_balanceOfPICKLEForDAI > 0) {
             uint256[] memory _amounts = _swapExactTokensForTokens(address(PICKLE), address(WETH), _balanceOfPICKLEForDAI);
+            _yieldAmts[3] = _amounts[1];
             uint256 _fee = _amounts[1].mul(yieldFeePerc).div(DENOMINATOR);
             _poolDAIETH = _poolDAIETH.add(_amounts[1].sub(_fee));
             _yieldFees = _yieldFees.add(_fee);
         }
+        emit YieldAmount(_yieldAmts[0], _yieldAmts[1], _yieldAmts[2], _yieldAmts[3]);
 
         // 2) Split yield fees
         _splitYieldFees(_yieldFees);
 
         // 3) Reinvest rewards
-        _updatePoolForProvideLiquidity(getTotalPool());
+        _updatePoolForProvideLiquidity();
     }
 
     /// @notice Function to transfer fees that collect from yield to wallets
@@ -350,15 +356,15 @@ contract CitadelStrategy is Ownable {
     receive() external payable {}
 
     /// @notice Function to provide liquidity into farms and update pool of each farms
-    /// @param _totalPool Amount in ETH
-    function _updatePoolForProvideLiquidity(uint256 _totalPool) private {
+    function _updatePoolForProvideLiquidity() private {
+        uint256 _totalPool = getTotalPool().add(WETH.balanceOf(address(this)));
         // Calculate target composition for each farm
         uint256 _poolHBTCWBTCTarget = (_totalPool.mul(WEIGHTS[0]).div(DENOMINATOR));
         uint256 _poolWBTCETHTarget = (_totalPool.mul(WEIGHTS[1]).div(DENOMINATOR));
         uint256 _poolDPIETHTarget = (_totalPool.mul(WEIGHTS[2]).div(DENOMINATOR));
         uint256 _poolDAIETHTarget = (_totalPool.mul(WEIGHTS[3]).div(DENOMINATOR));
-        emit CurrentCompositionInETH(_poolHBTCWBTC, _poolWBTCETH, _poolDPIETH, _poolDAIETH);
-        emit TargetCompositionInETH(_poolHBTCWBTCTarget, _poolWBTCETHTarget, _poolDPIETHTarget, _poolDAIETHTarget);
+        emit CurrentComposition(_poolHBTCWBTC, _poolWBTCETH, _poolDPIETH, _poolDAIETH);
+        emit TargetComposition(_poolHBTCWBTCTarget, _poolWBTCETHTarget, _poolDPIETHTarget, _poolDAIETHTarget);
         // If there is no negative value(need to remove liquidity from farm in order to drive back the composition)
         // We proceed with split yield into 4 farms and drive composition back to target
         // Else, we put all the yield into the farm that is furthest from target composition
@@ -424,7 +430,7 @@ contract CitadelStrategy is Ownable {
                 _reinvestDAIETH(_furthest);
             }
         }
-        emit CurrentCompositionInETH(_poolHBTCWBTC, _poolWBTCETH, _poolDPIETH, _poolDAIETH);
+        emit CurrentComposition(_poolHBTCWBTC, _poolWBTCETH, _poolDPIETH, _poolDAIETH);
     }
 
     /// @notice Function to invest funds into Curve HBTC/WBTC pool 
@@ -492,8 +498,7 @@ contract CitadelStrategy is Ownable {
 
     /// @notice Function to invest funds that get from vault contract
     function _farming() private {
-        uint256 _totalPoolAddTotalDeposit = getTotalPool().add(WETH.balanceOf(address(this)));
-        _updatePoolForProvideLiquidity(_totalPoolAddTotalDeposit);
+        _updatePoolForProvideLiquidity();
     }
 
     // @notice Function to reimburse vault minimum keep amount by removing liquidity from all farms
