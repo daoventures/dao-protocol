@@ -222,12 +222,12 @@ contract CitadelStrategy is Ownable {
     /// @notice Function to invoke a series of invest functions
     /// @param _amount Amount to invest in ETH
     function invest(uint256 _amount) external onlyVault {
-        WETH.safeTransferFrom(address(vault), address(this), _amount);
-        emit ETHToInvest(_amount);
         if (getTotalPool() > 0) { // Not first invest
             _updatePoolForPriceChange();
             _yield();
         }
+        WETH.safeTransferFrom(address(vault), address(this), _amount);
+        emit ETHToInvest(_amount);
         _farming();
     }
 
