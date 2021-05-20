@@ -44,10 +44,16 @@ contract CitadelVault is ERC20("DAO Citadel", "daoCDV"), Ownable {
     using SafeERC20 for IERC20;
     using SafeMath for uint256;
 
-    enum TokenType { USDT, USDC, DAI }
-    IERC20 public constant USDT = IERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7);
-    IERC20 public constant USDC = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
-    IERC20 public constant DAI = IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
+    struct Token {
+        IERC20 token;
+        uint256 decimals;
+        uint256 percKeepInVault;
+    }
+
+    // enum TokenType { USDT, USDC, DAI }
+    // IERC20 public constant USDT = IERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7);
+    // IERC20 public constant USDC = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
+    // IERC20 public constant DAI = IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
     IERC20 public constant WETH = IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
 
     ICitadelStrategy public strategy;
@@ -55,9 +61,9 @@ contract CitadelVault is ERC20("DAO Citadel", "daoCDV"), Ownable {
     ICurveSwap public constant c3pool = ICurveSwap(0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7);
 
     uint256 public constant DENOMINATOR = 10000;
-    uint256 public keepUSDT = 200;
-    uint256 public keepUSDC = 200;
-    uint256 public keepDAI = 200;
+    // uint256 public keepUSDT = 200;
+    // uint256 public keepUSDC = 200;
+    // uint256 public keepDAI = 200;
 
     address public pendingStrategy;
     bool public canSetPendingStrategy;
@@ -81,6 +87,7 @@ contract CitadelVault is ERC20("DAO Citadel", "daoCDV"), Ownable {
 
     // Record deposit amount (USD in 18 decimals)
     mapping(address => uint256) private _balanceOfDeposit;
+    mapping(uint256 => Token) private Tokens;
 
     event TransferredOutFees(uint256 fees);
     event ETHToInvest(uint256 _balanceOfWETH);
@@ -109,38 +116,34 @@ contract CitadelVault is ERC20("DAO Citadel", "daoCDV"), Ownable {
         strategist = _strategist;
         trustedForwarder = _trustedForwarder;
 
+        IERC20 _USDT = IERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7);
+        IERC20 _USDC = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
+        IERC20 _DAI = IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
+        Tokens[0] = Token(_USDT, 6, 200);
+        Tokens[1] = Token(_USDC, 6, 200);
+        Tokens[2] = Token(_DAI, 18, 200);
+
         WETH.safeApprove(_strategy, type(uint256).max);
         WETH.safeApprove(address(router), type(uint256).max);
-        USDT.safeApprove(address(router), type(uint256).max);
-        USDT.safeApprove(address(c3pool), type(uint256).max);
-        USDC.safeApprove(address(router), type(uint256).max);
-        USDC.safeApprove(address(c3pool), type(uint256).max);
-        DAI.safeApprove(address(router), type(uint256).max);
-        DAI.safeApprove(address(c3pool), type(uint256).max);
+        _USDT.safeApprove(address(router), type(uint256).max);
+        _USDT.safeApprove(address(c3pool), type(uint256).max);
+        _USDC.safeApprove(address(router), type(uint256).max);
+        _USDC.safeApprove(address(c3pool), type(uint256).max);
+        _DAI.safeApprove(address(router), type(uint256).max);
+        _DAI.safeApprove(address(c3pool), type(uint256).max);
     }
 
     /// @notice Function to deposit stablecoins
     /// @param _amount Amount to deposit
-    /// @param _tokenType Type of stablecoin to deposit
-    function deposit(uint256 _amount, TokenType _tokenType) external {
+    /// @param _tokenIndex Type of stablecoin to deposit
+    function deposit(uint256 _amount, uint256 _tokenIndex) external {
         require(msg.sender == tx.origin || msg.sender == trustedForwarder, "Only EOA or trusted forwarder");
         require(_amount > 0, "Amount must > 0");
 
-        uint256 _shares;
-        // Change total pool to 18 decimals to calculate distributed LP token in 18 decimals
-        uint256 _pool = _getAllPoolInETH();
-        if (_tokenType == TokenType.USDT) {
-            USDT.safeTransferFrom(tx.origin, address(this), _amount);
-            _amount = _amount.mul(1e12);
-            _shares = _deposit(_amount, _pool);
-        } else if (_tokenType == TokenType.USDC) {
-            USDC.safeTransferFrom(tx.origin, address(this), _amount);
-            _amount = _amount.mul(1e12);
-            _shares = _deposit(_amount, _pool);
-        } else {
-            DAI.safeTransferFrom(tx.origin, address(this), _amount);
-            _shares = _deposit(_amount, _pool);
-        }
+        Tokens[_tokenIndex].token.safeTransferFrom(tx.origin, address(this), _amount);
+        _amount = Tokens[_tokenIndex].decimals == 6 ? _amount.mul(1e12) : _amount;
+        uint256 _shares = _deposit(_amount, _getAllPoolInETH());
+
         _mint(tx.origin, _shares);
     }
 
@@ -175,24 +178,10 @@ contract CitadelVault is ERC20("DAO Citadel", "daoCDV"), Ownable {
 
     /// @notice Function to withdraw
     /// @param _shares Amount of shares to withdraw (from LP token, 18 decimals)
-    /// @param _tokenType Type of stablecoin to withdraw
-    function withdraw(uint256 _shares, TokenType _tokenType) external {
+    /// @param _tokenIndex Type of stablecoin to withdraw
+    function withdraw(uint256 _shares, uint256 _tokenIndex) external {
         require(msg.sender == tx.origin, "Only EOA");
         require(_shares > 0, "Shares must > 0");
-        
-        if (_tokenType == TokenType.USDT) {
-            _withdraw(_shares, USDT);
-        } else if (_tokenType == TokenType.USDC) {
-            _withdraw(_shares, USDC);
-        } else {
-            _withdraw(_shares, DAI);
-        }
-    }
-
-    /// @notice withdraw() nested function
-    /// @param _shares Amount of shares to withdraw (18 decimals)
-    /// @param _token Type of stablecoin to withdraw
-    function _withdraw(uint256 _shares, IERC20 _token) private {
         uint256 _totalShares = balanceOf(msg.sender);
         require(_totalShares >= _shares, "Insufficient balance to withdraw");
 
@@ -205,14 +194,15 @@ contract CitadelVault is ERC20("DAO Citadel", "daoCDV"), Ownable {
         // Calculate withdraw amount
         uint256 _withdrawAmt = _getAllPoolInETH().mul(_shares).div(totalSupply());
         uint256 _withdrawAmtInUSD = _withdrawAmt.mul(_getPriceFromChainlink(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419)).div(1e8); // ETH/USD
-        uint256 _balanceOfToken = _token.balanceOf(address(this));
-        _balanceOfToken = _token == DAI ? _balanceOfToken : _balanceOfToken.mul(1e12);
+        Token memory _token = Tokens[_tokenIndex];
+        uint256 _balanceOfToken = _token.token.balanceOf(address(this));
+        _balanceOfToken = _token.decimals == 6 ? _balanceOfToken.mul(1e12) : _balanceOfToken;
         if (_withdrawAmtInUSD > _balanceOfToken) {
             // Not enough stablecoin in vault, need to get from strategy
             strategy.withdraw(_withdrawAmt);
-            uint256[] memory _amounts = _swapExactTokensForTokens(WETH.balanceOf(address(this)), address(WETH), address(_token));
+            uint256[] memory _amounts = _swapExactTokensForTokens(WETH.balanceOf(address(this)), address(WETH), address(_token.token));
             // Change withdraw amount to 18 decimals if not DAI (for calculate profit sharing fee)
-            _withdrawAmtInUSD = _token == DAI ? _amounts[1] : _amounts[1].mul(1e12);
+            _withdrawAmtInUSD = _token.decimals == 6 ? _amounts[1].mul(1e12) : _amounts[1];
         }
 
         // Calculate profit sharing fee
@@ -225,30 +215,34 @@ contract CitadelVault is ERC20("DAO Citadel", "daoCDV"), Ownable {
 
         _burn(msg.sender, _shares);
         // Change back withdraw amount to 6 decimals if not DAI
-        _withdrawAmtInUSD = _token == DAI ? _withdrawAmtInUSD : _withdrawAmtInUSD.div(1e12);
-        _token.safeTransfer(msg.sender, _withdrawAmtInUSD);
+        _withdrawAmtInUSD = _token.decimals == 6 ? _withdrawAmtInUSD.div(1e12) : _withdrawAmtInUSD;
+        _token.token.safeTransfer(msg.sender, _withdrawAmtInUSD);
     }
 
     /// @notice Function to invest funds into strategy
     function invest() external onlyAdmin {
+        Token memory _USDT = Tokens[0];
+        Token memory _USDC = Tokens[1];
+        Token memory _DAI = Tokens[2];
+
         // Transfer out network fees
         _fees = _fees.div(1e12); // Convert to USDT decimals
-        if (_fees != 0 && USDT.balanceOf(address(this)) > _fees) {
-            USDT.safeTransfer(treasuryWallet, _fees.mul(4000).div(DENOMINATOR));
-            USDT.safeTransfer(communityWallet, _fees.mul(4000).div(DENOMINATOR));
-            USDT.safeTransfer(strategist, _fees.mul(2000).div(DENOMINATOR));
+        if (_fees != 0 && _USDT.token.balanceOf(address(this)) > _fees) {
+            _USDT.token.safeTransfer(treasuryWallet, _fees.mul(4000).div(DENOMINATOR));
+            _USDT.token.safeTransfer(communityWallet, _fees.mul(4000).div(DENOMINATOR));
+            _USDT.token.safeTransfer(strategist, _fees.mul(2000).div(DENOMINATOR));
             emit TransferredOutFees(_fees);
             _fees = 0;
         }
 
         // Calculation for keep portion of stablecoins and swap remainder to WETH
-        uint256 _toKeepUSDT = getAllPoolInUSD().mul(keepUSDT).div(DENOMINATOR);
-        uint256 _toKeepUSDC = getAllPoolInUSD().mul(keepUSDC).div(DENOMINATOR);
-        uint256 _toKeepDAI = getAllPoolInUSD().mul(keepDAI).div(DENOMINATOR);
-        _invest(USDT, _toKeepUSDT);
-        _invest(USDC, _toKeepUSDC);
+        uint256 _toKeepUSDT = getAllPoolInUSD().mul(_USDT.percKeepInVault).div(DENOMINATOR);
+        uint256 _toKeepUSDC = getAllPoolInUSD().mul(_USDC.percKeepInVault).div(DENOMINATOR);
+        uint256 _toKeepDAI = getAllPoolInUSD().mul(_DAI.percKeepInVault).div(DENOMINATOR);
+        _invest(_USDT.token, _toKeepUSDT);
+        _invest(_USDC.token, _toKeepUSDC);
         _toKeepDAI = _toKeepDAI.mul(1e12); // Follow decimals of DAI
-        _invest(DAI, _toKeepDAI);
+        _invest(_DAI.token, _toKeepDAI);
 
         // Invest all swapped WETH to strategy
         uint256 _balanceOfWETH = WETH.balanceOf(address(this));
@@ -270,29 +264,29 @@ contract CitadelVault is ERC20("DAO Citadel", "daoCDV"), Ownable {
     /// @notice Amount to swap == amount to keep in vault of _tokenTo stablecoin
     /// @param _tokenFrom Type of stablecoin to be swapped
     /// @param _tokenTo Type of stablecoin to be received
-    function swapTokenWithinVault(TokenType _tokenFrom, TokenType _tokenTo) external onlyAdmin {
-        (IERC20 _from, int128 i) = _determineTokenType(_tokenFrom);
-        (IERC20 _to, int128 j) = _determineTokenType(_tokenTo);
+    function swapTokenWithinVault(uint256 _tokenFrom, uint256 _tokenTo) external onlyAdmin {
         uint256 _reimburseAmt = getReimburseTokenAmount(_tokenTo);
-        uint256 _balanceOfFrom = _from.balanceOf(address(this));
+        uint256 _balanceOfFrom = Tokens[_tokenFrom].token.balanceOf(address(this));
         // Make all variable consistent with 6 decimals 
-        _balanceOfFrom = _from == DAI ? _balanceOfFrom.div(1e12) : _balanceOfFrom;
-        _reimburseAmt = _to == DAI ? _reimburseAmt.div(1e12) : _reimburseAmt;
-
+        _balanceOfFrom = Tokens[_tokenFrom].decimals == 18 ? _balanceOfFrom.div(1e12) : _balanceOfFrom;
+        _reimburseAmt = Tokens[_tokenTo].decimals == 18 ? _reimburseAmt.div(1e12) : _reimburseAmt;
         require(_balanceOfFrom > _reimburseAmt, "Insufficient amount to swap");
+
+        int128 i = _determineCurveIndex(_tokenFrom);
+        int128 j = _determineCurveIndex(_tokenTo);
         c3pool.exchange(i, j, _reimburseAmt, 0);
     }
 
-    /// @notice Function to determine stablecoin type for swapTokenWithinVault()
-    /// @param _token Type of stablecoin (in enum)
-    /// @return Type of stablecoin (in ERC20) and stablecoin index use in Curve
-    function _determineTokenType(TokenType _token) private pure returns (IERC20, int128) {
-        if (_token == TokenType.USDT) {
-            return (USDT, 2);
-        } else if (_token == TokenType.USDC) {
-            return (USDC, 1);
+    /// @notice Function to determine Curve index for swapTokenWithinVault()
+    /// @param _tokenIndex Index of stablecoin
+    /// @return stablecoin index use in Curve
+    function _determineCurveIndex(uint256 _tokenIndex) private pure returns (int128) {
+        if (_tokenIndex == 0) {
+            return 2;
+        } else if (_tokenIndex == 1) {
+            return 1;
         } else {
-            return (DAI, 0);
+            return 0;
         }
     }
 
@@ -443,9 +437,9 @@ contract CitadelVault is ERC20("DAO Citadel", "daoCDV"), Ownable {
     /// @notice Function to set percentage of stablecoins that keep in vault
     /// @param _percentages Array with new percentages of stablecoins that keep in vault
     function setPercTokenKeepInVault(uint256[] memory _percentages) external onlyAdmin {
-        keepUSDT = _percentages[0];
-        keepUSDC = _percentages[1];
-        keepDAI = _percentages[2];
+        Tokens[0].percKeepInVault = _percentages[0];
+        Tokens[1].percKeepInVault = _percentages[1];
+        Tokens[2].percKeepInVault = _percentages[2];
     }
 
     /// @notice Function to unlock migrate funds function
@@ -488,9 +482,9 @@ contract CitadelVault is ERC20("DAO Citadel", "daoCDV"), Ownable {
     /// @return All pool in ETH (18 decimals)
     function _getAllPoolInETH() private view returns (uint256) {
         // Get exact USD amount of value (no decimals) 
-        uint256 _vaultPoolInUSD = (USDT.balanceOf(address(this)).div(1e6))
-            .add(USDC.balanceOf(address(this)).div(1e6))
-            .add(DAI.balanceOf(address(this)).div(1e18));
+        uint256 _vaultPoolInUSD = (Tokens[0].token.balanceOf(address(this)).div(1e6))
+            .add(Tokens[1].token.balanceOf(address(this)).div(1e6))
+            .add(Tokens[2].token.balanceOf(address(this)).div(1e18));
         uint256 _vaultPoolInETH = _vaultPoolInUSD.mul(_getPriceFromChainlink(0xEe9F2375b4bdF6387aa8265dD4FB8F16512A1d46)); // USDT/ETH
         return strategy.getTotalPool().add(_vaultPoolInETH);
     }
@@ -505,25 +499,13 @@ contract CitadelVault is ERC20("DAO Citadel", "daoCDV"), Ownable {
     }
 
     /// @notice Function to get amount need to fill up minimum amount keep in vault
-    /// @param _tokenType Type of stablecoin requested
+    /// @param _tokenIndex Type of stablecoin requested
     /// @return Amount to reimburse (USDT, USDC 6 decimals, DAI 18 decimals)
-    function getReimburseTokenAmount(TokenType _tokenType) public view returns (uint256) {
-        uint256 _keepToken; // Percentage to keep in vault
-        IERC20 _token;
-        if (_tokenType == TokenType.USDT) {
-            _keepToken = keepUSDT;
-            _token = USDT;
-        } else if (_tokenType == TokenType.USDC) {
-            _keepToken = keepUSDC;
-            _token = USDC;
-        } else {
-            _keepToken = keepDAI;
-            _token = DAI;
-        }
-        uint256 _toKeepAmt = getAllPoolInUSD().mul(_keepToken).div(DENOMINATOR);
-        // Change _toKeepAmt to 18 decimals if _token == DAI
-        _toKeepAmt = _token == DAI ? _toKeepAmt = _toKeepAmt.mul(1e12) : _toKeepAmt;
-        uint256 _balanceOfToken = _token.balanceOf(address(this));
+    function getReimburseTokenAmount(uint256 _tokenIndex) public view returns (uint256) {
+        Token memory _token = Tokens[_tokenIndex];
+        uint256 _toKeepAmt = getAllPoolInUSD().mul(_token.percKeepInVault).div(DENOMINATOR);
+        _toKeepAmt = _token.decimals == 18 ? _toKeepAmt.mul(1e12) : _toKeepAmt;
+        uint256 _balanceOfToken = _token.token.balanceOf(address(this));
         if (_balanceOfToken < _toKeepAmt) {
             return _toKeepAmt.sub(_balanceOfToken);
         }
