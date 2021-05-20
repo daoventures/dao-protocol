@@ -40,7 +40,7 @@ interface IChainlink {
     function latestRoundData() external view returns (uint80, int, uint256, uint256, uint80);
 }
 
-contract CitadelVault is ERC20("DAO Citadel", "daoCDV"), Ownable {
+contract CitadelVault is ERC20("DAO Vault Citadel", "daoCDV"), Ownable {
     using SafeERC20 for IERC20;
     using SafeMath for uint256;
 
@@ -109,21 +109,21 @@ contract CitadelVault is ERC20("DAO Citadel", "daoCDV"), Ownable {
         strategist = _strategist;
         trustedForwarder = _trustedForwarder;
 
-        IERC20 _USDT = IERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7);
-        IERC20 _USDC = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
-        IERC20 _DAI = IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
-        Tokens[0] = Token(_USDT, 6, 200);
-        Tokens[1] = Token(_USDC, 6, 200);
-        Tokens[2] = Token(_DAI, 18, 200);
+        IERC20 USDT = IERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7);
+        IERC20 USDC = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
+        IERC20 DAI = IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
+        Tokens[0] = Token(USDT, 6, 200);
+        Tokens[1] = Token(USDC, 6, 200);
+        Tokens[2] = Token(DAI, 18, 200);
 
         WETH.safeApprove(_strategy, type(uint256).max);
         WETH.safeApprove(address(router), type(uint256).max);
-        _USDT.safeApprove(address(router), type(uint256).max);
-        _USDT.safeApprove(address(c3pool), type(uint256).max);
-        _USDC.safeApprove(address(router), type(uint256).max);
-        _USDC.safeApprove(address(c3pool), type(uint256).max);
-        _DAI.safeApprove(address(router), type(uint256).max);
-        _DAI.safeApprove(address(c3pool), type(uint256).max);
+        USDT.safeApprove(address(router), type(uint256).max);
+        USDT.safeApprove(address(c3pool), type(uint256).max);
+        USDC.safeApprove(address(router), type(uint256).max);
+        USDC.safeApprove(address(c3pool), type(uint256).max);
+        DAI.safeApprove(address(router), type(uint256).max);
+        DAI.safeApprove(address(c3pool), type(uint256).max);
     }
 
     /// @notice Function to deposit stablecoins
