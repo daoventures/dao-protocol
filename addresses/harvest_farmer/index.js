@@ -47,4 +47,28 @@ module.exports = {
       hfStakeAddress: "0x8D2f2B40c0113EA8Ea5A40d2dac06F7963F3A5d2",
     },
   },
+  kovan: {
+    GLOBAL: {
+      FARMAddress: "0x10F6d3a736633B05870bF01608B6FEC14d873196",
+      uniswapRouterAddress: "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
+      WETHAddress: "0xA050886815CFc52a24B9C4aD044ca199990B6690",
+      treasuryWalletAddress: "0x59E83877bD248cBFe392dbB5A8a29959bcb48592",
+      communityWalletAddress: "0xdd6c35aFF646B2fB7d8A8955Ccbe0994409348d0",
+    },
+    USDT: {
+      tokenAddress: "0x07de306FF27a2B630B1141956844eB1552B956B5",
+      hfVaultAddress: "0xF34eAF251AAEdF129B33044d55Cd76b4689d095D",
+      hfStakeAddress: "0xCcECA5C4A3355F8e7a0B7d2a7251eec012Be7c58",
+    },
+    USDC: {
+      tokenAddress: "0xb7a4F3E9097C08dA09517b5aB877F7a917224ede",
+      hfVaultAddress: "0x258F3CcFD937479C7017FBa7d4806C811Ff580Ed",
+      hfStakeAddress: "0x4363b688CE98bF7e60D74A36dA49DeebB70Ff4Ba",
+    },
+    DAI: {
+      tokenAddress: "0x4F96Fe3b7A6Cf9725f59d353F723c1bDb64CA6Aa",
+      hfVaultAddress: "0x3cA33EDdfA6192d5fb5797bB3514d05553621c9a",
+      hfStakeAddress: "0x28f29Ebc4dca22fCAFE5a26B2fBA56031D4B1768",
+    },
+  },
 };
