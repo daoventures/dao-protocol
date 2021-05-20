@@ -50,20 +50,13 @@ contract CitadelVault is ERC20("DAO Citadel", "daoCDV"), Ownable {
         uint256 percKeepInVault;
     }
 
-    // enum TokenType { USDT, USDC, DAI }
-    // IERC20 public constant USDT = IERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7);
-    // IERC20 public constant USDC = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
-    // IERC20 public constant DAI = IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
-    IERC20 public constant WETH = IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+    IERC20 private constant WETH = IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
 
     ICitadelStrategy public strategy;
-    IRouter public constant router = IRouter(0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F);
-    ICurveSwap public constant c3pool = ICurveSwap(0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7);
+    IRouter private constant router = IRouter(0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F);
+    ICurveSwap private constant c3pool = ICurveSwap(0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7);
 
-    uint256 public constant DENOMINATOR = 10000;
-    // uint256 public keepUSDT = 200;
-    // uint256 public keepUSDC = 200;
-    // uint256 public keepDAI = 200;
+    uint256 private constant DENOMINATOR = 10000;
 
     address public pendingStrategy;
     bool public canSetPendingStrategy;
@@ -142,7 +135,7 @@ contract CitadelVault is ERC20("DAO Citadel", "daoCDV"), Ownable {
 
         Tokens[_tokenIndex].token.safeTransferFrom(tx.origin, address(this), _amount);
         _amount = Tokens[_tokenIndex].decimals == 6 ? _amount.mul(1e12) : _amount;
-        uint256 _shares = _deposit(_amount, _getAllPoolInETH());
+        uint256 _shares = _deposit(_amount, getAllPoolInETH());
 
         _mint(tx.origin, _shares);
     }
@@ -192,7 +185,7 @@ contract CitadelVault is ERC20("DAO Citadel", "daoCDV"), Ownable {
         _balanceOfDeposit[msg.sender] = _balanceOfDeposit[msg.sender].sub(_depositAmt);
 
         // Calculate withdraw amount
-        uint256 _withdrawAmt = _getAllPoolInETH().mul(_shares).div(totalSupply());
+        uint256 _withdrawAmt = getAllPoolInETH().mul(_shares).div(totalSupply());
         uint256 _withdrawAmtInUSD = _withdrawAmt.mul(_getPriceFromChainlink(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419)).div(1e8); // ETH/USD
         Token memory _token = Tokens[_tokenIndex];
         uint256 _balanceOfToken = _token.token.balanceOf(address(this));
@@ -475,12 +468,12 @@ contract CitadelVault is ERC20("DAO Citadel", "daoCDV"), Ownable {
     /// @return All pool in USD (6 decimals follow USDT)
     function getAllPoolInUSD() public view returns (uint256) {
         uint256 _price = _getPriceFromChainlink(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419); // ETH/USD
-        return _getAllPoolInETH().mul(_price).div(1e20);
+        return getAllPoolInETH().mul(_price).div(1e20);
     }
 
     /// @notice Function to get all pool amount(vault+strategy) in ETH
     /// @return All pool in ETH (18 decimals)
-    function _getAllPoolInETH() private view returns (uint256) {
+    function getAllPoolInETH() public view returns (uint256) {
         // Get exact USD amount of value (no decimals) 
         uint256 _vaultPoolInUSD = (Tokens[0].token.balanceOf(address(this)).div(1e6))
             .add(Tokens[1].token.balanceOf(address(this)).div(1e6))

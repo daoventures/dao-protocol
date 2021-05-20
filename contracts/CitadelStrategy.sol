@@ -107,37 +107,37 @@ contract CitadelStrategy is Ownable {
     using SafeERC20 for ISLPToken;
     using SafeMath for uint256;
 
-    IERC20 public constant WBTC = IERC20(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
-    IWETH public constant WETH = IWETH(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
-    IERC20 public constant USDT = IERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7);
-    IERC20 public constant USDC = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
-    IERC20 public constant DAI = IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
-    IRouter public constant router = IRouter(0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F); // SushiSwap
+    IERC20 private constant WBTC = IERC20(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
+    IWETH private constant WETH = IWETH(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+    IERC20 private constant USDT = IERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7);
+    IERC20 private constant USDC = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
+    IERC20 private constant DAI = IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
+    IRouter private constant router = IRouter(0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F); // SushiSwap
     ICitadelVault public vault;
 
     // Curve
-    ICurvePairs public constant cPairs = ICurvePairs(0x4CA9b3063Ec5866A4B82E437059D2C43d1be596F); // HBTC/WBTC
-    IERC20 public constant clpToken = IERC20(0xb19059ebb43466C323583928285a49f558E572Fd);
-    IERC20 public constant CRV = IERC20(0xD533a949740bb3306d119CC777fa900bA034cd52);
-    IGaugeC public constant gaugeC = IGaugeC(0x4c18E409Dc8619bFb6a1cB56D114C3f592E0aE79);
-    IMintr public constant mintr = IMintr(0xd061D61a4d941c39E5453435B6345Dc261C2fcE0);
-    IveCRV public constant veCRV = IveCRV(0x5f3b5DfEb7B28CDbD7FAba78963EE202a494e2A2);
+    ICurvePairs private constant cPairs = ICurvePairs(0x4CA9b3063Ec5866A4B82E437059D2C43d1be596F); // HBTC/WBTC
+    IERC20 private constant clpToken = IERC20(0xb19059ebb43466C323583928285a49f558E572Fd);
+    IERC20 private constant CRV = IERC20(0xD533a949740bb3306d119CC777fa900bA034cd52);
+    IGaugeC private constant gaugeC = IGaugeC(0x4c18E409Dc8619bFb6a1cB56D114C3f592E0aE79);
+    IMintr private constant mintr = IMintr(0xd061D61a4d941c39E5453435B6345Dc261C2fcE0);
+    IveCRV private constant veCRV = IveCRV(0x5f3b5DfEb7B28CDbD7FAba78963EE202a494e2A2);
     uint256[] public curveSplit = [10000, 0]; // CRV to reinvest, to lock
 
     // Pickle
-    ISLPToken public constant slpWBTC = ISLPToken(0xCEfF51756c56CeFFCA006cD410B03FFC46dd3a58); // WBTC/ETH
-    ISLPToken public constant slpDAI = ISLPToken(0xC3D03e4F041Fd4cD388c549Ee2A29a9E5075882f); // DAI/ETH
-    IERC20 public constant PICKLE = IERC20(0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5);
-    IPickleJar public constant pickleJarWBTC = IPickleJar(0xde74b6c547bd574c3527316a2eE30cd8F6041525);
-    IPickleJar public constant pickleJarDAI = IPickleJar(0x55282dA27a3a02ffe599f6D11314D239dAC89135);
-    IGaugeP public constant gaugeP_WBTC = IGaugeP(0xD55331E7bCE14709d825557E5Bca75C73ad89bFb);
-    IGaugeP public constant gaugeP_DAI = IGaugeP(0x6092c7084821057060ce2030F9CC11B22605955F);
+    ISLPToken private constant slpWBTC = ISLPToken(0xCEfF51756c56CeFFCA006cD410B03FFC46dd3a58); // WBTC/ETH
+    ISLPToken private constant slpDAI = ISLPToken(0xC3D03e4F041Fd4cD388c549Ee2A29a9E5075882f); // DAI/ETH
+    IERC20 private constant PICKLE = IERC20(0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5);
+    IPickleJar private constant pickleJarWBTC = IPickleJar(0xde74b6c547bd574c3527316a2eE30cd8F6041525);
+    IPickleJar private constant pickleJarDAI = IPickleJar(0x55282dA27a3a02ffe599f6D11314D239dAC89135);
+    IGaugeP private constant gaugeP_WBTC = IGaugeP(0xD55331E7bCE14709d825557E5Bca75C73ad89bFb);
+    IGaugeP private constant gaugeP_DAI = IGaugeP(0x6092c7084821057060ce2030F9CC11B22605955F);
 
     // Sushiswap Onsen
-    IERC20 public constant DPI = IERC20(0x1494CA1F11D487c2bBe4543E90080AeBa4BA3C2b);
-    ISLPToken public constant slpDPI = ISLPToken(0x34b13F8CD184F55d0Bd4Dd1fe6C07D46f245c7eD); // DPI/ETH
-    IERC20 public constant SUSHI = IERC20(0x6B3595068778DD592e39A122f4f5a5cF09C90fE2);
-    IMasterChef public constant masterChef = IMasterChef(0xc2EdaD668740f1aA35E4D8f227fB8E17dcA888Cd);
+    IERC20 private constant DPI = IERC20(0x1494CA1F11D487c2bBe4543E90080AeBa4BA3C2b);
+    ISLPToken private constant slpDPI = ISLPToken(0x34b13F8CD184F55d0Bd4Dd1fe6C07D46f245c7eD); // DPI/ETH
+    IERC20 private constant SUSHI = IERC20(0x6B3595068778DD592e39A122f4f5a5cF09C90fE2);
+    IMasterChef private constant masterChef = IMasterChef(0xc2EdaD668740f1aA35E4D8f227fB8E17dcA888Cd);
 
     // LP token price in ETH
     uint256 private _HBTCWBTCLPTokenPrice;
@@ -153,8 +153,8 @@ contract CitadelStrategy is Ownable {
     uint256 private _poolDAIETH;
 
     // Others
-    uint256 public constant DENOMINATOR = 10000;
-    uint256[] public WEIGHTS = [3000, 3000, 3000, 1000]; // <-- need change this to constant, might save gas 
+    uint256 private constant DENOMINATOR = 10000;
+    uint256[] private WEIGHTS = [3000, 3000, 3000, 1000];
     // WEIGHTS: 30% Curve HBTC/WBTC, 30% Pickle WBTC/ETH, 30% Sushiswap DPI/ETH, 10% Pickle DAI/ETH
 
     // Fees
