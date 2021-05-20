@@ -133,9 +133,32 @@ contract CitadelVault is ERC20("DAO Citadel", "daoCDV"), Ownable {
         require(msg.sender == tx.origin || msg.sender == trustedForwarder, "Only EOA or trusted forwarder");
         require(_amount > 0, "Amount must > 0");
 
+        uint256 _pool = getAllPoolInETH();
         Tokens[_tokenIndex].token.safeTransferFrom(tx.origin, address(this), _amount);
         _amount = Tokens[_tokenIndex].decimals == 6 ? _amount.mul(1e12) : _amount;
-        uint256 _shares = _deposit(_amount, getAllPoolInETH());
+
+        // Calculate network fee
+        uint256 _networkFeePerc;
+        if (_amount < networkFeeTier2[0]) {
+            // Tier 1
+            _networkFeePerc = networkFeePerc[0];
+        } else if (_amount <= networkFeeTier2[1]) {
+            // Tier 2
+            _networkFeePerc = networkFeePerc[1];
+        } else if (_amount < customNetworkFeeTier) {
+            // Tier 3
+            _networkFeePerc = networkFeePerc[2];
+        } else {
+            // Custom Tier
+            _networkFeePerc = customNetworkFeePerc;
+        }
+        uint256 _fee = _amount.mul(_networkFeePerc).div(DENOMINATOR);
+        _fees = _fees.add(_fee);
+        _amount = _amount.sub(_fee);
+
+        _balanceOfDeposit[tx.origin] = _balanceOfDeposit[tx.origin].add(_amount);
+        uint256 _amountInETH = _amount.mul(_getPriceFromChainlink(0xEe9F2375b4bdF6387aa8265dD4FB8F16512A1d46)).div(1e18);
+        uint256 _shares = totalSupply() == 0 ? _amountInETH : _amountInETH.mul(totalSupply()).div(_pool);
 
         _mint(tx.origin, _shares);
     }

@@ -29,9 +29,9 @@ describe("DAO Citadel Strategy", () => {
         const USDTContract = new ethers.Contract(USDTAddress, IERC20_ABI, deployer);
         const USDCContract = new ethers.Contract(USDCAddress, IERC20_ABI, deployer);
         const DAIContract = new ethers.Contract(DAIAddress, IERC20_ABI, deployer);
-        await USDTContract.connect(unlockedSigner).transfer(deployer.address, ethers.utils.parseUnits("30000", 6))
-        await USDCContract.connect(unlockedSigner).transfer(deployer.address, ethers.utils.parseUnits("20000", 6))
-        await DAIContract.connect(unlockedSigner).transfer(deployer.address, ethers.utils.parseUnits("20000", 18))
+        await USDTContract.connect(unlockedSigner).transfer(deployer.address, ethers.utils.parseUnits("10000", 6))
+        await USDCContract.connect(unlockedSigner).transfer(deployer.address, ethers.utils.parseUnits("10000", 6))
+        await DAIContract.connect(unlockedSigner).transfer(deployer.address, ethers.utils.parseUnits("10000", 18))
         const WETH_ABI = [
             "function deposit() external payable",
             "function withdraw(uint) external",
@@ -58,12 +58,15 @@ describe("DAO Citadel Strategy", () => {
 
         // // Withdraw
         // console.log(ethers.utils.formatUnits(await USDTContract.balanceOf(citadelVault.address), 6))
-        const withdrawShares = (await citadelVault.balanceOf(deployer.address)).mul(50).div(100) // 14840.487957
+        const withdrawShares = (await citadelVault.balanceOf(deployer.address)).mul(30).div(100)
         tx = await citadelVault.withdraw(withdrawShares, 0);
+        tx = await citadelVault.withdraw(withdrawShares, 1);
+        tx = await citadelVault.withdraw(withdrawShares, 2);
         // receipt = await tx.wait()
         // console.log(receipt.gasUsed.toString())
-        // await citadelVault.withdraw(citadelVault.balanceOf(deployer.address), 0);
         console.log(ethers.utils.formatUnits(await USDTContract.balanceOf(deployer.address), 6))
+        console.log(ethers.utils.formatUnits(await USDCContract.balanceOf(deployer.address), 6))
+        console.log(ethers.utils.formatUnits(await DAIContract.balanceOf(deployer.address), 18))
 
         // await citadelStrategy._updatePoolForPriceChange()
         // console.log(ethers.utils.formatUnits(await citadelVault.getAllPoolInUSD(), 6))
