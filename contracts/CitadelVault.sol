@@ -188,7 +188,7 @@ contract CitadelVault is ERC20("DAO Vault Citadel", "daoCDV"), Ownable {
         _fees = _fees.add(_fee);
         _amount = _amount.sub(_fee);
 
-        _balanceOfDeposit[tx.origin] = _balanceOfDeposit[tx.origin].add(_amount);
+        _balanceOfDeposit[_msgSender()] = _balanceOfDeposit[_msgSender()].add(_amount);
         uint256 _amountInETH = _amount.mul(_getPriceFromChainlink(0xEe9F2375b4bdF6387aa8265dD4FB8F16512A1d46)).div(1e18);
         _shares = totalSupply() == 0 ? _amountInETH : _amountInETH.mul(totalSupply()).div(_pool);
     }
@@ -203,8 +203,7 @@ contract CitadelVault is ERC20("DAO Vault Citadel", "daoCDV"), Ownable {
         require(_totalShares >= _shares, "Insufficient balance to withdraw");
 
         // Calculate deposit amount
-        uint256 _percWithdraw = _shares.mul(1e18).div(_totalShares);
-        uint256 _depositAmt = _balanceOfDeposit[msg.sender].mul(_percWithdraw).div(1e18);
+        uint256 _depositAmt = _balanceOfDeposit[msg.sender].mul(_shares).div(_totalShares);
         // Subtract deposit amount
         _balanceOfDeposit[msg.sender] = _balanceOfDeposit[msg.sender].sub(_depositAmt);
 
