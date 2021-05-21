@@ -245,9 +245,10 @@ contract CitadelVault is ERC20("DAO Vault Citadel", "daoCDV"), Ownable {
         // Transfer out network fees
         _fees = _fees.div(1e12); // Convert to USDT decimals
         if (_fees != 0 && _USDT.token.balanceOf(address(this)) > _fees) {
-            _USDT.token.safeTransfer(treasuryWallet, _fees.mul(4000).div(DENOMINATOR));
-            _USDT.token.safeTransfer(communityWallet, _fees.mul(4000).div(DENOMINATOR));
-            _USDT.token.safeTransfer(strategist, _fees.mul(2000).div(DENOMINATOR));
+            uint256 _treasuryFee =  _fees.mul(2).div(5); // 40%
+            _USDT.token.safeTransfer(treasuryWallet, _treasuryFee); // 40%
+            _USDT.token.safeTransfer(communityWallet, _treasuryFee); // 40%
+            _USDT.token.safeTransfer(strategist, _fees.sub(_treasuryFee).sub(_treasuryFee)); // 20%
             emit TransferredOutFees(_fees);
             _fees = 0;
         }

@@ -344,11 +344,12 @@ contract CitadelStrategy is Ownable {
     /// @param _amount Fees to transfer in ETH
     function _splitYieldFees(uint256 _amount) private {
         WETH.withdraw(_amount);
-        (bool _a,) = admin.call{value: (address(this).balance).mul(4).div(10)}("");
+        uint256 _yieldFee = (address(this).balance).mul(2).div(5); // 40%
+        (bool _a,) = admin.call{value: _yieldFee}(""); // 40%
         require(_a);
-        (bool _t,) = communityWallet.call{value: (address(this).balance).mul(4).div(10)}("");
+        (bool _t,) = communityWallet.call{value: _yieldFee}(""); // 40%
         require(_t);
-        (bool _s,) = strategist.call{value: (address(this).balance).mul(2).div(10)}("");
+        (bool _s,) = strategist.call{value: (address(this).balance)}(""); // 20%
         require(_s);
     }
 
