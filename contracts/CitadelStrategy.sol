@@ -334,16 +334,22 @@ contract CitadelStrategy is Ownable {
         emit YieldAmount(_yieldAmts[0], _yieldAmts[1], _yieldAmts[2], _yieldAmts[3]);
 
         // 2) Split yield fees
-        WETH.withdraw(_yieldFees);
+        _splitYieldFees(_yieldFees);
+
+        // 3) Reinvest rewards
+        _updatePoolForProvideLiquidity();
+    }
+
+    /// @notice Function to transfer fees that collect from yield to wallets
+    /// @param _amount Fees to transfer in ETH
+    function _splitYieldFees(uint256 _amount) private {
+        WETH.withdraw(_amount);
         (bool _a,) = admin.call{value: (address(this).balance).mul(4).div(10)}("");
         require(_a);
         (bool _t,) = communityWallet.call{value: (address(this).balance).mul(4).div(10)}("");
         require(_t);
         (bool _s,) = strategist.call{value: (address(this).balance).mul(2).div(10)}("");
         require(_s);
-
-        // 3) Reinvest rewards
-        _updatePoolForProvideLiquidity();
     }
 
     // To enable receive ETH from WETH in _splitYieldFees()

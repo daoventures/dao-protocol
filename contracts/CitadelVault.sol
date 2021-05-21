@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "../libs/BaseRelayRecipient.sol";
 
 import "hardhat/console.sol";
 
@@ -76,7 +77,7 @@ contract CitadelVault is ERC20("DAO Vault Citadel", "daoCDV"), Ownable {
     address public communityWallet;
     address public admin;
     address public strategist;
-    address public trustedForwarder;
+    address public biconomy;
 
     // Record deposit amount (USD in 18 decimals)
     mapping(address => uint256) private _balanceOfDeposit;
@@ -100,14 +101,14 @@ contract CitadelVault is ERC20("DAO Vault Citadel", "daoCDV"), Ownable {
         address _strategy, 
         address _treasuryWallet, address _communityWallet, 
         address _admin, address _strategist, 
-        address _trustedForwarder
+        address _biconomy
     ) {
         strategy = ICitadelStrategy(_strategy);
         treasuryWallet = _treasuryWallet;
         communityWallet = _communityWallet;
         admin = _admin;
         strategist = _strategist;
-        trustedForwarder = _trustedForwarder;
+        biconomy = _biconomy;
 
         IERC20 USDT = IERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7);
         IERC20 USDC = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
@@ -130,11 +131,11 @@ contract CitadelVault is ERC20("DAO Vault Citadel", "daoCDV"), Ownable {
     /// @param _amount Amount to deposit
     /// @param _tokenIndex Type of stablecoin to deposit
     function deposit(uint256 _amount, uint256 _tokenIndex) external {
-        require(msg.sender == tx.origin || msg.sender == trustedForwarder, "Only EOA or trusted forwarder");
+        require(msg.sender == tx.origin || msg.sender == biconomy, "Only EOA or trusted forwarder");
         require(_amount > 0, "Amount must > 0");
 
         uint256 _pool = getAllPoolInETH();
-        Tokens[_tokenIndex].token.safeTransferFrom(tx.origin, address(this), _amount);
+        Tokens[_tokenIndex].token.safeTransferFrom(_msgSender(), address(this), _amount);
         _amount = Tokens[_tokenIndex].decimals == 6 ? _amount.mul(1e12) : _amount;
 
         // Calculate network fee
@@ -156,11 +157,11 @@ contract CitadelVault is ERC20("DAO Vault Citadel", "daoCDV"), Ownable {
         _fees = _fees.add(_fee);
         _amount = _amount.sub(_fee);
 
-        _balanceOfDeposit[tx.origin] = _balanceOfDeposit[tx.origin].add(_amount);
+        _balanceOfDeposit[_msgSender()] = _balanceOfDeposit[_msgSender()].add(_amount);
         uint256 _amountInETH = _amount.mul(_getPriceFromChainlink(0xEe9F2375b4bdF6387aa8265dD4FB8F16512A1d46)).div(1e18);
         uint256 _shares = totalSupply() == 0 ? _amountInETH : _amountInETH.mul(totalSupply()).div(_pool);
 
-        _mint(tx.origin, _shares);
+        _mint(_msgSender(), _shares);
     }
 
     /// @notice deposit() nested function
@@ -445,9 +446,9 @@ contract CitadelVault is ERC20("DAO Vault Citadel", "daoCDV"), Ownable {
     }
 
     /// @notice Function to set new trusted forwarder address (Biconomy)
-    /// @param _trustedForwarder Address of new trusted forwarder
-    function setTrustedForwarder(address _trustedForwarder) external onlyOwner {
-        trustedForwarder = _trustedForwarder;
+    /// @param _biconomy Address of new trusted forwarder
+    function setBiconomy(address _biconomy) external onlyOwner {
+        biconomy = _biconomy;
     }
 
     /// @notice Function to set percentage of stablecoins that keep in vault
