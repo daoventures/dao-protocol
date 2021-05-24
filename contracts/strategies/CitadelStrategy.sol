@@ -162,7 +162,7 @@ contract CitadelStrategy is Ownable {
     event YieldAmount(uint256, uint256, uint256, uint256); // in ETH
     event CurrentComposition(uint256, uint256, uint256, uint256); // in ETH
     event TargetComposition(uint256, uint256, uint256, uint256); // in ETH
-    event AddLiquidity(uint256, uint256, uint256, uint256); // in ETH
+    event AddLiquidity(address, uint256, uint256, uint256); // in ETH
 
     modifier onlyVault {
         require(msg.sender == address(vault), "Only vault");
@@ -443,8 +443,10 @@ contract CitadelStrategy is Ownable {
         uint256[] memory _amounts = _swapExactTokensForTokens(address(WETH), address(WBTC), _amount);
         if (_amounts[1] > 0) {
             cPairs.add_liquidity([0, _amounts[1]], 0);
-            gaugeC.deposit(clpToken.balanceOf(address(this)));
+            uint256 _balanceOfClpToken = clpToken.balanceOf(address(this));
+            gaugeC.deposit(_balanceOfClpToken);
             _poolHBTCWBTC = _poolHBTCWBTC.add(_amount);
+            emit AddLiquidity(address(cPairs), _amounts[1], 0, _balanceOfClpToken);
         }
     }
 
@@ -455,7 +457,7 @@ contract CitadelStrategy is Ownable {
         uint256 _amountIn = _amount.mul(1).div(2);
         uint256[] memory _amounts = _swapExactTokensForTokens(address(WETH), address(WBTC), _amountIn);
         if (_amounts[1] > 0) {
-            (, , uint256 _slpWBTC) = router.addLiquidity(
+            (uint256 _amountA, uint256 _amountB, uint256 _slpWBTC) = router.addLiquidity(
                 address(WBTC), address(WETH), 
                 _amounts[1], _amountIn,
                 0, 0,
@@ -464,6 +466,7 @@ contract CitadelStrategy is Ownable {
             pickleJarWBTC.deposit(_slpWBTC);
             gaugeP_WBTC.deposit(pickleJarWBTC.balanceOf(address(this)));
             _poolWBTCETH = _poolWBTCETH.add(_amount);
+            emit AddLiquidity(address(slpWBTC), _amountA, _amountB, _slpWBTC);
         }
     }
 
@@ -474,9 +477,10 @@ contract CitadelStrategy is Ownable {
         uint256 _amountIn = _amount.mul(1).div(2);
         uint256[] memory _amounts = _swapExactTokensForTokens(address(WETH), address(DPI), _amountIn);
         if (_amounts[1] > 0) {
-            router.addLiquidity(address(DPI), address(WETH), _amounts[1], _amountIn, 0, 0, address(this), block.timestamp);
+            (uint256 _amountA, uint256 _amountB, uint256 _slpDPI) = router.addLiquidity(address(DPI), address(WETH), _amounts[1], _amountIn, 0, 0, address(this), block.timestamp);
             masterChef.deposit(42, slpDPI.balanceOf(address(this))); // include slpDPI that withdraw at yield()
             _poolDPIETH = _poolDPIETH.add(_amount);
+            emit AddLiquidity(address(slpDPI), _amountA, _amountB, _slpDPI);
         }
     }
 
@@ -487,7 +491,7 @@ contract CitadelStrategy is Ownable {
         uint256 _amountIn = _amount.mul(1).div(2);
         uint256[] memory _amounts = _swapExactTokensForTokens(address(WETH), address(DAI), _amountIn);
         if (_amounts[1] > 0) {
-            (, , uint256 _slpDAI) = router.addLiquidity(
+            (uint256 _amountA, uint256 _amountB, uint256 _slpDAI) = router.addLiquidity(
                 address(DAI), address(WETH), 
                 _amounts[1], _amountIn,
                 0, 0,
@@ -496,6 +500,7 @@ contract CitadelStrategy is Ownable {
             pickleJarDAI.deposit(_slpDAI);
             gaugeP_DAI.deposit(pickleJarDAI.balanceOf(address(this)));
             _poolDAIETH = _poolDAIETH.add(_amount);
+            emit AddLiquidity(address(slpDAI), _amountA, _amountB, _slpDAI);
         }
     }
 
