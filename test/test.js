@@ -11,6 +11,10 @@ const unlockedAddress = "0x3f5CE5FBFe3E9af3971dD833D26bA9b5C936f0bE"
 const CRVAddress = "0xD533a949740bb3306d119CC777fa900bA034cd52"
 const PICKLEAddress = "0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5"
 const SUSHIAddress = "0x6B3595068778DD592e39A122f4f5a5cF09C90fE2"
+const cStakeAddress = "0x4c18E409Dc8619bFb6a1cB56D114C3f592E0aE79"
+const pStakeWBTCAddress = "0xD55331E7bCE14709d825557E5Bca75C73ad89bFb"
+const sStakeAddress = "0xc2EdaD668740f1aA35E4D8f227fB8E17dcA888Cd"
+const pStakeDAIAddress = "0x6092c7084821057060ce2030F9CC11B22605955F"
 
 describe("DAO Citadel Strategy", () => {
     it("should work", async () => {
@@ -70,6 +74,12 @@ describe("DAO Citadel Strategy", () => {
         expect(await USDTContract.balanceOf(citadelVault.address)).to.be.closeTo(ethers.utils.parseUnits(keepInVault.toString(), 6), ethers.utils.parseUnits("1", 6))
         expect(await USDCContract.balanceOf(citadelVault.address)).to.be.closeTo(ethers.utils.parseUnits(keepInVault.toString(), 6), ethers.utils.parseUnits("1", 6))
         expect(await DAIContract.balanceOf(citadelVault.address)).to.be.closeTo(ethers.utils.parseUnits(keepInVault.toString(), 18), ethers.utils.parseUnits("1", 18))
+        const gauge_ABI = ["function balanceOf(address _address) external view returns (uint256)"]
+        const cStakeContract = new ethers.Contract(cStakeAddress, gauge_ABI, deployer)
+        const pStakeWBTCContract = new ethers.Contract(pStakeWBTCAddress, gauge_ABI, deployer)
+        const pStakeDAIContract = new ethers.Contract(pStakeDAIAddress, gauge_ABI, deployer)
+        const masterChef_ABI = ["function userInfo(uint256, address) external returns(uint256, uint256)"]
+        const sStakeContract = new ethers.Contract(sStakeAddress, masterChef_ABI, deployer)
 
         // const chainLinkContract2 = new ethers.Contract("0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419", ChainLink_ABI, deployer) // ETH/USD
         // const USDPrice = await chainLinkContract2.latestAnswer()

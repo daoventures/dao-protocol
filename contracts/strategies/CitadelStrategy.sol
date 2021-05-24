@@ -14,10 +14,11 @@ interface ICurvePairs {
     function balances(uint256 i) external view returns (uint256);
 }
 
-interface IGaugeC {
+interface IGauge {
     function balanceOf(address _address) external view returns (uint256);
     function deposit(uint256 _amount) external;
     function withdraw(uint256 _amount) external;
+    function getReward() external; // For Pickle Farm only
 }
 
 interface IMintr {
@@ -77,13 +78,6 @@ interface IMasterChef {
     function userInfo(uint256, address) external returns(uint256, uint256);
 }
 
-interface IGaugeP {
-    function deposit(uint256 _amount) external;
-    function withdraw(uint256 _amount) external;
-    function balanceOf(address) external view returns (uint256);
-    function getReward() external;
-}
-
 interface IWETH is IERC20 {
     function withdraw(uint256 _amount) external;
 }
@@ -119,7 +113,7 @@ contract CitadelStrategy is Ownable {
     ICurvePairs private constant cPairs = ICurvePairs(0x4CA9b3063Ec5866A4B82E437059D2C43d1be596F); // HBTC/WBTC
     IERC20 private constant clpToken = IERC20(0xb19059ebb43466C323583928285a49f558E572Fd);
     IERC20 private constant CRV = IERC20(0xD533a949740bb3306d119CC777fa900bA034cd52);
-    IGaugeC private constant gaugeC = IGaugeC(0x4c18E409Dc8619bFb6a1cB56D114C3f592E0aE79);
+    IGauge private constant gaugeC = IGauge(0x4c18E409Dc8619bFb6a1cB56D114C3f592E0aE79);
     IMintr private constant mintr = IMintr(0xd061D61a4d941c39E5453435B6345Dc261C2fcE0);
     IveCRV private constant veCRV = IveCRV(0x5f3b5DfEb7B28CDbD7FAba78963EE202a494e2A2);
     uint256[] public curveSplit = [10000, 0]; // CRV to reinvest, to lock
@@ -130,8 +124,8 @@ contract CitadelStrategy is Ownable {
     IERC20 private constant PICKLE = IERC20(0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5);
     IPickleJar private constant pickleJarWBTC = IPickleJar(0xde74b6c547bd574c3527316a2eE30cd8F6041525);
     IPickleJar private constant pickleJarDAI = IPickleJar(0x55282dA27a3a02ffe599f6D11314D239dAC89135);
-    IGaugeP private constant gaugeP_WBTC = IGaugeP(0xD55331E7bCE14709d825557E5Bca75C73ad89bFb);
-    IGaugeP private constant gaugeP_DAI = IGaugeP(0x6092c7084821057060ce2030F9CC11B22605955F);
+    IGauge private constant gaugeP_WBTC = IGauge(0xD55331E7bCE14709d825557E5Bca75C73ad89bFb);
+    IGauge private constant gaugeP_DAI = IGauge(0x6092c7084821057060ce2030F9CC11B22605955F);
 
     // Sushiswap Onsen
     IERC20 private constant DPI = IERC20(0x1494CA1F11D487c2bBe4543E90080AeBa4BA3C2b);
@@ -359,11 +353,15 @@ contract CitadelStrategy is Ownable {
     /// @notice Function to provide liquidity into farms and update pool of each farms
     function _updatePoolForProvideLiquidity() private {
         uint256 _totalPool = getTotalPool().add(WETH.balanceOf(address(this)));
+        // console.log(_totalPool); // 6.735464989192804808
         // Calculate target composition for each farm
-        uint256 _poolHBTCWBTCTarget = (_totalPool.mul(WEIGHTS[0]).div(DENOMINATOR));
-        uint256 _poolWBTCETHTarget = (_totalPool.mul(WEIGHTS[1]).div(DENOMINATOR));
-        uint256 _poolDPIETHTarget = (_totalPool.mul(WEIGHTS[2]).div(DENOMINATOR));
-        uint256 _poolDAIETHTarget = (_totalPool.mul(WEIGHTS[3]).div(DENOMINATOR));
+        uint256 _thirtyPercOfPool = _totalPool.mul(WEIGHTS[0]).div(DENOMINATOR);
+        uint256 _poolHBTCWBTCTarget = (_thirtyPercOfPool);
+        uint256 _poolWBTCETHTarget = (_thirtyPercOfPool);
+        uint256 _poolDPIETHTarget = (_thirtyPercOfPool);
+        uint256 _poolDAIETHTarget = (_totalPool.sub(_thirtyPercOfPool).sub(_thirtyPercOfPool).sub(_thirtyPercOfPool));
+        // console.log(_poolHBTCWBTCTarget, _poolWBTCETHTarget, _poolDPIETHTarget, _poolDAIETHTarget);
+        // 2.020639496757841442 2.020639496757841442 2.020639496757841442 0.673546498919280480
         emit CurrentComposition(_poolHBTCWBTC, _poolWBTCETH, _poolDPIETH, _poolDAIETH);
         emit TargetComposition(_poolHBTCWBTCTarget, _poolWBTCETHTarget, _poolDPIETHTarget, _poolDAIETHTarget);
         // If there is no negative value(need to remove liquidity from farm in order to drive back the composition)
@@ -375,6 +373,7 @@ contract CitadelStrategy is Ownable {
             _poolDPIETHTarget > _poolDPIETH &&
             _poolDAIETHTarget > _poolDAIETH
         ) {
+            // console.log("Target over current");
             // Reinvest yield into Curve HBTC/WBTC
             uint256 _reinvestHBTCWBTCAmt = _poolHBTCWBTCTarget.sub(_poolHBTCWBTC);
             _reinvestHBTCWBTC(_reinvestHBTCWBTCAmt);
@@ -387,6 +386,7 @@ contract CitadelStrategy is Ownable {
             // Reinvest yield into Pickle DAI/ETH
             uint256 _reinvestDAIETHAmt = _poolDAIETHTarget.sub(_poolDAIETH);
             _reinvestDAIETH(_reinvestDAIETHAmt);
+            // console.log(_reinvestHBTCWBTCAmt.add(_reinvestWBTCETHAmt).add(_reinvestDPIETHAmt).add(_reinvestDAIETHAmt)); // 6.735464989192804808
         } else {
             // Put all the yield into the farm that is furthest from target composition
             uint256 _furthest;
@@ -432,6 +432,7 @@ contract CitadelStrategy is Ownable {
                 _reinvestDAIETH(_balanceOfWETH);
             }
         }
+        // console.log(_poolHBTCWBTC, _poolWBTCETH, _poolDPIETH, _poolDAIETH);
         emit CurrentComposition(_poolHBTCWBTC, _poolWBTCETH, _poolDPIETH, _poolDAIETH);
     }
 

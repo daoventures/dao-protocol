@@ -144,7 +144,8 @@ contract CitadelVault is ERC20("DAO Vault Citadel", "daoCDV"), Ownable, BaseRela
         require(_amount > 0, "Amount must > 0");
 
         uint256 _pool = getAllPoolInETH();
-        Tokens[_tokenIndex].token.safeTransferFrom(_msgSender(), address(this), _amount);
+        address _sender = _msgSender();
+        Tokens[_tokenIndex].token.safeTransferFrom(_sender, address(this), _amount);
         _amount = Tokens[_tokenIndex].decimals == 6 ? _amount.mul(1e12) : _amount;
 
         // Calculate network fee
@@ -166,11 +167,11 @@ contract CitadelVault is ERC20("DAO Vault Citadel", "daoCDV"), Ownable, BaseRela
         _fees = _fees.add(_fee);
         _amount = _amount.sub(_fee);
 
-        _balanceOfDeposit[_msgSender()] = _balanceOfDeposit[_msgSender()].add(_amount);
+        _balanceOfDeposit[_sender] = _balanceOfDeposit[_sender].add(_amount);
         uint256 _amountInETH = _amount.mul(_getPriceFromChainlink(0xEe9F2375b4bdF6387aa8265dD4FB8F16512A1d46)).div(1e18); // USDT/ETH
         uint256 _shares = totalSupply() == 0 ? _amountInETH : _amountInETH.mul(totalSupply()).div(_pool);
 
-        _mint(_msgSender(), _shares);
+        _mint(_sender, _shares);
     }
 
     /// @notice Function to withdraw
