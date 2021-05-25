@@ -228,36 +228,11 @@ contract CitadelStrategy is Ownable {
     /// @notice Function to update pool balance because of price change of corresponding LP token 
     function _updatePoolForPriceChange() private {
         (uint256 _clpTokenPriceHBTC, uint256 _pSlpTokenPriceWBTC, uint256 _slpTokenPriceDPI, uint256 _pSlpTokenPriceDAI) = _getLPTokenPrice();
-        // Compare new LP token price with previous to determine different in percentage
-        // and price increase or decrease 
-        // HBTC/WBTC
-        (uint256 _priceMovePercClp, Price _priceMoveDrClp) = _getLPTokenPriceMove(_HBTCWBTCLPTokenPrice, _clpTokenPriceHBTC);
-        if (_priceMoveDrClp == Price.INCREASE) {
-            _poolHBTCWBTC = _poolHBTCWBTC.add(_poolHBTCWBTC.mul(_priceMovePercClp).div(DENOMINATOR));
-        } else { // Price.DECREASE
-            _poolHBTCWBTC = _poolHBTCWBTC.sub(_poolHBTCWBTC.mul(_priceMovePercClp).div(DENOMINATOR));
-        }
-        // WBTC/ETH
-        (uint256 _priceMovePercPslpWBTC, Price _priceMoveDrPslpWBTC) = _getLPTokenPriceMove(_WBTCETHLPTokenPrice, _pSlpTokenPriceWBTC);
-        if (_priceMoveDrPslpWBTC == Price.INCREASE) {
-            _poolWBTCETH = _poolWBTCETH.add(_poolWBTCETH.mul(_priceMovePercPslpWBTC).div(DENOMINATOR));
-        } else { // Price.DECREASE
-            _poolWBTCETH = _poolWBTCETH.sub(_poolWBTCETH.mul(_priceMovePercPslpWBTC).div(DENOMINATOR));
-        }
-        // DPI/ETH
-        (uint256 _priceMovePercSlp, Price _priceMoveDrSlp) = _getLPTokenPriceMove(_DPIETHLPTokenPrice, _slpTokenPriceDPI);
-        if (_priceMoveDrSlp == Price.INCREASE) {
-            _poolDPIETH = _poolDPIETH.add(_poolDPIETH.mul(_priceMovePercSlp).div(DENOMINATOR));
-        } else { // Price.DECREASE
-            _poolDPIETH = _poolDPIETH.sub(_poolDPIETH.mul(_priceMovePercSlp).div(DENOMINATOR));
-        }
-        // DAI/ETH
-        (uint256 _priceMovePercPslpDAI, Price _priceMoveDrPslpDAI) = _getLPTokenPriceMove(_DAIETHLPTokenPrice, _pSlpTokenPriceDAI);
-        if (_priceMoveDrPslpDAI == Price.INCREASE) {
-            _poolDAIETH = _poolDAIETH.add(_poolDAIETH.mul(_priceMovePercPslpDAI).div(DENOMINATOR));
-        } else { // Price.DECREASE
-            _poolDAIETH = _poolDAIETH.sub(_poolDAIETH.mul(_priceMovePercPslpDAI).div(DENOMINATOR));
-        }
+        _poolHBTCWBTC = _poolHBTCWBTC.mul(_clpTokenPriceHBTC).div(_HBTCWBTCLPTokenPrice);
+        _poolWBTCETH = _poolWBTCETH.mul(_pSlpTokenPriceWBTC).div(_WBTCETHLPTokenPrice);
+        _poolDPIETH = _poolDPIETH.mul(_slpTokenPriceDPI).div(_DPIETHLPTokenPrice);
+        _poolDAIETH = _poolDAIETH.mul(_pSlpTokenPriceDAI).div(_DAIETHLPTokenPrice);
+        emit CurrentComposition(_poolHBTCWBTC, _poolWBTCETH, _poolDPIETH, _poolDAIETH);
         // Update new LP token price
         _HBTCWBTCLPTokenPrice = _clpTokenPriceHBTC;
         _WBTCETHLPTokenPrice = _pSlpTokenPriceWBTC;
@@ -779,21 +754,6 @@ contract CitadelStrategy is Ownable {
         IChainlink pricefeed = IChainlink(_priceFeedProxy);
         (, int256 price, , ,) = pricefeed.latestRoundData();
         return uint256(price);
-    }
-
-    /// @notice Function to get the different percentage between old price and new price
-    /// @notice and price increase or decrease
-    /// @param _oldPrice Old price (18 decimals)
-    /// @param _newPrice New price (18 decimals)
-    /// @return Percentage different and price increase/decrease
-    function _getLPTokenPriceMove(uint256 _oldPrice, uint256 _newPrice) private pure returns (uint256, Price) {
-        if (_newPrice > _oldPrice) {
-            uint256 percInc = (_newPrice.sub(_oldPrice)).mul(DENOMINATOR).div(_oldPrice);
-            return (percInc, Price.INCREASE);
-        } else { // _oldPrice > _newPrice
-            uint256 percDec = (_oldPrice.sub(_newPrice)).mul(DENOMINATOR).div(_oldPrice);
-            return (percDec, Price.DECREASE);
-        }
     }
 
     /// @notice Get total pool(sum of 4 pools)
