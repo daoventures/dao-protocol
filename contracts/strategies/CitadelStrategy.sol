@@ -75,7 +75,7 @@ interface IPickleJar is IERC20 {
 interface IMasterChef {
     function deposit(uint256 _pid, uint256 _amount) external;
     function withdraw(uint256 _pid, uint256 _amount) external;
-    function userInfo(uint256, address) external returns(uint256, uint256);
+    function userInfo(uint256, address) external view returns(uint256, uint256);
 }
 
 interface IWETH is IERC20 {
@@ -222,7 +222,7 @@ contract CitadelStrategy is Ownable {
         }
         WETH.safeTransferFrom(address(vault), address(this), _amount);
         emit ETHToInvest(_amount);
-        _farming();
+        _updatePoolForProvideLiquidity();
     }
 
     /// @notice Function to update pool balance because of price change of corresponding LP token 
@@ -479,11 +479,6 @@ contract CitadelStrategy is Ownable {
         }
     }
 
-    /// @notice Function to invest funds that get from vault contract
-    function _farming() private {
-        _updatePoolForProvideLiquidity();
-    }
-
     // @notice Function to reimburse vault minimum keep amount by removing liquidity from all farms
     function reimburse() external onlyVault {
         // Get total reimburse amount (6 decimals)
@@ -552,7 +547,7 @@ contract CitadelStrategy is Ownable {
 
     /// @notice Function to invest back WETH into farms after emergencyWithdraw()
     function reinvest() external onlyVault {
-        _farming();
+        _updatePoolForProvideLiquidity();
     }
 
     /// @notice Function to swap tokens with SushiSwap

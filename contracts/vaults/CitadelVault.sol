@@ -132,7 +132,7 @@ contract CitadelVault is ERC20("DAO Vault Citadel", "daoCDV"), Ownable, BaseRela
     }
     
     /// @notice Function that required for inherict BaseRelayRecipient
-    function versionRecipient() external view override returns (string memory) {
+    function versionRecipient() external pure override returns (string memory) {
         return "1";
     }
 
@@ -486,6 +486,8 @@ contract CitadelVault is ERC20("DAO Vault Citadel", "daoCDV"), Ownable, BaseRela
             .add(Tokens[1].token.balanceOf(address(this)).div(1e6))
             .add(Tokens[2].token.balanceOf(address(this)).div(1e18))
             .sub(_fees.div(1e18));
+            // In very rare case that fees > vault pool, above calculation will raise error
+            // Use getReimburseTokenAmount() to get some stablecoin from strategy
         uint256 _vaultPoolInETH = _vaultPoolInUSD.mul(_getPriceFromChainlink(0xEe9F2375b4bdF6387aa8265dD4FB8F16512A1d46)); // USDT/ETH
         return strategy.getTotalPool().add(_vaultPoolInETH);
     }

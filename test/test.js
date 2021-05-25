@@ -50,7 +50,9 @@ describe("DAO Citadel Strategy", () => {
         await citadelVault.setBiconomy(sampleBiconomyContract.address)
         await expect(sampleBiconomyContract.deposit("10000000000", 2)).not.to.be.revertedWith("Only EOA or biconomy")
         await expect(citadelVault.deposit("0", 0)).to.be.revertedWith("Amount must > 0")
-        await citadelVault.deposit(ethers.utils.parseUnits("10000", 18), 2)
+        tx = await citadelVault.deposit(ethers.utils.parseUnits("10000", 18), 2)
+        receipt = await tx.wait()
+        console.log("Deposit USDT:", receipt.gasUsed.toString())
         expect(await DAIContract.balanceOf(deployer.address)).to.equal("0")
         const ChainLink_ABI = ["function latestAnswer() external view returns (int256)"]
         const chainLinkContract = new ethers.Contract("0xEe9F2375b4bdF6387aa8265dD4FB8F16512A1d46", ChainLink_ABI, deployer) // USDT/ETH
@@ -66,7 +68,7 @@ describe("DAO Citadel Strategy", () => {
         const fees = 10000 * 3 * (1 / 100)
         tx = await citadelVault.connect(admin).invest()
         receipt = await tx.wait()
-        console.log(receipt.gasUsed.toString())
+        console.log("Invest:", receipt.gasUsed.toString())
         expect(await USDTContract.balanceOf(treasury.address)).to.equal(ethers.utils.parseUnits((fees * 4 / 10).toString(), 6))
         expect(await USDTContract.balanceOf(community.address)).to.equal(ethers.utils.parseUnits((fees * 4 / 10).toString(), 6))
         expect(await USDTContract.balanceOf(strategist.address)).to.equal(ethers.utils.parseUnits((fees * 2 / 10).toString(), 6))
@@ -78,8 +80,12 @@ describe("DAO Citadel Strategy", () => {
         const cStakeContract = new ethers.Contract(cStakeAddress, gauge_ABI, deployer)
         const pStakeWBTCContract = new ethers.Contract(pStakeWBTCAddress, gauge_ABI, deployer)
         const pStakeDAIContract = new ethers.Contract(pStakeDAIAddress, gauge_ABI, deployer)
-        const masterChef_ABI = ["function userInfo(uint256, address) external returns(uint256, uint256)"]
+        const masterChef_ABI = ["function userInfo(uint256, address) external view returns(uint256, uint256)"]
         const sStakeContract = new ethers.Contract(sStakeAddress, masterChef_ABI, deployer)
+        expect(await cStakeContract.balanceOf(citadelStrategy.address)).to.gt(0)
+        expect(await pStakeWBTCContract.balanceOf(citadelStrategy.address)).to.gt(0)
+        expect(await pStakeDAIContract.balanceOf(citadelStrategy.address)).to.gt(0)
+        expect((await sStakeContract.userInfo(42, citadelStrategy.address))[0]).to.gt(0)
 
         // const chainLinkContract2 = new ethers.Contract("0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419", ChainLink_ABI, deployer) // ETH/USD
         // const USDPrice = await chainLinkContract2.latestAnswer()
