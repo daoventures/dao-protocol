@@ -429,7 +429,7 @@ contract CitadelStrategy is Ownable {
     /// @notice and stake Pickle LP token into Pickle Farm(staking contract)
     /// @param _amount Amount to invest in ETH
     function _reinvestWBTCETH(uint256 _amount) private {
-        uint256 _amountIn = _amount.mul(1).div(2);
+        uint256 _amountIn = _amount.div(2);
         uint256[] memory _amounts = _swapExactTokensForTokens(address(WETH), address(WBTC), _amountIn);
         if (_amounts[1] > 0) {
             (uint256 _amountA, uint256 _amountB, uint256 _slpWBTC) = router.addLiquidity(
@@ -449,7 +449,7 @@ contract CitadelStrategy is Ownable {
     /// @notice and stake SLP token into SushiSwap MasterChef(staking contract)
     /// @param _amount Amount to invest in ETH
     function _reinvestDPIETH(uint256 _amount) private {
-        uint256 _amountIn = _amount.mul(1).div(2);
+        uint256 _amountIn = _amount.div(2);
         uint256[] memory _amounts = _swapExactTokensForTokens(address(WETH), address(DPI), _amountIn);
         if (_amounts[1] > 0) {
             (uint256 _amountA, uint256 _amountB, uint256 _slpDPI) = router.addLiquidity(address(DPI), address(WETH), _amounts[1], _amountIn, 0, 0, address(this), block.timestamp);
@@ -463,7 +463,7 @@ contract CitadelStrategy is Ownable {
     /// @notice and stake Pickle LP token into Pickle Farm(staking contract)
     /// @param _amount Amount to invest in ETH
     function _reinvestDAIETH(uint256 _amount) private {
-        uint256 _amountIn = _amount.mul(1).div(2);
+        uint256 _amountIn = _amount.div(2);
         uint256[] memory _amounts = _swapExactTokensForTokens(address(WETH), address(DAI), _amountIn);
         if (_amounts[1] > 0) {
             (uint256 _amountA, uint256 _amountB, uint256 _slpDAI) = router.addLiquidity(
