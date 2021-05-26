@@ -25,10 +25,6 @@ interface IMintr {
     function mint(address _address) external;
 }
 
-interface IveCRV {
-    function create_lock(uint256 _amount, uint256 _unlock_time) external;
-}
-
 interface IRouter {
     function addLiquidity(
         address tokenA,
@@ -115,7 +111,6 @@ contract CitadelStrategy is Ownable {
     IERC20 private constant CRV = IERC20(0xD533a949740bb3306d119CC777fa900bA034cd52);
     IGauge private constant gaugeC = IGauge(0x4c18E409Dc8619bFb6a1cB56D114C3f592E0aE79);
     IMintr private constant mintr = IMintr(0xd061D61a4d941c39E5453435B6345Dc261C2fcE0);
-    IveCRV private constant veCRV = IveCRV(0x5f3b5DfEb7B28CDbD7FAba78963EE202a494e2A2);
     uint256[] public curveSplit = [10000, 0]; // CRV to reinvest, to lock
 
     // Pickle
@@ -148,8 +143,6 @@ contract CitadelStrategy is Ownable {
 
     // Others
     uint256 private constant DENOMINATOR = 10000;
-    uint256[] private WEIGHTS = [3000, 3000, 3000, 1000];
-    // WEIGHTS: 30% Curve HBTC/WBTC, 30% Pickle WBTC/ETH, 30% Sushiswap DPI/ETH, 10% Pickle DAI/ETH
 
     // Fees
     uint256 public yieldFeePerc = 1000;
@@ -187,7 +180,6 @@ contract CitadelStrategy is Ownable {
         // Curve
         WBTC.safeApprove(address(cPairs), type(uint256).max);
         clpToken.safeApprove(address(gaugeC), type(uint256).max);
-        CRV.safeApprove(address(veCRV), type(uint256).max);
         // Pickle
         slpWBTC.safeApprove(address(pickleJarWBTC), type(uint256).max);
         slpDAI.safeApprove(address(pickleJarDAI), type(uint256).max);
@@ -250,21 +242,12 @@ contract CitadelStrategy is Ownable {
         mintr.mint(address(gaugeC)); // Claim CRV
         uint256 _balanceOfCRV = CRV.balanceOf(address(this));
         if (_balanceOfCRV > 0) {
-            // Split to reinvest and to lock
-            if (curveSplit[0] > 0) {
-                uint256 _amountIn = _balanceOfCRV.mul(curveSplit[0]).div(DENOMINATOR);
-                uint256[] memory _amounts = _swapExactTokensForTokens(address(CRV), address(WETH), _amountIn);
-                _yieldAmts[0] = _amounts[1];
-                uint256 _fee = _amounts[1].mul(yieldFeePerc).div(DENOMINATOR);
-                _poolHBTCWBTC = _poolHBTCWBTC.add(_amounts[1].sub(_fee));
-                _yieldFees = _yieldFees.add(_fee);
-            }
-            if (curveSplit[1] > 0) {
-                veCRV.create_lock(
-                    _balanceOfCRV.mul(curveSplit[1]).div(DENOMINATOR),
-                    block.timestamp + 86400 * 365 * 4
-                );
-            }
+            uint256 _amountIn = _balanceOfCRV.mul(curveSplit[0]).div(DENOMINATOR);
+            uint256[] memory _amounts = _swapExactTokensForTokens(address(CRV), address(WETH), _amountIn);
+            _yieldAmts[0] = _amounts[1];
+            uint256 _fee = _amounts[1].mul(yieldFeePerc).div(DENOMINATOR);
+            _poolHBTCWBTC = _poolHBTCWBTC.add(_amounts[1].sub(_fee));
+            _yieldFees = _yieldFees.add(_fee);
         }
         // Pickle WBTC/ETH
         gaugeP_WBTC.getReward(); // Claim PICKLE
@@ -328,15 +311,12 @@ contract CitadelStrategy is Ownable {
     /// @notice Function to provide liquidity into farms and update pool of each farms
     function _updatePoolForProvideLiquidity() private {
         uint256 _totalPool = getTotalPool().add(WETH.balanceOf(address(this)));
-        // console.log(_totalPool); // 6.735464989192804808
         // Calculate target composition for each farm
-        uint256 _thirtyPercOfPool = _totalPool.mul(WEIGHTS[0]).div(DENOMINATOR);
-        uint256 _poolHBTCWBTCTarget = (_thirtyPercOfPool);
-        uint256 _poolWBTCETHTarget = (_thirtyPercOfPool);
-        uint256 _poolDPIETHTarget = (_thirtyPercOfPool);
-        uint256 _poolDAIETHTarget = (_totalPool.sub(_thirtyPercOfPool).sub(_thirtyPercOfPool).sub(_thirtyPercOfPool));
-        // console.log(_poolHBTCWBTCTarget, _poolWBTCETHTarget, _poolDPIETHTarget, _poolDAIETHTarget);
-        // 2.020639496757841442 2.020639496757841442 2.020639496757841442 0.673546498919280480
+        uint256 _thirtyPercOfPool = _totalPool.mul(3000).div(DENOMINATOR);
+        uint256 _poolHBTCWBTCTarget = (_thirtyPercOfPool); // 30% for Curve HBTC/WBTC
+        uint256 _poolWBTCETHTarget = (_thirtyPercOfPool); // 30% for Pickle WBTC/ETH
+        uint256 _poolDPIETHTarget = (_thirtyPercOfPool); // 30% for SushiSwap DPI/ETH
+        uint256 _poolDAIETHTarget = (_totalPool.sub(_thirtyPercOfPool).sub(_thirtyPercOfPool).sub(_thirtyPercOfPool)); // 10% for Pickle DAI/ETH
         emit CurrentComposition(_poolHBTCWBTC, _poolWBTCETH, _poolDPIETH, _poolDAIETH);
         emit TargetComposition(_poolHBTCWBTCTarget, _poolWBTCETHTarget, _poolDPIETHTarget, _poolDAIETHTarget);
         // If there is no negative value(need to remove liquidity from farm in order to drive back the composition)
@@ -490,10 +470,11 @@ contract CitadelStrategy is Ownable {
         // Get ETH needed from farm (by removing liquidity then swap to ETH)
         uint256[] memory _amounts = router.getAmountsOut(_totalReimburse, _getPath(address(USDT), address(WETH)));
         if (WETH.balanceOf(address(this)) < _amounts[1]) { // Balance of WETH > _amounts[1] when execute emergencyWithdraw()
-            _withdrawCurve(_amounts[1].mul(WEIGHTS[0]).div(DENOMINATOR));
-            _withdrawPickleWBTC(_amounts[1].mul(WEIGHTS[1]).div(DENOMINATOR));
-            _withdrawSushiswap(_amounts[1].mul(WEIGHTS[2]).div(DENOMINATOR));
-            _withdrawPickleDAI(_amounts[1].mul(WEIGHTS[3]).div(DENOMINATOR));
+            uint256 _thirtyPercOfAmtWithdraw = _amounts[1].mul(3000).div(DENOMINATOR);
+            _withdrawCurve(_thirtyPercOfAmtWithdraw); // 30% from Curve HBTC/WBTC
+            _withdrawPickleWBTC(_thirtyPercOfAmtWithdraw); // 30% from Pickle WBTC/ETH
+            _withdrawSushiswap(_thirtyPercOfAmtWithdraw); // 30% from SushiSwap DPI/ETH
+            _withdrawPickleDAI(_amounts[1].sub(_thirtyPercOfAmtWithdraw).sub(_thirtyPercOfAmtWithdraw).sub(_thirtyPercOfAmtWithdraw)); // 10% from Pickle DAI/ETH
             _swapAllToETH(); // Swap WBTC, DPI & DAI that get from withdrawal above to WETH
         }
 
@@ -656,15 +637,6 @@ contract CitadelStrategy is Ownable {
     /// @param _strategist Address of new strategist
     function setStrategist(address _strategist) external onlyVault {
         strategist = _strategist;
-    }
-
-    /// @notice Function to set percentage CRV to lock in veCRV contract
-    /// @notice Only to set this after this contract got whitelist from veCRV contract
-    /// @param _amount Amount to lock in veCRV contract
-    function setPercCRVToLock(uint256 _amount) external onlyOwner {
-        require(_amount < DENOMINATOR, "Invalid percentage");
-        curveSplit[1] = _amount;
-        curveSplit[0] = DENOMINATOR.sub(_amount);
     }
 
     /// @notice Function to get path for SushiSwap swap functions

@@ -96,54 +96,54 @@ describe("DAO Citadel Strategy", () => {
     })
 
     it("should work", async () => {
-        // let tx, receipt
-        // const [deployer, admin, strategist, biconomy] = await ethers.getSigners()
-        // const CitadelStrategy = await ethers.getContractFactory("CitadelStrategy", deployer)
-        // const citadelStrategy = await CitadelStrategy.deploy(treasuryWallet, communityWallet, deployer.address)
-        // const CitadelVault = await ethers.getContractFactory("CitadelVault", deployer)
-        // const citadelVault = await CitadelVault.deploy(
-        //     citadelStrategy.address, treasuryWallet, communityWallet, admin.address, strategist.address, biconomy.address
-        // )
-        // await citadelStrategy.setVault(citadelVault.address)
-        // await network.provider.request({method: "hardhat_impersonateAccount",params: [unlockedAddress],});
-        // const unlockedSigner = await ethers.getSigner(unlockedAddress);
-        // const USDTContract = new ethers.Contract(USDTAddress, IERC20_ABI, deployer);
-        // const USDCContract = new ethers.Contract(USDCAddress, IERC20_ABI, deployer);
-        // const DAIContract = new ethers.Contract(DAIAddress, IERC20_ABI, deployer);
-        // await USDTContract.connect(unlockedSigner).transfer(deployer.address, ethers.utils.parseUnits("10000", 6))
-        // await USDCContract.connect(unlockedSigner).transfer(deployer.address, ethers.utils.parseUnits("10000", 6))
-        // await DAIContract.connect(unlockedSigner).transfer(deployer.address, ethers.utils.parseUnits("10000", 18))
-        // const WETH_ABI = [
-        //     "function deposit() external payable",
-        //     "function withdraw(uint) external",
-        //     "function transfer(address, uint) external",
-        //     "function balanceOf(address) external view returns (uint)"
-        // ]
-        // const WETHContract = new ethers.Contract(WETHAddress, WETH_ABI, deployer);
-        // await USDTContract.approve(citadelVault.address, ethers.constants.MaxUint256)
-        // await USDCContract.approve(citadelVault.address, ethers.constants.MaxUint256)
-        // await DAIContract.approve(citadelVault.address, ethers.constants.MaxUint256)
-        // tx = await citadelVault.deposit(ethers.utils.parseUnits("10000", 6), 0)
+        let tx, receipt
+        const [deployer, admin, strategist, biconomy, treasury, community] = await ethers.getSigners()
+        const CitadelStrategy = await ethers.getContractFactory("CitadelStrategy", deployer)
+        const citadelStrategy = await CitadelStrategy.deploy(treasury.address, community.address, deployer.address)
+        const CitadelVault = await ethers.getContractFactory("CitadelVault", deployer)
+        const citadelVault = await CitadelVault.deploy(
+            citadelStrategy.address, treasury.address, community.address, admin.address, strategist.address, biconomy.address
+        )
+        await citadelStrategy.setVault(citadelVault.address)
+        await network.provider.request({method: "hardhat_impersonateAccount",params: [unlockedAddress],});
+        const unlockedSigner = await ethers.getSigner(unlockedAddress);
+        const USDTContract = new ethers.Contract(USDTAddress, IERC20_ABI, deployer);
+        const USDCContract = new ethers.Contract(USDCAddress, IERC20_ABI, deployer);
+        const DAIContract = new ethers.Contract(DAIAddress, IERC20_ABI, deployer);
+        await USDTContract.connect(unlockedSigner).transfer(deployer.address, ethers.utils.parseUnits("10000", 6))
+        await USDCContract.connect(unlockedSigner).transfer(deployer.address, ethers.utils.parseUnits("10000", 6))
+        await DAIContract.connect(unlockedSigner).transfer(deployer.address, ethers.utils.parseUnits("10000", 18))
+        const WETH_ABI = [
+            "function deposit() external payable",
+            "function withdraw(uint) external",
+            "function transfer(address, uint) external",
+            "function balanceOf(address) external view returns (uint)"
+        ]
+        const WETHContract = new ethers.Contract(WETHAddress, WETH_ABI, deployer);
+        await USDTContract.approve(citadelVault.address, ethers.constants.MaxUint256)
+        await USDCContract.approve(citadelVault.address, ethers.constants.MaxUint256)
+        await DAIContract.approve(citadelVault.address, ethers.constants.MaxUint256)
+        tx = await citadelVault.deposit(ethers.utils.parseUnits("10000", 6), 0)
         // receipt = await tx.wait()
         // console.log(receipt.gasUsed.toString())
         // console.log(ethers.utils.formatEther(await citadelVault.balanceOf(deployer.address)))
-        // tx = await citadelVault.deposit(ethers.utils.parseUnits("10000", 6), 1)
+        tx = await citadelVault.deposit(ethers.utils.parseUnits("10000", 6), 1)
         // receipt = await tx.wait()
         // console.log(receipt.gasUsed.toString())
         // console.log(ethers.utils.formatEther(await citadelVault.balanceOf(deployer.address)))
-        // tx = await citadelVault.deposit(ethers.utils.parseUnits("10000", 18), 2)
+        tx = await citadelVault.deposit(ethers.utils.parseUnits("10000", 18), 2)
         // receipt = await tx.wait()
         // console.log(receipt.gasUsed.toString())
         // console.log(ethers.utils.formatEther(await citadelVault.balanceOf(deployer.address)))
 
-        // // Invest
-        // tx = await citadelVault.connect(admin).invest()
+        // Invest
+        tx = await citadelVault.connect(admin).invest()
 
-        // // Withdraw
-        // const withdrawShares = (await citadelVault.balanceOf(deployer.address)).mul(30).div(100)
-        // tx = await citadelVault.withdraw(withdrawShares, 0);
-        // tx = await citadelVault.withdraw(withdrawShares, 1);
-        // tx = await citadelVault.withdraw(withdrawShares, 2);
+        // Withdraw
+        const withdrawShares = (await citadelVault.balanceOf(deployer.address)).mul(30).div(100)
+        tx = await citadelVault.withdraw(withdrawShares, 0);
+        tx = await citadelVault.withdraw(withdrawShares, 1);
+        tx = await citadelVault.withdraw(withdrawShares, 2);
         // receipt = await tx.wait()
         // console.log(receipt.gasUsed.toString())
         // console.log(ethers.utils.formatUnits(await USDTContract.balanceOf(deployer.address), 6))
