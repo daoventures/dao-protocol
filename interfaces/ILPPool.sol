@@ -3,7 +3,7 @@ pragma solidity ^0.7.4;
 
 interface ILPPool {
     //================== Callers ==================//
-    function mir() external view returns (IERC20);
+    //function mir() external view returns (IERC20);
 
     function startTime() external view returns (uint256);
 

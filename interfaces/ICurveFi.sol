@@ -31,8 +31,8 @@ interface ICurveFi {
     int128 i,
     int128 j,
     uint256 dx,
-    uint256 min_dy,
-    uint256 deadline
+    uint256 min_dy
+    //uint256 deadline
   ) external returns (uint256);
 
   function exchange_underlying(
