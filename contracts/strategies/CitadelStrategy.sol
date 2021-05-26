@@ -571,9 +571,8 @@ contract CitadelStrategy is Ownable {
     /// @notice Function to unstake LP token(gaugeC) and remove liquidity(cPairs) from Curve
     /// @param _amount Amount to withdraw in ETH
     function _withdrawCurve(uint256 _amount) private {
-        uint256 _shares = _amount.mul(1e18).div(_poolHBTCWBTC);
         uint256 _totalClpToken = gaugeC.balanceOf(address(this));
-        uint256 _clpTokenShare = _totalClpToken.mul(_shares).div(1e18);
+        uint256 _clpTokenShare = _totalClpToken.mul(_amount).div(_poolHBTCWBTC);
         gaugeC.withdraw(_clpTokenShare);
         cPairs.remove_liquidity_one_coin(_clpTokenShare, 1, 0);
         _poolHBTCWBTC = _poolHBTCWBTC.sub(_amount);
@@ -584,9 +583,8 @@ contract CitadelStrategy is Ownable {
     /// @notice and remove liquidity(router) from SushiSwap
     /// @param _amount Amount to withdraw in ETH
     function _withdrawPickleWBTC(uint256 _amount) private {
-        uint256 _shares = _amount.mul(1e18).div(_poolWBTCETH);
         uint256 _totalPlpToken = gaugeP_WBTC.balanceOf(address(this));
-        uint256 _plpTokenShare = _totalPlpToken.mul(_shares).div(1e18);
+        uint256 _plpTokenShare = _totalPlpToken.mul(_amount).div(_poolWBTCETH);
         gaugeP_WBTC.withdraw(_plpTokenShare);
         pickleJarWBTC.withdraw(_plpTokenShare);
         router.removeLiquidity(address(WBTC), address(WETH), slpWBTC.balanceOf(address(this)), 0, 0, address(this), block.timestamp);
@@ -596,9 +594,8 @@ contract CitadelStrategy is Ownable {
     /// @notice Function to unstake LP token(masterChef) and remove liquidity(router) from SushiSwap
     /// @param _amount Amount to withdraw in ETH
     function _withdrawSushiswap(uint256 _amount) private {
-        uint256 _shares = _amount.mul(1e18).div(_poolDPIETH);
         (uint256 _totalSlpToken,) = masterChef.userInfo(42, address(this));
-        uint256 _slpTokenShare = _totalSlpToken.mul(_shares).div(1e18);
+        uint256 _slpTokenShare = _totalSlpToken.mul(_amount).div(_poolDPIETH);
         masterChef.withdraw(42, _slpTokenShare);
         router.removeLiquidity(address(DPI), address(WETH), _slpTokenShare, 0, 0, address(this), block.timestamp);
         _poolDPIETH = _poolDPIETH.sub(_amount);
@@ -609,9 +606,8 @@ contract CitadelStrategy is Ownable {
     /// @notice and remove liquidity(router) from SushiSwap
     /// @param _amount Amount to withdraw in ETH
     function _withdrawPickleDAI(uint256 _amount) private {
-        uint256 _shares = _amount.mul(1e18).div(_poolDAIETH);
         uint256 _totalPlpToken = gaugeP_DAI.balanceOf(address(this));
-        uint256 _plpTokenShare = _totalPlpToken.mul(_shares).div(1e18);
+        uint256 _plpTokenShare = _totalPlpToken.mul(_amount).div(_poolDAIETH);
         gaugeP_DAI.withdraw(_plpTokenShare);
         pickleJarDAI.withdraw(_plpTokenShare);
         router.removeLiquidity(address(DAI), address(WETH), slpDAI.balanceOf(address(this)), 0, 0, address(this), block.timestamp);
@@ -689,7 +685,9 @@ contract CitadelStrategy is Ownable {
     /// @return Price of SushiSwap LP Token in ETH
     function _calcSlpTokenPrice(ISLPToken _slpToken, uint256 _tokenAPrice) private view returns (uint256) {
         (uint112 _reserveA, uint112 _reserveB,) = _slpToken.getReserves();
-        _reserveA = _slpToken == slpWBTC ? _reserveA * 1e10 : _reserveA; // Change WBTC to 18 decimals
+        if (_slpToken == slpWBTC) { // Change WBTC to 18 decimals
+            _reserveA * 1e10;
+        }
         uint256 _totalValueOfLiquidityPool = _calcTotalValueOfLiquidityPool(uint256(_reserveA), _tokenAPrice, uint256(_reserveB), 1e18);
         return _calcValueOf1LPToken(_totalValueOfLiquidityPool, _slpToken.totalSupply());
     }

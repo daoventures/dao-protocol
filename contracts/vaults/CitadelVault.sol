@@ -146,7 +146,9 @@ contract CitadelVault is ERC20("DAO Vault Citadel", "daoCDV"), Ownable, BaseRela
         uint256 _pool = getAllPoolInETH();
         address _sender = _msgSender();
         Tokens[_tokenIndex].token.safeTransferFrom(_sender, address(this), _amount);
-        _amount = Tokens[_tokenIndex].decimals == 6 ? _amount.mul(1e12) : _amount;
+        if (Tokens[_tokenIndex].decimals == 6) {
+            _amount = _amount.mul(1e12);
+        }
 
         // Calculate network fee
         uint256 _networkFeePerc;
@@ -193,13 +195,17 @@ contract CitadelVault is ERC20("DAO Vault Citadel", "daoCDV"), Ownable, BaseRela
         uint256 _withdrawAmtInUSD = _withdrawAmt.mul(_getPriceFromChainlink(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419)).div(1e8); // ETH/USD
         Token memory _token = Tokens[_tokenIndex];
         uint256 _balanceOfToken = _token.token.balanceOf(address(this));
-        _balanceOfToken = _token.decimals == 6 ? _balanceOfToken.mul(1e12) : _balanceOfToken;
+        if (_token.decimals == 6) {
+            _balanceOfToken = _balanceOfToken.mul(1e12);
+        }
         if (_withdrawAmtInUSD > _balanceOfToken) {
             // Not enough stablecoin in vault, need to get from strategy
             strategy.withdraw(_withdrawAmt);
             uint256[] memory _amounts = _swapExactTokensForTokens(WETH.balanceOf(address(this)), address(WETH), address(_token.token));
             // Change withdraw amount to 18 decimals if not DAI (for calculate profit sharing fee)
-            _withdrawAmtInUSD = _token.decimals == 6 ? _amounts[1].mul(1e12) : _amounts[1];
+            if (_token.decimals == 6) {
+                _withdrawAmtInUSD = _amounts[1].mul(1e12);
+            }
         }
 
         // Calculate profit sharing fee
@@ -212,7 +218,9 @@ contract CitadelVault is ERC20("DAO Vault Citadel", "daoCDV"), Ownable, BaseRela
 
         _burn(msg.sender, _shares);
         // Change back withdraw amount to 6 decimals if not DAI
-        _withdrawAmtInUSD = _token.decimals == 6 ? _withdrawAmtInUSD.div(1e12) : _withdrawAmtInUSD;
+        if (_token.decimals == 6) {
+            _withdrawAmtInUSD = _withdrawAmtInUSD.div(1e12);
+        }
         _token.token.safeTransfer(msg.sender, _withdrawAmtInUSD);
     }
 
@@ -268,8 +276,13 @@ contract CitadelVault is ERC20("DAO Vault Citadel", "daoCDV"), Ownable, BaseRela
         uint256 _reimburseAmt = getReimburseTokenAmount(_tokenTo);
         uint256 _balanceOfFrom = Tokens[_tokenFrom].token.balanceOf(address(this));
         // Make all variable consistent with 6 decimals 
-        _balanceOfFrom = Tokens[_tokenFrom].decimals == 18 ? _balanceOfFrom.div(1e12) : _balanceOfFrom;
-        _reimburseAmt = Tokens[_tokenTo].decimals == 18 ? _reimburseAmt.div(1e12) : _reimburseAmt;
+        if (Tokens[_tokenFrom].decimals == 18) {
+            _balanceOfFrom = _balanceOfFrom.div(1e12);
+        }
+        if (Tokens[_tokenTo].decimals == 18) {
+            _reimburseAmt = _reimburseAmt.div(1e12);
+        }
+
         require(_balanceOfFrom > _reimburseAmt, "Insufficient amount to swap");
 
         int128 i = _determineCurveIndex(_tokenFrom);
@@ -507,7 +520,9 @@ contract CitadelVault is ERC20("DAO Vault Citadel", "daoCDV"), Ownable, BaseRela
     function getReimburseTokenAmount(uint256 _tokenIndex) public view returns (uint256) {
         Token memory _token = Tokens[_tokenIndex];
         uint256 _toKeepAmt = getAllPoolInUSD().mul(_token.percKeepInVault).div(DENOMINATOR);
-        _toKeepAmt = _token.decimals == 18 ? _toKeepAmt.mul(1e12) : _toKeepAmt;
+        if (_token.decimals == 18) {
+            _toKeepAmt = _toKeepAmt.mul(1e12);
+        }
         uint256 _balanceOfToken = _token.token.balanceOf(address(this));
         if (_balanceOfToken < _toKeepAmt) {
             return _toKeepAmt.sub(_balanceOfToken);
