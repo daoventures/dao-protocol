@@ -349,10 +349,8 @@ contract CitadelStrategy is Ownable {
             // 1. Find out the farm that is furthest from target composition
             if (_poolHBTCWBTCTarget > _poolHBTCWBTC) {
                 uint256 _diff = _poolHBTCWBTCTarget.sub(_poolHBTCWBTC);
-                if (_diff > _furthest) {
-                    _furthest = _diff;
-                    _farmIndex = 0;
-                }
+                _furthest = _diff;
+                _farmIndex = 0;
             }
             if (_poolWBTCETHTarget > _poolWBTCETH) {
                 uint256 _diff = _poolWBTCETHTarget.sub(_poolWBTCETH);
