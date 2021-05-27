@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 
 interface iStrategy {
-    function invest(address _token) external;
+    function deposit(uint _amount, address _token) external;
 
     function getTotalAmountInPool() external view returns (uint256);
 
@@ -40,7 +40,7 @@ contract FAANGVault is ERC20("DAO FAANG STONKS", "daoFAANG") {
                 ? _amount
                 : _amount.mul(totalSupply()).div(poolBalance.add(_amount));
 
-            strategy.invest(_token);
+            strategy.deposit(_amount, _token);
         } else if (_token == address(USDC)) {
             USDC.safeTransferFrom(msg.sender, address(strategy), _amount);
             shares = totalSupply() == 0
@@ -48,7 +48,7 @@ contract FAANGVault is ERC20("DAO FAANG STONKS", "daoFAANG") {
                 : _amount.mul(totalSupply()).div(
                     poolBalance.add(_amount.mul(10**12))
                 );
-            strategy.invest(_token);
+            strategy.deposit(_amount, _token);
         } else if (_token == address(USDT)) {
             USDT.safeTransferFrom(msg.sender, address(strategy), _amount);
             shares = totalSupply() == 0
@@ -56,7 +56,7 @@ contract FAANGVault is ERC20("DAO FAANG STONKS", "daoFAANG") {
                 : _amount.mul(totalSupply()).div(
                     poolBalance.add(_amount.mul(10**12))
                 );
-            strategy.invest(_token);
+            strategy.deposit(_amount, _token);
         }
         depositedAmount[msg.sender] = depositedAmount[msg.sender].add(_amount);
 
