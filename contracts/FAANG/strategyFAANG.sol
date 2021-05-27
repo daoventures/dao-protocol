@@ -35,7 +35,15 @@ contract FAANGStrategy {
     mapping(ILPPool => uint256) public poolStakedMIRLPToken;
     mAsset[] public mAssets;
 
-    constructor(address _vault, address _treasuryWallet, address _mirustPool) {
+    constructor(address _vault, 
+        address _treasuryWallet, 
+        address _mirustPool,
+        uint[] memory weights,
+        IERC20[] memory mAssetsTokens,
+        ILPPool[] memory lpPools,
+        IERC20[] memory lpTokens
+
+        ) {
         vault = _vault;
 
         //TODO : Check
@@ -46,6 +54,20 @@ contract FAANGStrategy {
         treasuryWallet = _treasuryWallet;
         mirustPool = ILPPool(_mirustPool);
         //TODO: Add approvals
+
+        ust.approve(address(router), type(uint256).max);
+        mir.approve(address(router), type(uint256).max);
+
+
+        for(uint i=0; i<weights.length; i++) {
+            mAssets.push(mAsset({
+                weight: weights[i],
+                mAssetToken : mAssetsTokens[i],
+                lpPool:lpPools[i],
+                lpToken:lpTokens[i]
+            }));
+        }
+
     }
 
     function deposit(uint256 _amount, address _token) external {
