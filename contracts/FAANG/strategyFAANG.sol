@@ -35,6 +35,8 @@ contract FAANGStrategy {
     mapping(ILPPool => uint256) public poolStakedMIRLPToken;
     mAsset[] public mAssets;
 
+    uint amountDeposited;
+
     constructor(address _vault, 
         address _treasuryWallet, 
         address _mirustPool,
@@ -73,6 +75,7 @@ contract FAANGStrategy {
     function deposit(uint256 _amount, address _token) external {
         require(msg.sender == vault, "Only Vault can call this function");
         require(_amount > 0);
+        amountDeposited = amountDeposited.add(_amount);
         int128 principalCurveId = curveIds[_token];
         uint256 ustAmount = curveFi.exchange(principalCurveId, 0, _amount, 0);
 
@@ -100,8 +103,8 @@ contract FAANGStrategy {
             // stake LPToken to LPPool
             mAssets[i].lpPool.stake(poolTokenAmount);
 
-            userLPToken[tx.origin][i] += poolTokenAmount;
-            userTotalLPToken[mAssets[i].lpToken] += poolTokenAmount;
+            userLPToken[tx.origin][i] = userLPToken[tx.origin][i].add(poolTokenAmount);
+            userTotalLPToken[mAssets[i].lpToken] = userTotalLPToken[mAssets[i].lpToken].add(poolTokenAmount);
         }
     }
 
@@ -216,9 +219,12 @@ contract FAANGStrategy {
     }
 
     function getTotalAmountInPool() public view returns (uint256 amount) {
+//        return amountDeposited;
         for (uint256 i = 0; i < mAssets.length; i++) {
-            amount.add(userTotalLPToken[mAssets[i].lpToken]);
+            amount = amount.add(userTotalLPToken[mAssets[i].lpToken]);
         }
+
+        uint value = amount * amountDeposited;
     }
 
     //getTotalAmountInPool

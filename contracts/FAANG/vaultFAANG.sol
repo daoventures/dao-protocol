@@ -31,14 +31,14 @@ contract FAANGVault is ERC20("DAO FAANG STONKS", "daoFAANG") {
 
     function deposit(uint256 _amount, address _token) external {
         uint256 shares;
-        uint256 poolBalance = strategy.getTotalAmountInPool();
+        uint256 poolBalance = strategy.getTotalAmountInPool(); //it should be totalValue of liquidity pool
 
         if (_token == address(DAI)) {
             DAI.safeTransferFrom(msg.sender, address(strategy), _amount);
 
             shares = totalSupply() == 0
                 ? _amount
-                : _amount.mul(totalSupply()).div(poolBalance.add(_amount));
+                : _amount.mul(totalSupply()).div(poolBalance);
 
             strategy.deposit(_amount, _token);
         } else if (_token == address(USDC)) {
@@ -46,7 +46,7 @@ contract FAANGVault is ERC20("DAO FAANG STONKS", "daoFAANG") {
             shares = totalSupply() == 0
                 ? _amount
                 : _amount.mul(totalSupply()).div(
-                    poolBalance.add(_amount.mul(10**12))
+                    poolBalance
                 );
             strategy.deposit(_amount, _token);
         } else if (_token == address(USDT)) {
@@ -54,7 +54,7 @@ contract FAANGVault is ERC20("DAO FAANG STONKS", "daoFAANG") {
             shares = totalSupply() == 0
                 ? _amount
                 : _amount.mul(totalSupply()).div(
-                    poolBalance.add(_amount.mul(10**12))
+                    poolBalance
                 );
             strategy.deposit(_amount, _token);
         }
