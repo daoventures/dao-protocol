@@ -18,6 +18,8 @@ contract FAANGStrategy {
         IERC20 mAssetToken;
         ILPPool lpPool;
         IERC20 lpToken;
+        uint amountOfATotal;
+        uint amountOfBTotal;
     }
     //address public constant ust = 0xa47c8bf37f92aBed4A126BDA807A7b7498661acD;
     //address public constant mir = 0xa47c8bf37f92aBed4A126BDA807A7b7498661acD;
@@ -66,7 +68,9 @@ contract FAANGStrategy {
                 weight: weights[i],
                 mAssetToken : mAssetsTokens[i],
                 lpPool:lpPools[i],
-                lpToken:lpTokens[i]
+                lpToken:lpTokens[i],
+                amountOfATotal: 0,
+                amountOfBTotal: 0
             }));
         }
 
@@ -89,8 +93,9 @@ contract FAANGStrategy {
             // UST -> mAsset on Uniswap
             path[0] = address(ust);
             path[1] = addr_;
+            uint _ustAmount = ustAmount.mul(weight_).div(10000);
             amounts = router.swapExactTokensForTokens(
-                ustAmount.mul(weight_).div(10000),
+                _ustAmount,
                 0,
                 path,
                 address(this),
@@ -98,13 +103,15 @@ contract FAANGStrategy {
             );
 
             // addLiquidity: mAsset + UST
-            (, , uint256 poolTokenAmount) = router.addLiquidity(addr_,  address(ust), amounts[1], ustAmount.mul(weight_).div(10000), 0, 0, address(this), block.timestamp);
+            (, , uint256 poolTokenAmount) = router.addLiquidity(addr_,  address(ust), amounts[1], _ustAmount, 0, 0, address(this), block.timestamp);
 
             // stake LPToken to LPPool
             mAssets[i].lpPool.stake(poolTokenAmount);
 
             userLPToken[tx.origin][i] = userLPToken[tx.origin][i].add(poolTokenAmount);
             userTotalLPToken[mAssets[i].lpToken] = userTotalLPToken[mAssets[i].lpToken].add(poolTokenAmount);
+            mAssets[i].amountOfATotal = mAssets[i].amountOfATotal.add(amounts[1]);
+            mAssets[i].amountOfBTotal = mAssets[i].amountOfATotal.add(_ustAmount);
         }
     }
 
@@ -196,13 +203,16 @@ contract FAANGStrategy {
                 path[1] = address(mAssets[i].mAssetToken);
 
                 //22.5% mir to mAsset
-                amounts = router.swapExactTokensForTokens(earnedMIR.mul(2250).div(10000), 0, path, address(this), block.timestamp);
+                uint _mirAmount = earnedMIR.mul(2250).div(10000);
+                amounts = router.swapExactTokensForTokens(_mirAmount, 0, path, address(this), block.timestamp);
 
-                (,,uint poolTokenAmount) = router.addLiquidity(address(mAssets[i].mAssetToken), address(ust), earnedMIR.mul(2250).div(10000), amounts[1], 0, 0, address(this), block.timestamp);
+                (,,uint poolTokenAmount) = router.addLiquidity(address(mAssets[i].mAssetToken), address(ust), _mirAmount, amounts[1], 0, 0, address(this), block.timestamp);
                 
                 mAssets[i].lpPool.stake(poolTokenAmount);
                 
                 userTotalLPToken[mAssets[i].lpToken] = userTotalLPToken[mAssets[i].lpToken].add(poolTokenAmount);
+                mAssets[i].amountOfATotal = mAssets[i].amountOfATotal.add(_mirAmount);
+                mAssets[i].amountOfBTotal = mAssets[i].amountOfATotal.add(amounts[1]);
 
             }
         }
@@ -218,16 +228,18 @@ contract FAANGStrategy {
         mirustPool.stake(poolTokenAmount);
     }
 
-    function getTotalAmountInPool() public view returns (uint256 amount) {
-//        return amountDeposited;
+    function getTotalAmountInPool() public view returns (uint256 value) {
+        //get price of mAsset interms of UST
+        //value = (amountOfmAsset*priceInUst) + amountOfUST
         for (uint256 i = 0; i < mAssets.length; i++) {
-            amount = amount.add(userTotalLPToken[mAssets[i].lpToken]);
+            
+            address[] memory path;
+            path[0] = address(mAssets[i].mAssetToken);
+            path[0] = address(ust);
+            uint[] memory priceInUst = router.getAmountsOut(1e18, path);
+
+            value = value.add(priceInUst[1].mul(mAssets[i].amountOfATotal)).add(mAssets[i].amountOfBTotal);
         }
 
-        uint value = amount * amountDeposited;
     }
-
-    //getTotalAmountInPool
-    // 1. get value equivalent of lp token
-    //ex 5 lp token = 6 origToken
 }
