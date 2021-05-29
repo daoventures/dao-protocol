@@ -1,35 +1,34 @@
-const { run } = require("hardhat");
-
 async function main() {
-    const [deployer] = await ethers.getSigners()
-    const CitadelStrategy = await ethers.getContractFactory("CitadelStrategyKovan", deployer)
-    const citadelStrategy = await CitadelStrategy.deploy(deployer.address, deployer.address, deployer.address)
-    const CitadelVault = await ethers.getContractFactory("CitadelVaultKovan", deployer)
-    const citadelVault = await CitadelVault.deploy(
-        citadelStrategy.address, deployer.address, deployer.address, deployer.address, deployer.address, deployer.address
-    )
-    await citadelStrategy.setVault(citadelVault.address)
+  const [deployer] = await ethers.getSigners()
+  const CitadelStrategy = await ethers.getContractFactory(
+    'CitadelStrategyKovan',
+    deployer,
+  )
+  const citadelStrategy = await CitadelStrategy.deploy(
+    '0xdd6c35aFF646B2fB7d8A8955Ccbe0994409348d0', // Community wallet
+    '0x54D003d451c973AD7693F825D5b78Adfc0efe934', // Strategist
+    deployer.address, // Admin
+  )
+  const CitadelVault = await ethers.getContractFactory('CitadelVaultKovan', deployer)
+  const citadelVault = await CitadelVault.deploy(
+    citadelStrategy.address,
+    '0x59E83877bD248cBFe392dbB5A8a29959bcb48592', // Treasury wallet
+    '0xdd6c35aFF646B2fB7d8A8955Ccbe0994409348d0', // Community wallet
+    deployer.address, // Admin
+    '0x54D003d451c973AD7693F825D5b78Adfc0efe934', // Strategist
+    '0x84a0856b038eaAd1cC7E297cF34A7e72685A8693', // Biconomy
+  )
+  await citadelStrategy.setVault(citadelVault.address)
 
-    // verify
-    await run("verify:verify", {
-      address: citadelStrategy.address,
-      constructorArguments: [deployer.address, deployer.address, deployer.address],
-      contract: "contracts/CitadelStrategy.sol:CitadelStrategy",
-    });
+  // Verify
 
-    await run("verify:verify", {
-      address: citadelVault.address,
-      constructorArguments: [citadelStrategy.address, deployer.address, deployer.address, deployer.address, deployer.address, deployer.address],
-      contract: "contracts/CitadelVault.sol:CitadelVault",
-    });
-  
-    console.log('Citadel vault address:', citadelVault.address) // 0x0Bd1B8989c1851880915A64DC2af14407ed378d8
-    console.log('Citadel strategy address:', citadelStrategy.address) // 0x0148fFC7f4137bd4FA513CA746E1e405EE085eFA
-  }
-  
-  main()
-    .then(() => process.exit(0))
-    .catch(error => {
-      console.error(error);
-      process.exit(1);
-    });
+  console.log('Citadel vault address:', citadelVault.address)
+  console.log('Citadel strategy address:', citadelStrategy.address)
+}
+
+main()
+  .then(() => process.exit(0))
+  .catch((error) => {
+    console.error(error)
+    process.exit(1)
+  })

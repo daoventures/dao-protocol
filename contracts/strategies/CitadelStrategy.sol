@@ -6,7 +6,6 @@ import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-import "hardhat/console.sol";
 
 interface ICurvePairs {
     function add_liquidity(uint256[2] memory _amounts, uint256 _min_mint_amount) external;
@@ -111,7 +110,6 @@ contract CitadelStrategy is Ownable {
     IERC20 private constant CRV = IERC20(0xD533a949740bb3306d119CC777fa900bA034cd52);
     IGauge private constant gaugeC = IGauge(0x4c18E409Dc8619bFb6a1cB56D114C3f592E0aE79);
     IMintr private constant mintr = IMintr(0xd061D61a4d941c39E5453435B6345Dc261C2fcE0);
-    uint256[] public curveSplit = [10000, 0]; // CRV to reinvest, to lock
 
     // Pickle
     ISLPToken private constant slpWBTC = ISLPToken(0xCEfF51756c56CeFFCA006cD410B03FFC46dd3a58); // WBTC/ETH
@@ -133,16 +131,17 @@ contract CitadelStrategy is Ownable {
     uint256 private _WBTCETHLPTokenPrice;
     uint256 private _DPIETHLPTokenPrice;
     uint256 private _DAIETHLPTokenPrice;
-    enum Price { INCREASE, DECREASE }
 
     // Pool in ETH
     uint256 private _poolHBTCWBTC;
     uint256 private _poolWBTCETH;
     uint256 private _poolDPIETH;
     uint256 private _poolDAIETH;
+    uint256 private _pool; // For emergencyWithdraw() only
 
     // Others
     uint256 private constant DENOMINATOR = 10000;
+    bool public isVesting;
 
     // Fees
     uint256 public yieldFeePerc = 1000;
@@ -150,12 +149,12 @@ contract CitadelStrategy is Ownable {
     address public communityWallet;
     address public strategist;
 
-    event ETHToInvest(uint256);
-    event LatestLPTokenPrice(uint256, uint256, uint256, uint256);
-    event YieldAmount(uint256, uint256, uint256, uint256); // in ETH
-    event CurrentComposition(uint256, uint256, uint256, uint256); // in ETH
-    event TargetComposition(uint256, uint256, uint256, uint256); // in ETH
-    event AddLiquidity(address, uint256, uint256, uint256); // in ETH
+    event ETHToInvest(uint256 amount);
+    event LatestLPTokenPrice(uint256 curveHBTC, uint256 pickleWBTC, uint256 sushiSwapDPI, uint256 pickleDAI);
+    event YieldAmount(uint256 curveHBTC, uint256 pickleWBTC, uint256 sushiSwapDPI, uint256 pickleDAI); // in ETH
+    event CurrentComposition(uint256 curveHBTC, uint256 pickleWBTC, uint256 sushiSwapDPI, uint256 pickleDAI); // in ETH
+    event TargetComposition(uint256 curveHBTC, uint256 pickleWBTC, uint256 sushiSwapDPI, uint256 pickleDAI); // in ETH
+    event AddLiquidity(address pairs, uint256 amountA, uint256 amountB, uint256 lpTokenMinted); // in ETH
 
     modifier onlyVault {
         require(msg.sender == address(vault), "Only vault");
@@ -208,7 +207,7 @@ contract CitadelStrategy is Ownable {
     /// @notice Function to invoke a series of invest functions
     /// @param _amount Amount to invest in ETH
     function invest(uint256 _amount) external onlyVault {
-        if (getTotalPool() > 0) { // Not first invest
+        if (_getTotalPool() > 0) { // Not first invest
             _updatePoolForPriceChange();
             _yield();
         }
@@ -242,8 +241,7 @@ contract CitadelStrategy is Ownable {
         mintr.mint(address(gaugeC)); // Claim CRV
         uint256 _balanceOfCRV = CRV.balanceOf(address(this));
         if (_balanceOfCRV > 0) {
-            uint256 _amountIn = _balanceOfCRV.mul(curveSplit[0]).div(DENOMINATOR);
-            uint256[] memory _amounts = _swapExactTokensForTokens(address(CRV), address(WETH), _amountIn);
+            uint256[] memory _amounts = _swapExactTokensForTokens(address(CRV), address(WETH), _balanceOfCRV);
             _yieldAmts[0] = _amounts[1];
             uint256 _fee = _amounts[1].mul(yieldFeePerc).div(DENOMINATOR);
             _poolHBTCWBTC = _poolHBTCWBTC.add(_amounts[1].sub(_fee));
@@ -262,7 +260,7 @@ contract CitadelStrategy is Ownable {
         // Sushiswap DPI/ETH
         (uint256 _slpDPIAmt,) = masterChef.userInfo(42, address(this));
         if (_slpDPIAmt > 0) {
-            masterChef.withdraw(42, _slpDPIAmt); // Claim remain SUSHI
+            // SushiSwap previous SUSHI reward is auto harvest after new deposit
             // Swap SUSHI to WETH
             uint256 _balanceOfSUSHI = SUSHI.balanceOf(address(this));
             if (_balanceOfSUSHI > 0) {
@@ -296,7 +294,7 @@ contract CitadelStrategy is Ownable {
     /// @param _amount Fees to transfer in ETH
     function _splitYieldFees(uint256 _amount) private {
         WETH.withdraw(_amount);
-        uint256 _yieldFee = (address(this).balance).mul(2).div(5); // 40%
+        uint256 _yieldFee = (address(this).balance).mul(2).div(5);
         (bool _a,) = admin.call{value: _yieldFee}(""); // 40%
         require(_a);
         (bool _t,) = communityWallet.call{value: _yieldFee}(""); // 40%
@@ -310,38 +308,36 @@ contract CitadelStrategy is Ownable {
 
     /// @notice Function to provide liquidity into farms and update pool of each farms
     function _updatePoolForProvideLiquidity() private {
-        uint256 _totalPool = getTotalPool().add(WETH.balanceOf(address(this)));
+        uint256 _totalPool = _getTotalPool().add(WETH.balanceOf(address(this)));
         // Calculate target composition for each farm
         uint256 _thirtyPercOfPool = _totalPool.mul(3000).div(DENOMINATOR);
-        uint256 _poolHBTCWBTCTarget = (_thirtyPercOfPool); // 30% for Curve HBTC/WBTC
-        uint256 _poolWBTCETHTarget = (_thirtyPercOfPool); // 30% for Pickle WBTC/ETH
-        uint256 _poolDPIETHTarget = (_thirtyPercOfPool); // 30% for SushiSwap DPI/ETH
-        uint256 _poolDAIETHTarget = (_totalPool.sub(_thirtyPercOfPool).sub(_thirtyPercOfPool).sub(_thirtyPercOfPool)); // 10% for Pickle DAI/ETH
+        uint256 _poolHBTCWBTCTarget = _thirtyPercOfPool; // 30% for Curve HBTC/WBTC
+        uint256 _poolWBTCETHTarget = _thirtyPercOfPool; // 30% for Pickle WBTC/ETH
+        uint256 _poolDPIETHTarget = _thirtyPercOfPool; // 30% for SushiSwap DPI/ETH
+        uint256 _poolDAIETHTarget = _totalPool.sub(_thirtyPercOfPool).sub(_thirtyPercOfPool).sub(_thirtyPercOfPool); // 10% for Pickle DAI/ETH
         emit CurrentComposition(_poolHBTCWBTC, _poolWBTCETH, _poolDPIETH, _poolDAIETH);
         emit TargetComposition(_poolHBTCWBTCTarget, _poolWBTCETHTarget, _poolDPIETHTarget, _poolDAIETHTarget);
         // If there is no negative value(need to remove liquidity from farm in order to drive back the composition)
-        // We proceed with split yield into 4 farms and drive composition back to target
-        // Else, we put all the yield into the farm that is furthest from target composition
+        // We proceed with split funds into 4 farms and drive composition back to target
+        // Else, we put all the funds into the farm that is furthest from target composition
         if (
             _poolHBTCWBTCTarget > _poolHBTCWBTC &&
             _poolWBTCETHTarget > _poolWBTCETH &&
             _poolDPIETHTarget > _poolDPIETH &&
             _poolDAIETHTarget > _poolDAIETH
         ) {
-            // console.log("Target over current");
-            // Reinvest yield into Curve HBTC/WBTC
-            uint256 _reinvestHBTCWBTCAmt = _poolHBTCWBTCTarget.sub(_poolHBTCWBTC);
-            _reinvestHBTCWBTC(_reinvestHBTCWBTCAmt);
-            // Reinvest yield into Pickle WBTC/ETH
-            uint256 _reinvestWBTCETHAmt = _poolWBTCETHTarget.sub(_poolWBTCETH);
-            _reinvestWBTCETH(_reinvestWBTCETHAmt);
-            // Reinvest yield into Sushiswap Onsen DPI/ETH
-            uint256 _reinvestDPIETHAmt = _poolDPIETHTarget.sub(_poolDPIETH);
-            _reinvestDPIETH(_reinvestDPIETHAmt);
-            // Reinvest yield into Pickle DAI/ETH
-            uint256 _reinvestDAIETHAmt = _poolDAIETHTarget.sub(_poolDAIETH);
-            _reinvestDAIETH(_reinvestDAIETHAmt);
-            // console.log(_reinvestHBTCWBTCAmt.add(_reinvestWBTCETHAmt).add(_reinvestDPIETHAmt).add(_reinvestDAIETHAmt)); // 6.735464989192804808
+            // invest funds into Curve HBTC/WBTC
+            uint256 _investHBTCWBTCAmt = _poolHBTCWBTCTarget.sub(_poolHBTCWBTC);
+            _investHBTCWBTC(_investHBTCWBTCAmt);
+            // invest funds into Pickle WBTC/ETH
+            uint256 _investWBTCETHAmt = _poolWBTCETHTarget.sub(_poolWBTCETH);
+            _investWBTCETH(_investWBTCETHAmt);
+            // invest funds into Sushiswap Onsen DPI/ETH
+            uint256 _investDPIETHAmt = _poolDPIETHTarget.sub(_poolDPIETH);
+            _investDPIETH(_investDPIETHAmt);
+            // invest funds into Pickle DAI/ETH
+            uint256 _investDAIETHAmt = _poolDAIETHTarget.sub(_poolDAIETH);
+            _investDAIETH(_investDAIETHAmt);
         } else {
             // Put all the yield into the farm that is furthest from target composition
             uint256 _furthest;
@@ -373,26 +369,25 @@ contract CitadelStrategy is Ownable {
                     _farmIndex = 3;
                 }
             }
-            // 2. Put all the yield into the farm that is furthest from target composition
+            // 2. Put all the funds into the farm that is furthest from target composition
             uint256 _balanceOfWETH = WETH.balanceOf(address(this));
             if (_farmIndex == 0) {
-                _reinvestHBTCWBTC(_balanceOfWETH);
+                _investHBTCWBTC(_balanceOfWETH);
             } else if (_farmIndex == 1) {
-                _reinvestWBTCETH(_balanceOfWETH);
+                _investWBTCETH(_balanceOfWETH);
             } else if (_farmIndex == 2) {
-                _reinvestDPIETH(_balanceOfWETH);
+                _investDPIETH(_balanceOfWETH);
             } else {
-                _reinvestDAIETH(_balanceOfWETH);
+                _investDAIETH(_balanceOfWETH);
             }
         }
-        // console.log(_poolHBTCWBTC, _poolWBTCETH, _poolDPIETH, _poolDAIETH);
         emit CurrentComposition(_poolHBTCWBTC, _poolWBTCETH, _poolDPIETH, _poolDAIETH);
     }
 
     /// @notice Function to invest funds into Curve HBTC/WBTC pool 
     /// @notice and stake Curve LP token into Curve Gauge(staking contract)
     /// @param _amount Amount to invest in ETH
-    function _reinvestHBTCWBTC(uint256 _amount) private {
+    function _investHBTCWBTC(uint256 _amount) private {
         uint256[] memory _amounts = _swapExactTokensForTokens(address(WETH), address(WBTC), _amount);
         if (_amounts[1] > 0) {
             cPairs.add_liquidity([0, _amounts[1]], 0);
@@ -406,7 +401,7 @@ contract CitadelStrategy is Ownable {
     /// @notice Function to invest funds into SushiSwap WBTC/ETH pool, deposit SLP token into Pickle Jar(vault contract)
     /// @notice and stake Pickle LP token into Pickle Farm(staking contract)
     /// @param _amount Amount to invest in ETH
-    function _reinvestWBTCETH(uint256 _amount) private {
+    function _investWBTCETH(uint256 _amount) private {
         uint256 _amountIn = _amount.div(2);
         uint256[] memory _amounts = _swapExactTokensForTokens(address(WETH), address(WBTC), _amountIn);
         if (_amounts[1] > 0) {
@@ -416,22 +411,22 @@ contract CitadelStrategy is Ownable {
                 0, 0,
                 address(this), block.timestamp
             );
+            emit AddLiquidity(address(slpWBTC), _amountA, _amountB, _slpWBTC);
             pickleJarWBTC.deposit(_slpWBTC);
             gaugeP_WBTC.deposit(pickleJarWBTC.balanceOf(address(this)));
             _poolWBTCETH = _poolWBTCETH.add(_amount);
-            emit AddLiquidity(address(slpWBTC), _amountA, _amountB, _slpWBTC);
         }
     }
 
     /// @notice Function to invest funds into SushiSwap DPI/ETH pool 
     /// @notice and stake SLP token into SushiSwap MasterChef(staking contract)
     /// @param _amount Amount to invest in ETH
-    function _reinvestDPIETH(uint256 _amount) private {
+    function _investDPIETH(uint256 _amount) private {
         uint256 _amountIn = _amount.div(2);
         uint256[] memory _amounts = _swapExactTokensForTokens(address(WETH), address(DPI), _amountIn);
         if (_amounts[1] > 0) {
             (uint256 _amountA, uint256 _amountB, uint256 _slpDPI) = router.addLiquidity(address(DPI), address(WETH), _amounts[1], _amountIn, 0, 0, address(this), block.timestamp);
-            masterChef.deposit(42, slpDPI.balanceOf(address(this))); // include slpDPI that withdraw at yield()
+            masterChef.deposit(42, _slpDPI);
             _poolDPIETH = _poolDPIETH.add(_amount);
             emit AddLiquidity(address(slpDPI), _amountA, _amountB, _slpDPI);
         }
@@ -440,7 +435,7 @@ contract CitadelStrategy is Ownable {
     /// @notice Function to invest funds into SushiSwap DAI/ETH pool, deposit SLP token into Pickle Jar(vault contract)
     /// @notice and stake Pickle LP token into Pickle Farm(staking contract)
     /// @param _amount Amount to invest in ETH
-    function _reinvestDAIETH(uint256 _amount) private {
+    function _investDAIETH(uint256 _amount) private {
         uint256 _amountIn = _amount.div(2);
         uint256[] memory _amounts = _swapExactTokensForTokens(address(WETH), address(DAI), _amountIn);
         if (_amounts[1] > 0) {
@@ -450,10 +445,10 @@ contract CitadelStrategy is Ownable {
                 0, 0,
                 address(this), block.timestamp
             );
+            emit AddLiquidity(address(slpDAI), _amountA, _amountB, _slpDAI); // 1389.083912192186144530 0.335765206816332767 17.202418926243352766
             pickleJarDAI.deposit(_slpDAI);
             gaugeP_DAI.deposit(pickleJarDAI.balanceOf(address(this)));
             _poolDAIETH = _poolDAIETH.add(_amount);
-            emit AddLiquidity(address(slpDAI), _amountA, _amountB, _slpDAI);
         }
     }
 
@@ -522,10 +517,13 @@ contract CitadelStrategy is Ownable {
 
         // 2.2 Swap WBTC, DPI & DAI to WETH
         _swapAllToETH();
+        _pool = WETH.balanceOf(address(this));
+        isVesting = true;
     }
 
     /// @notice Function to invest back WETH into farms after emergencyWithdraw()
     function reinvest() external onlyVault {
+        isVesting = false;
         _updatePoolForProvideLiquidity();
     }
 
@@ -551,21 +549,25 @@ contract CitadelStrategy is Ownable {
     /// @notice Function to withdraw funds from farms if withdraw amount > amount keep in vault
     /// @param _amount Amount to withdraw in ETH
     function withdraw(uint256 _amount) external {
-        // _WETHAmtBefore: Need this because there will be leaf over after provide liquidity to farms
-        uint256 _WETHAmtBefore = WETH.balanceOf(address(this));
-        uint256 _shares = _amount.mul(1e18).div(getTotalPool());
+        if (!isVesting) {
+            // _WETHAmtBefore: Need this because there will be leftover after provide liquidity to farms
+            uint256 _WETHAmtBefore = WETH.balanceOf(address(this));
+            uint256 _shares = _amount.mul(1e18).div(_getTotalPool());
 
-        // Withdraw from Curve HBTC/WBTC
-        _withdrawCurve(_poolHBTCWBTC.mul(_shares).div(1e18));
-        // Withdraw from Pickle WBTC/ETH
-        _withdrawPickleWBTC(_poolWBTCETH.mul(_shares).div(1e18));
-        // Withdraw from Sushiswap DPI/ETH
-        _withdrawSushiswap(_poolDPIETH.mul(_shares).div(1e18));
-        // Withdraw from Pickle DAI/ETH
-        _withdrawPickleDAI(_poolDAIETH.mul(_shares).div(1e18));
+            // Withdraw from Curve HBTC/WBTC
+            _withdrawCurve(_poolHBTCWBTC.mul(_shares).div(1e18));
+            // Withdraw from Pickle WBTC/ETH
+            _withdrawPickleWBTC(_poolWBTCETH.mul(_shares).div(1e18));
+            // Withdraw from Sushiswap DPI/ETH
+            _withdrawSushiswap(_poolDPIETH.mul(_shares).div(1e18));
+            // Withdraw from Pickle DAI/ETH
+            _withdrawPickleDAI(_poolDAIETH.mul(_shares).div(1e18));
 
-        _swapAllToETH(); // Swap WBTC, DPI & DAI that get from withdrawal above to WETH
-        WETH.safeTransfer(msg.sender, (WETH.balanceOf(address(this))).sub(_WETHAmtBefore));
+            _swapAllToETH(); // Swap WBTC, DPI & DAI that get from withdrawal above to WETH
+            WETH.safeTransfer(msg.sender, (WETH.balanceOf(address(this))).sub(_WETHAmtBefore));
+        } else {
+            WETH.safeTransfer(msg.sender, _amount);
+        }
     }
 
     /// @notice Function to unstake LP token(gaugeC) and remove liquidity(cPairs) from Curve
@@ -719,9 +721,28 @@ contract CitadelStrategy is Ownable {
         return uint256(price);
     }
 
+    /// @notice Get current pool(sum of 4 pools with latest price updated)
+    /// @return Current pool in ETH
+    function getCurrentPool() public view returns (uint256) {
+        if (!isVesting) {
+            (uint256 _clpTokenPriceHBTC, uint256 _pSlpTokenPriceWBTC, uint256 _slpTokenPriceDPI, uint256 _pSlpTokenPriceDAI) = _getLPTokenPrice();
+            uint256 poolHBTCWBTC = _poolHBTCWBTC.mul(_clpTokenPriceHBTC).div(_HBTCWBTCLPTokenPrice);
+            uint256 poolWBTCETH = _poolWBTCETH.mul(_pSlpTokenPriceWBTC).div(_WBTCETHLPTokenPrice);
+            uint256 poolDPIETH = _poolDPIETH.mul(_slpTokenPriceDPI).div(_DPIETHLPTokenPrice);
+            uint256 poolDAIETH = _poolDAIETH.mul(_pSlpTokenPriceDAI).div(_DAIETHLPTokenPrice);
+            return poolHBTCWBTC.add(poolWBTCETH).add(poolDPIETH).add(poolDAIETH);
+        } else {
+            return _pool;
+        }
+    }
+
     /// @notice Get total pool(sum of 4 pools)
     /// @return Total pool in ETH
-    function getTotalPool() public view returns (uint256) {
-        return _poolHBTCWBTC.add(_poolWBTCETH).add(_poolDPIETH).add(_poolDAIETH);
+    function _getTotalPool() private view returns (uint256) {
+        if (!isVesting) {
+            return _poolHBTCWBTC.add(_poolWBTCETH).add(_poolDPIETH).add(_poolDAIETH);
+        } else {
+            return _pool;
+        }
     }
 }

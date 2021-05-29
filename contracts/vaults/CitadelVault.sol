@@ -8,10 +8,9 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "../../libs/BaseRelayRecipient.sol";
 
-import "hardhat/console.sol";
 
 interface ICitadelStrategy {
-    function getTotalPool() external view returns (uint256);
+    function getCurrentPool() external view returns (uint256);
     function invest(uint256 _amount) external;
     function withdraw(uint256 _amount) external;
     function reimburse() external;
@@ -82,6 +81,8 @@ contract CitadelVault is ERC20("DAO Vault Citadel", "daoCDV"), Ownable, BaseRela
     mapping(address => uint256) private _balanceOfDeposit; // Record deposit amount (USD in 18 decimals)
     mapping(uint256 => Token) private Tokens;
 
+    event Deposit(address indexed tokenDeposit, address caller, uint256 amtDeposit, uint256 sharesMint);
+    event Withdraw(address indexed tokenWithdraw, address caller, uint256 amtWithdraw, uint256 sharesBurn);
     event TransferredOutFees(uint256 fees);
     event ETHToInvest(uint256 _balanceOfWETH);
     event SetNetworkFeeTier2(uint256[] oldNetworkFeeTier2, uint256[] newNetworkFeeTier2);
@@ -146,6 +147,7 @@ contract CitadelVault is ERC20("DAO Vault Citadel", "daoCDV"), Ownable, BaseRela
         uint256 _pool = getAllPoolInETH();
         address _sender = _msgSender();
         Tokens[_tokenIndex].token.safeTransferFrom(_sender, address(this), _amount);
+        uint256 _amtDeposit = _amount; // For event purpose
         if (Tokens[_tokenIndex].decimals == 6) {
             _amount = _amount.mul(1e12);
         }
@@ -174,6 +176,7 @@ contract CitadelVault is ERC20("DAO Vault Citadel", "daoCDV"), Ownable, BaseRela
         uint256 _shares = totalSupply() == 0 ? _amountInETH : _amountInETH.mul(totalSupply()).div(_pool);
 
         _mint(_sender, _shares);
+        emit Deposit(address(Tokens[_tokenIndex].token), _sender, _amtDeposit, _shares);
     }
 
     /// @notice Function to withdraw
@@ -192,9 +195,11 @@ contract CitadelVault is ERC20("DAO Vault Citadel", "daoCDV"), Ownable, BaseRela
 
         // Calculate withdraw amount
         uint256 _withdrawAmt = getAllPoolInETH().mul(_shares).div(totalSupply());
+        _burn(msg.sender, _shares);
         uint256 _withdrawAmtInUSD = _withdrawAmt.mul(_getPriceFromChainlink(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419)).div(1e8); // ETH/USD
         Token memory _token = Tokens[_tokenIndex];
         uint256 _balanceOfToken = _token.token.balanceOf(address(this));
+        // Change _balanceOfToken to 18 decimals same as _withdrawAmtInUSD
         if (_token.decimals == 6) {
             _balanceOfToken = _balanceOfToken.mul(1e12);
         }
@@ -216,12 +221,12 @@ contract CitadelVault is ERC20("DAO Vault Citadel", "daoCDV"), Ownable, BaseRela
             _fees = _fees.add(_fee);
         }
 
-        _burn(msg.sender, _shares);
         // Change back withdraw amount to 6 decimals if not DAI
         if (_token.decimals == 6) {
             _withdrawAmtInUSD = _withdrawAmtInUSD.div(1e12);
         }
         _token.token.safeTransfer(msg.sender, _withdrawAmtInUSD);
+        emit Withdraw(address(Tokens[_tokenIndex].token), msg.sender, _withdrawAmtInUSD, _shares);
     }
 
     /// @notice Function to invest funds into strategy
@@ -495,14 +500,15 @@ contract CitadelVault is ERC20("DAO Vault Citadel", "daoCDV"), Ownable, BaseRela
     /// @return All pool in ETH (18 decimals)
     function getAllPoolInETH() public view returns (uint256) {
         // Get exact USD amount of value (no decimals)
-        uint256 _vaultPoolInUSD = (Tokens[0].token.balanceOf(address(this)).div(1e6))
-            .add(Tokens[1].token.balanceOf(address(this)).div(1e6))
-            .add(Tokens[2].token.balanceOf(address(this)).div(1e18))
-            .sub(_fees.div(1e18));
+        uint256 _vaultPoolInUSD = (Tokens[0].token.balanceOf(address(this)).mul(1e12))
+            .add(Tokens[1].token.balanceOf(address(this)).mul(1e12))
+            .add(Tokens[2].token.balanceOf(address(this)))
+            .sub(_fees);
             // In very rare case that fees > vault pool, above calculation will raise error
             // Use getReimburseTokenAmount() to get some stablecoin from strategy
+        _vaultPoolInUSD = _vaultPoolInUSD.div(1e18);
         uint256 _vaultPoolInETH = _vaultPoolInUSD.mul(_getPriceFromChainlink(0xEe9F2375b4bdF6387aa8265dD4FB8F16512A1d46)); // USDT/ETH
-        return strategy.getTotalPool().add(_vaultPoolInETH);
+        return strategy.getCurrentPool().add(_vaultPoolInETH);
     }
 
     /// @notice Function to get price from ChainLink contract
