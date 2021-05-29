@@ -91,8 +91,8 @@ describe("Harvest-Farmer USDC", () => {
     expect(await strategyContract.owner()).to.equal(deployerSigner.address)
     expect(await vaultContract.owner()).to.equal(deployerSigner.address)
     // Check if token details are correct in vault contract
-    expect(await vaultContract.name()).to.equal("DAO Vault")
-    expect(await vaultContract.symbol()).to.equal("DAOVault")
+    expect(await vaultContract.name()).to.equal("DAO Vault Harvest")
+    expect(await vaultContract.symbol()).to.equal("daoHAR")
     expect(await vaultContract.decimals()).to.equal(18)
     // Check if all pre-set addresses are correct in vault contract
     expect(await vaultContract.token()).to.equal(tokenAddress)
