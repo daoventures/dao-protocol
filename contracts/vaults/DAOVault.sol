@@ -187,14 +187,14 @@ contract DAOVault is Initializable, ERC20Upgradeable, OwnableUpgradeable {
         // USDT.transfer doesn't check if amount is 0. Therefor we will check it here.
         require(0 < _withdrawAmt, "Amount must > 0");
 
+        _burn(msg.sender, _shares);
+
         if (_withdrawAmt > _balanceOfVault) {
             uint256 _diff = strategy.withdraw(_withdrawAmt.sub(_balanceOfVault));
             token.safeTransfer(msg.sender, _balanceOfVault.add(_diff));
         } else {
             token.safeTransfer(msg.sender, _withdrawAmt);
         }
-
-        _burn(msg.sender, _shares);
     }
 
     /**
@@ -211,14 +211,14 @@ contract DAOVault is Initializable, ERC20Upgradeable, OwnableUpgradeable {
         uint256 _balanceOfVault = (token.balanceOf(address(this))).sub(_fees);
         uint256 _refundAmt = (_balanceOfVault.add(strategy.pool()).mul(_shares).div(totalSupply()));
 
+        _burn(msg.sender, _shares);
+
         if (_balanceOfVault < _refundAmt) {
             strategy.refund(_refundAmt.sub(_balanceOfVault));
             token.safeTransfer(tx.origin, _balanceOfVault);
         } else {
             token.safeTransfer(tx.origin, _refundAmt);
         }
-
-        _burn(msg.sender, _shares);
     }
 
     function invest() external onlyOwner {
