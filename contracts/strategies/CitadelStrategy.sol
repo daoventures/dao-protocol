@@ -78,7 +78,7 @@ interface IWETH is IERC20 {
 }
 
 interface ICitadelVault {
-    function getReimburseTokenAmount(uint8) external view returns (uint256);
+    function getReimburseTokenAmount(uint256) external view returns (uint256);
 }
 
 interface IChainlink {
@@ -463,6 +463,7 @@ contract CitadelStrategy is Ownable {
         // Get ETH needed from farm (by removing liquidity then swap to ETH)
         uint256[] memory _amounts = router.getAmountsOut(_totalReimburse, _getPath(address(USDT), address(WETH)));
         if (WETH.balanceOf(address(this)) < _amounts[1]) { // Balance of WETH > _amounts[1] when execute emergencyWithdraw()
+            _updatePoolForPriceChange();
             uint256 _thirtyPercOfAmtWithdraw = _amounts[1].mul(3000).div(DENOMINATOR);
             _withdrawCurve(_thirtyPercOfAmtWithdraw); // 30% from Curve HBTC/WBTC
             _withdrawPickleWBTC(_thirtyPercOfAmtWithdraw); // 30% from Pickle WBTC/ETH
@@ -472,20 +473,18 @@ contract CitadelStrategy is Ownable {
         }
 
         // Swap WETH to token and transfer back to vault
-        _reimburse(_reimburseUSDT, USDT);
-        _reimburse(_reimburseUSDC, USDC);
-        _reimburse(_reimburseDAI, DAI);
+        uint256 _WETHBalance = WETH.balanceOf(address(this));
+        _reimburse(_WETHBalance.mul(_reimburseUSDT).div(_totalReimburse), USDT);
+        _reimburse(_WETHBalance.mul(_reimburseUSDC).div(_totalReimburse), USDC);
+        _reimburse((WETH.balanceOf(address(this))), DAI);
     }
 
     /// @notice reimburse() nested function
-    /// @param _reimburseAmt Amount to reimburse
+    /// @param _reimburseAmt Amount to reimburse in ETH
     /// @param _token Type of token to reimburse
     function _reimburse(uint256 _reimburseAmt, IERC20 _token) private {
         if (_reimburseAmt > 0) {
-            // Get amount ETH needed for token
-            uint256[] memory _amountsOut = router.getAmountsOut(_reimburseAmt, _getPath(address(_token), address(WETH)));
-            // Swap ETH to token and transfer to vault
-            uint256[] memory _amounts = _swapExactTokensForTokens(address(WETH), address(_token), _amountsOut[1]);
+            uint256[] memory _amounts = _swapExactTokensForTokens(address(WETH), address(_token), _reimburseAmt);
             _token.safeTransfer(address(vault), _amounts[1]);
         }
     }
@@ -493,6 +492,7 @@ contract CitadelStrategy is Ownable {
     /// @notice Function to withdraw all funds from all farms 
     function emergencyWithdraw() external onlyVault {
         // 1. Withdraw all token from all farms
+        // Since to withdraw all funds, there is no need to _updatePoolForPriceChange()
         // Curve HBTC/WBTC
         mintr.mint(address(gaugeC));
         _withdrawCurve(_poolHBTCWBTC);
@@ -550,18 +550,20 @@ contract CitadelStrategy is Ownable {
     /// @param _amount Amount to withdraw in ETH
     function withdraw(uint256 _amount) external {
         if (!isVesting) {
+            // Update to latest pool
+            _updatePoolForPriceChange();
+            uint256 _totalPool = _getTotalPool();
             // _WETHAmtBefore: Need this because there will be leftover after provide liquidity to farms
             uint256 _WETHAmtBefore = WETH.balanceOf(address(this));
-            uint256 _shares = _amount.mul(1e18).div(_getTotalPool());
 
             // Withdraw from Curve HBTC/WBTC
-            _withdrawCurve(_poolHBTCWBTC.mul(_shares).div(1e18));
+            _withdrawCurve(_poolHBTCWBTC.mul(_amount).div(_totalPool));
             // Withdraw from Pickle WBTC/ETH
-            _withdrawPickleWBTC(_poolWBTCETH.mul(_shares).div(1e18));
+            _withdrawPickleWBTC(_poolWBTCETH.mul(_amount).div(_totalPool));
             // Withdraw from Sushiswap DPI/ETH
-            _withdrawSushiswap(_poolDPIETH.mul(_shares).div(1e18));
+            _withdrawSushiswap(_poolDPIETH.mul(_amount).div(_totalPool));
             // Withdraw from Pickle DAI/ETH
-            _withdrawPickleDAI(_poolDAIETH.mul(_shares).div(1e18));
+            _withdrawPickleDAI(_poolDAIETH.mul(_amount).div(_totalPool));
 
             _swapAllToETH(); // Swap WBTC, DPI & DAI that get from withdrawal above to WETH
             WETH.safeTransfer(msg.sender, (WETH.balanceOf(address(this))).sub(_WETHAmtBefore));
@@ -633,6 +635,14 @@ contract CitadelStrategy is Ownable {
     /// @param _strategist Address of new strategist
     function setStrategist(address _strategist) external onlyVault {
         strategist = _strategist;
+    }
+
+    function approveMigrate() external onlyOwner {
+        require(isVesting, "Not in vesting state");
+
+        if (WETH.allowance(address(this), address(vault)) == 0) {
+            WETH.safeApprove(address(vault), type(uint256).max);
+        }
     }
 
     /// @notice Function to get path for SushiSwap swap functions

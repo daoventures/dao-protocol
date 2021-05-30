@@ -125,6 +125,8 @@ contract CitadelVault is ERC20("DAO Vault Citadel", "daoCDV"), Ownable, BaseRela
         USDC.safeApprove(address(c3pool), type(uint256).max);
         DAI.safeApprove(address(router), type(uint256).max);
         DAI.safeApprove(address(c3pool), type(uint256).max);
+
+        canSetPendingStrategy = true;
     }
 
     /// @notice Function that required for inherict BaseRelayRecipient
@@ -208,9 +210,7 @@ contract CitadelVault is ERC20("DAO Vault Citadel", "daoCDV"), Ownable, BaseRela
             strategy.withdraw(_withdrawAmt);
             uint256[] memory _amounts = _swapExactTokensForTokens(WETH.balanceOf(address(this)), address(WETH), address(_token.token));
             // Change withdraw amount to 18 decimals if not DAI (for calculate profit sharing fee)
-            if (_token.decimals == 6) {
-                _withdrawAmtInUSD = _amounts[1].mul(1e12);
-            }
+            _withdrawAmtInUSD = _token.decimals == 6 ? _amounts[1].mul(1e12) : _amounts[1];
         }
 
         // Calculate profit sharing fee
@@ -277,22 +277,13 @@ contract CitadelVault is ERC20("DAO Vault Citadel", "daoCDV"), Ownable, BaseRela
     /// @notice Amount to swap == amount to keep in vault of _tokenTo stablecoin
     /// @param _tokenFrom Type of stablecoin to be swapped
     /// @param _tokenTo Type of stablecoin to be received
-    function swapTokenWithinVault(uint256 _tokenFrom, uint256 _tokenTo) external onlyAdmin {
-        uint256 _reimburseAmt = getReimburseTokenAmount(_tokenTo);
-        uint256 _balanceOfFrom = Tokens[_tokenFrom].token.balanceOf(address(this));
-        // Make all variable consistent with 6 decimals 
-        if (Tokens[_tokenFrom].decimals == 18) {
-            _balanceOfFrom = _balanceOfFrom.div(1e12);
-        }
-        if (Tokens[_tokenTo].decimals == 18) {
-            _reimburseAmt = _reimburseAmt.div(1e12);
-        }
-
-        require(_balanceOfFrom > _reimburseAmt, "Insufficient amount to swap");
-
+    /// @param _amount Amount to be swapped (follow stablecoins decimals)
+    function swapTokenWithinVault(uint256 _tokenFrom, uint256 _tokenTo, uint256 _amount) external onlyAdmin {
+        require(Tokens[_tokenFrom].token.balanceOf(address(this)) > _amount, "Insufficient amount to swap");
+        
         int128 i = _determineCurveIndex(_tokenFrom);
         int128 j = _determineCurveIndex(_tokenTo);
-        c3pool.exchange(i, j, _reimburseAmt, 0);
+        c3pool.exchange(i, j, _amount, 0);
     }
 
     /// @notice Function to determine Curve index for swapTokenWithinVault()
