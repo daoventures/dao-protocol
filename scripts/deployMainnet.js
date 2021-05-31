@@ -20,8 +20,6 @@ async function main() {
   )
   await citadelStrategy.setVault(citadelVault.address)
 
-  // Verify
-
   console.log('Citadel vault address:', citadelVault.address)
   console.log('Citadel strategy address:', citadelStrategy.address)
 }

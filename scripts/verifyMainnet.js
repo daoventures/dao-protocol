@@ -1,7 +1,7 @@
 const { run } = require('hardhat')
 
-const vaultAddress = "0x542a42496C96b946324f7dce2B030d5643d9eF8A" // copy from deployKovan.js output
-const strategyAddress = "0x4996b12560B9A4A85DD437A3e8ff489335dCffA7" // copy from deployKovan.js output
+const vaultAddress = "" // copy from deployMainnet.js output
+const strategyAddress = "" // copy from deployMainnet.js output
 
 async function main() {
   const [deployer] = await ethers.getSigners()

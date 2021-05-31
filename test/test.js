@@ -123,8 +123,8 @@ describe("DAO Citadel Strategy", () => {
         await USDCContract.approve(citadelVault.address, ethers.constants.MaxUint256)
         await DAIContract.approve(citadelVault.address, ethers.constants.MaxUint256)
         tx = await citadelVault.deposit(ethers.utils.parseUnits("10000", 6), 0)
-        // receipt = await tx.wait()
-        // console.log("Deposit gas used:", receipt.gasUsed.toString())
+        receipt = await tx.wait()
+        console.log("Deposit gas used:", receipt.gasUsed.toString())
         // console.log(ethers.utils.formatEther(await citadelVault.balanceOf(deployer.address)))
         tx = await citadelVault.deposit(ethers.utils.parseUnits("10000", 6), 1)
         // receipt = await tx.wait()
@@ -139,7 +139,6 @@ describe("DAO Citadel Strategy", () => {
         tx = await citadelVault.connect(admin).invest()
         // receipt = await tx.wait()
         // console.log("Invest gas used:", receipt.gasUsed.toString())
-        // await WETHContract.transfer(citadelVault.address, ethers.utils.parseEther("1"))
 
         // Transfer some CRV, SUSHI & PICKLE to strategy treat as reward
         const CRVContract = new ethers.Contract(CRVAddress, IERC20_ABI, unlockedSigner)
@@ -151,12 +150,15 @@ describe("DAO Citadel Strategy", () => {
         await PICKLEContract.transfer(citadelStrategy.address, ethers.utils.parseEther("20"))
         const SUSHIContract = new ethers.Contract(SUSHIAddress, IERC20_ABI, unlockedSigner)
         await SUSHIContract.transfer(citadelStrategy.address, ethers.utils.parseEther("10"))
+        await citadelVault.connect(admin).yield()
 
         // Second invest
         tx = await citadelVault.deposit(ethers.utils.parseUnits("10000", 6), 0)
         tx = await citadelVault.deposit(ethers.utils.parseUnits("10000", 6), 1)
         tx = await citadelVault.deposit(ethers.utils.parseUnits("10000", 18), 2)
         tx = await citadelVault.connect(admin).invest()
+        // receipt = await tx.wait()
+        // console.log("Invest gas used:", receipt.gasUsed.toString())
 
         // Swap token within vault
         // await citadelVault.connect(admin).swapTokenWithinVault(2, 1, ethers.utils.parseUnits("8000", 18))
@@ -165,7 +167,7 @@ describe("DAO Citadel Strategy", () => {
         // console.log((await DAIContract.balanceOf(citadelVault.address)).toString())
 
         // Reimburse from strategy
-        // console.log((await citadelVault.getAllPoolInUSD()).toString()) // 59457.129583
+        // console.log((await citadelVault.getAllPoolInUSD()).toString())
         // await citadelVault.connect(admin).setPercTokenKeepInVault([2000, 2000, 2000])
         // await citadelVault.connect(admin).reimburseTokenFromStrategy()
         // console.log((await USDTContract.balanceOf(citadelVault.address)).toString())
@@ -178,26 +180,21 @@ describe("DAO Citadel Strategy", () => {
         // await citadelVault.connect(admin).reinvest()
 
         // Withdraw
-        console.log("Withdraw start...")
         const withdrawSharesSmall = (await citadelVault.balanceOf(deployer.address)).mul(1).div(100)
         const withdrawShares = (await citadelVault.balanceOf(deployer.address)).mul(30).div(100)
-        tx = await citadelVault.withdraw(withdrawShares, 0); // 17328.206902
+        tx = await citadelVault.withdraw(withdrawShares, 0);
         // receipt = await tx.wait()
         // console.log("Withdraw gas used(from strategy):", receipt.gasUsed.toString())
-        // tx = await citadelVault.withdraw(withdrawSharesSmall, 1); // 600.242421
+        tx = await citadelVault.withdraw(withdrawSharesSmall, 1);
         // receipt = await tx.wait()
         // console.log("Withdraw gas used(within vault):", receipt.gasUsed.toString())
-        tx = await citadelVault.withdraw(withdrawShares, 2); // 17563.215047101962809167
+        tx = await citadelVault.withdraw(withdrawShares, 2);
         // await citadelVault.withdraw(citadelVault.balanceOf(deployer.address), 0)
         // receipt = await tx.wait()
         // console.log("Withdraw gas used(from strategy):", receipt.gasUsed.toString())
-        // console.log(ethers.utils.formatUnits(await USDTContract.balanceOf(deployer.address), 6))
-        // console.log(ethers.utils.formatUnits(await USDCContract.balanceOf(deployer.address), 6))
-        // console.log(ethers.utils.formatUnits(await DAIContract.balanceOf(deployer.address), 18))
-        // console.log("-------------")
-        // const a = new ethers.BigNumber.from("13972628027255721979")
-        // const b = a.sub("4203966420561549771")
-        // console.log(b.toString())
+        console.log("Withdraw amount for USDT", ethers.utils.formatUnits(await USDTContract.balanceOf(deployer.address), 6))
+        console.log("Withdraw amount for USDC", ethers.utils.formatUnits(await USDCContract.balanceOf(deployer.address), 6))
+        console.log("Withdraw amount for DAI", ethers.utils.formatUnits(await DAIContract.balanceOf(deployer.address), 18))
 
         // Migrate funds
         // const CitadelStrategy2 = await ethers.getContractFactory("CitadelStrategy", deployer)
