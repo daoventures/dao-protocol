@@ -147,7 +147,7 @@ contract CitadelVault is ERC20("DAO Vault Citadel", "daoCDV"), Ownable, BaseRela
         require(msg.sender == tx.origin || msg.sender == biconomy, "Only EOA or biconomy");
         require(_amount > 0, "Amount must > 0");
 
-        uint256 _ETHPrice = _getPriceFromChainlink(0xEe9F2375b4bdF6387aa8265dD4FB8F16512A1d46); // USDT/ETH
+        uint256 _ETHPrice = _determineETHPrice(_tokenIndex);
         uint256 _pool = getAllPoolInETH(_ETHPrice);
         address _sender = _msgSender();
         Tokens[_tokenIndex].token.safeTransferFrom(_sender, address(this), _amount);
@@ -198,7 +198,8 @@ contract CitadelVault is ERC20("DAO Vault Citadel", "daoCDV"), Ownable, BaseRela
         _balanceOfDeposit[msg.sender] = _balanceOfDeposit[msg.sender].sub(_depositAmt);
 
         // Calculate withdraw amount
-        uint256 _withdrawAmt = getAllPoolInETH().mul(_shares).div(totalSupply());
+        uint256 _ETHPrice = _determineETHPrice(_tokenIndex);
+        uint256 _withdrawAmt = getAllPoolInETH(_ETHPrice).mul(_shares).div(totalSupply());
         _burn(msg.sender, _shares);
         uint256 _withdrawAmtInUSD = _withdrawAmt.mul(_getPriceFromChainlink(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419)).div(1e8); // ETH/USD
         Token memory _token = Tokens[_tokenIndex];
@@ -277,6 +278,7 @@ contract CitadelVault is ERC20("DAO Vault Citadel", "daoCDV"), Ownable, BaseRela
         }
     }
 
+    /// @notice Function to yield farms reward in strategy
     function yield() external onlyAdmin {
         strategy.yield();
     }
@@ -488,21 +490,12 @@ contract CitadelVault is ERC20("DAO Vault Citadel", "daoCDV"), Ownable, BaseRela
         emit MigrateFunds(oldStrategy, address(strategy), _amount);
     }
 
-    /// @notice Function to get all pool amount(vault+strategy) in USD
+    /// @notice Function to get all pool amount(vault+strategy) in USD (use USDT/ETH as price feed)
     /// @return All pool in USD (6 decimals follow USDT)
     function getAllPoolInUSD() public view returns (uint256) {
+        uint256 _currentETHprice = _getPriceFromChainlink(0xEe9F2375b4bdF6387aa8265dD4FB8F16512A1d46); // USDT/ETH
         uint256 _currentUSDprice = _getPriceFromChainlink(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419); // ETH/USD
-        return getAllPoolInETH().mul(_currentUSDprice).div(1e20);
-    }
-
-    /// @notice Function to get all pool amount(vault+strategy) in ETH
-    /// @return All pool in ETH (18 decimals)
-    function getAllPoolInETH() public view returns (uint256) {
-        // Get exact USD amount of value (no decimals)
-        uint256 _vaultPoolInUSD = _getVaultPoolInUSD();
-        _vaultPoolInUSD = _vaultPoolInUSD.div(1e18);
-        uint256 _vaultPoolInETH = _vaultPoolInUSD.mul(_getPriceFromChainlink(0xEe9F2375b4bdF6387aa8265dD4FB8F16512A1d46)); // USDT/ETH
-        return strategy.getCurrentPool().add(_vaultPoolInETH);
+        return getAllPoolInETH(_currentETHprice).mul(_currentUSDprice).div(1e20);
     }
 
     /// @notice Same as getAllPoolInETH() above with parameter
@@ -533,6 +526,21 @@ contract CitadelVault is ERC20("DAO Vault Citadel", "daoCDV"), Ownable, BaseRela
         IChainlink _pricefeed = IChainlink(_priceFeedProxy);
         int256 _price = _pricefeed.latestAnswer();
         return uint256(_price);
+    }
+
+    /// @notice Function to determine ETH price based on stablecoin
+    /// @param _tokenIndex Type of stablecoin to determine
+    /// @return Price of ETH (18 decimals)
+    function _determineETHPrice(uint256 _tokenIndex) private view returns (uint256) {
+        address _priceFeedContract;
+        if (address(Tokens[_tokenIndex].token) == 0xdAC17F958D2ee523a2206206994597C13D831ec7) { // USDT
+            _priceFeedContract = 0xEe9F2375b4bdF6387aa8265dD4FB8F16512A1d46; // USDT/ETH
+        } else if (address(Tokens[_tokenIndex].token) == 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48) { // USDC
+            _priceFeedContract = 0x986b5E1e1755e3C2440e960477f25201B0a8bbD4; // USDC/ETH
+        } else { // DAI
+            _priceFeedContract = 0x773616E4d11A78F511299002da57A0a94577F1f4; // DAI/ETH
+        }
+        return _getPriceFromChainlink(_priceFeedContract);
     }
 
     /// @notice Function to get amount need to fill up minimum amount keep in vault
