@@ -38,6 +38,8 @@ contract FAANGStrategy {
     mAsset[] public mAssets;
 
     uint amountDeposited;
+    uint reInvestedMirUstPooltoken;
+    
 
     constructor(address _vault, 
         address _treasuryWallet, 
@@ -144,6 +146,9 @@ contract FAANGStrategy {
                     block.timestamp
                 );
 
+            mAssets[i].amountOfATotal = mAssets[i].amountOfATotal.sub(mAssetAmount);
+            mAssets[i].amountOfBTotal = mAssets[i].amountOfATotal.add(ustAmount);
+
             // mAsset -> UST on Uniswap
             path[0] = address(mAssets[i].mAssetToken);
             path[1] = address(ust);
@@ -167,14 +172,14 @@ contract FAANGStrategy {
                 block.timestamp
             );
 
-            userTotalLPToken[mAssets[i].lpToken] = userTotalLPToken[
-                mAssets[i].lpToken
-            ]
-                .sub(sharesToWithdrawFromPool);
-            userLPToken[tx.origin][i] = userLPToken[tx.origin][i].sub(
-                sharesToWithdrawFromPool
-            );
+            userTotalLPToken[mAssets[i].lpToken] = userTotalLPToken[mAssets[i].lpToken].sub(sharesToWithdrawFromPool);
+
+            userLPToken[tx.origin][i] = userLPToken[tx.origin][i].sub(sharesToWithdrawFromPool);
         }
+
+
+
+        //TODO : withdraw mirust pool
 
         _token.safeTransfer(msg.sender, _token.balanceOf(address(this)));
     }
@@ -226,6 +231,9 @@ contract FAANGStrategy {
         uint256 amountToReinvest = totalEarnedMIR.div(1000).mul(225);
         (,, uint poolTokenAmount) = router.addLiquidity(address(mir), address(ust), amountToReinvest, mir.balanceOf(address(this)), 0, 0, address(this), block.timestamp);
         mirustPool.stake(poolTokenAmount);
+
+        reInvestedMirUstPooltoken = reInvestedMirUstPooltoken.add(poolTokenAmount);
+
     }
 
     function getTotalAmountInPool() public view returns (uint256 value) {
@@ -241,5 +249,11 @@ contract FAANGStrategy {
             value = value.add(priceInUst[1].mul(mAssets[i].amountOfATotal)).add(mAssets[i].amountOfBTotal);
         }
 
+        //cacluate amount of mir+ust using reInvestedMirUstPooltoken. add to value
+
     }
 }
+
+//TODO
+// 1. include mirust pool in getTotalAmountInPool()
+// 2. include amount in withdraw calculation

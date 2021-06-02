@@ -46,7 +46,7 @@ contract FAANGVault is ERC20("DAO FAANG STONKS", "daoFAANG") {
             USDC.safeTransferFrom(msg.sender, address(strategy), _amount);
             shares = totalSupply() == 0
                 ? _amount
-                : _amount.mul(totalSupply()).div(
+                : _amount.mul(1e12).mul(totalSupply()).div(
                     poolBalance
                 );
             strategy.deposit(_amount, _token);
@@ -54,7 +54,7 @@ contract FAANGVault is ERC20("DAO FAANG STONKS", "daoFAANG") {
             USDT.safeTransferFrom(msg.sender, address(strategy), _amount);
             shares = totalSupply() == 0
                 ? _amount
-                : _amount.mul(totalSupply()).div(
+                : _amount.mul(1e12).mul(totalSupply()).div(
                     poolBalance
                 );
             strategy.deposit(_amount, _token);
@@ -75,8 +75,14 @@ contract FAANGVault is ERC20("DAO FAANG STONKS", "daoFAANG") {
             amountDeposited
         );
 
-        uint256 amountToWithdraw =
-            strategy.getTotalAmountInPool().mul(_shares).div(totalSupply());
+        uint256 amountToWithdraw = strategy.getTotalAmountInPool().mul(_shares).div(totalSupply());
+
+        if (_token == USDC) {
+            amountToWithdraw = amountToWithdraw.div(1e12);
+        } else if (_token == USDT) {
+            amountToWithdraw = amountToWithdraw.div(1e12);
+        }
+        
         strategy.withdraw(amountToWithdraw, address(_token));
 
         if (amountToWithdraw > amountDeposited) {
