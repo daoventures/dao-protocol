@@ -140,7 +140,7 @@ describe("Harvest-Farmer USDT", () => {
   describe("Admin functions", () => {
     it("revert to save gas if nothing deposited token", async () => {
       const { vaultContract } = await setup()
-      await expect(vaultContract.invest()).to.be.revertedWith("revert Cannot deposit 0")
+      await expect(vaultContract.invest()).to.be.revertedWith("revert No balance of the deposited token")
     });
   });
 

@@ -249,6 +249,7 @@ contract HarvestFarmer is OwnableUpgradeable {
         }
 
         uint256 _all = token.balanceOf(address(this));
+        require(0 < _all, "No balance of the deposited token");
         pool = _all;
         hfVault.deposit(_all);
         hfStake.stake(hfVault.balanceOf(address(this)));
