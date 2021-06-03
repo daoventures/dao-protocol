@@ -82,7 +82,7 @@ interface ICitadelVault {
 }
 
 interface IChainlink {
-    function latestRoundData() external view returns (uint80, int, uint256, uint256, uint80);
+    function latestAnswer() external view returns (int256);
 }
 
 interface ISLPToken is IERC20 {
@@ -727,9 +727,9 @@ contract CitadelStrategy is Ownable {
     /// @param _priceFeedProxy Address of ChainLink contract that provide oracle price
     /// @return Price in ETH
     function _getTokenPriceFromChainlink(address _priceFeedProxy) private view returns (uint256) {
-        IChainlink pricefeed = IChainlink(_priceFeedProxy);
-        (, int256 price, , ,) = pricefeed.latestRoundData();
-        return uint256(price);
+        IChainlink _pricefeed = IChainlink(_priceFeedProxy);
+        int256 _price = _pricefeed.latestAnswer();
+        return uint256(_price);
     }
 
     /// @notice Get current pool(sum of 4 pools with latest price updated)

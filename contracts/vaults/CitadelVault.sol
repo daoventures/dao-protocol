@@ -77,7 +77,6 @@ contract CitadelVault is ERC20("DAO Vault Citadel", "daoCDV"), Ownable, BaseRela
     address public communityWallet;
     address public admin;
     address public strategist;
-    address public biconomy;
 
     mapping(address => uint256) private _balanceOfDeposit; // Record deposit amount (USD in 18 decimals)
     mapping(uint256 => Token) private Tokens;
@@ -109,7 +108,7 @@ contract CitadelVault is ERC20("DAO Vault Citadel", "daoCDV"), Ownable, BaseRela
         communityWallet = _communityWallet;
         admin = _admin;
         strategist = _strategist;
-        biconomy = _biconomy;
+        trustedForwarder = _biconomy;
 
         IERC20 USDT = IERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7);
         IERC20 USDC = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
@@ -144,7 +143,7 @@ contract CitadelVault is ERC20("DAO Vault Citadel", "daoCDV"), Ownable, BaseRela
     /// @param _amount Amount to deposit
     /// @param _tokenIndex Type of stablecoin to deposit
     function deposit(uint256 _amount, uint256 _tokenIndex) external {
-        require(msg.sender == tx.origin || msg.sender == biconomy, "Only EOA or biconomy");
+        require(msg.sender == tx.origin || isTrustedForwarder(msg.sender), "Only EOA or Biconomy");
         require(_amount > 0, "Amount must > 0");
 
         uint256 _ETHPrice = _determineETHPrice(_tokenIndex);
@@ -450,7 +449,7 @@ contract CitadelVault is ERC20("DAO Vault Citadel", "daoCDV"), Ownable, BaseRela
     /// @notice Function to set new trusted forwarder address (Biconomy)
     /// @param _biconomy Address of new trusted forwarder
     function setBiconomy(address _biconomy) external onlyOwner {
-        biconomy = _biconomy;
+        trustedForwarder = _biconomy;
     }
 
     /// @notice Function to set percentage of stablecoins that keep in vault
