@@ -230,11 +230,7 @@ contract DAOVault is Initializable, ERC20Upgradeable, OwnableUpgradeable {
         }
 
         uint256 _toInvest = token.balanceOf(address(this));
-        if (_toInvest > 0) {
-            strategy.deposit(_toInvest);
-        }
-
-        strategy.invest();
+        strategy.invest(_toInvest);
     }
 
     /**

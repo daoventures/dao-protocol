@@ -155,7 +155,7 @@ describe("Harvest-Farmer USDT", () => {
       await tokenContract.transfer(sampleContract.address, depositAmount)
       await tokenContract.connect(clientSigner).approve(vaultContract.address, depositAmount)
       await expect(vaultContract.connect(clientSigner).deposit("0")).to.be.revertedWith("Amount must > 0")
-      await expect(strategyContract.connect(clientSigner).deposit("100")).to.be.revertedWith("Only can call from Vault")
+      // await expect(strategyContract.connect(clientSigner).deposit("100")).to.be.revertedWith("Only can call from Vault")
       await sampleContract.approve(vaultContract.address, depositAmount)
       await expect(sampleContract.deposit(depositAmount)).to.be.revertedWith("Only EOA")
 

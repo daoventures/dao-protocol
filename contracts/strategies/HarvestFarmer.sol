@@ -190,12 +190,12 @@ contract HarvestFarmer is OwnableUpgradeable {
      * - Only Vault can call this function
      * - This contract is not in vesting state
      */
-    function deposit(uint256 _amount) external onlyVault notVesting {
-        token.safeTransferFrom(msg.sender, address(this), _amount);
-        hfVault.deposit(_amount);
-        pool = pool.add(_amount);
-        hfStake.stake(hfVault.balanceOf(address(this)));
-    }
+    // function deposit(uint256 _amount) external onlyVault notVesting {
+    //     token.safeTransferFrom(msg.sender, address(this), _amount);
+    //     hfVault.deposit(_amount);
+    //     pool = pool.add(_amount);
+    //     hfStake.stake(hfVault.balanceOf(address(this)));
+    // }
 
     /**
      * @notice Withdraw token from Harvest Finance Vault, exchange distributed FARM token to token same as deposit token
@@ -216,7 +216,17 @@ contract HarvestFarmer is OwnableUpgradeable {
         return _withdrawAmt;
     }
 
-    function invest() external onlyVault notVesting {
+    /**
+     * @notice Deposit token into Harvest Finance Vault and invest them
+     * @param _toInvest Amount of token to deposit
+     * Requirements:
+     * - Only Vault can call this function
+     * - This contract is not in vesting state
+     */
+    function invest(uint256 _toInvest) external onlyVault notVesting {
+        if (_toInvest > 0) {
+            token.safeTransferFrom(msg.sender, address(this), _toInvest);
+        }
         uint256 _fromVault = token.balanceOf(address(this));
         if (0 < hfStake.balanceOf(address(this))) {
             hfStake.exit();
