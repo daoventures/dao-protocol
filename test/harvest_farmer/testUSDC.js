@@ -44,7 +44,7 @@ const closeTo = (value, expected) => {
 describe("Harvest-Farmer USDC", () => {
 
   const setup = async () => {
-    const [deployerSigner, clientSigner] = await ethers.getSigners()
+    const [deployerSigner, clientSigner, adminSigner] = await ethers.getSigners()
     const tokenContract = new ethers.Contract(tokenAddress, IERC20_ABI, deployerSigner)
     const FARMContract = new ethers.Contract(FARMAddress, IERC20_ABI, deployerSigner)
 
@@ -65,7 +65,7 @@ describe("Harvest-Farmer USDC", () => {
     const hfVaultContract = new ethers.Contract(hfVaultAddress, ABI, governanceSigner)
     const hfStakeContract = new ethers.Contract(hfStakeAddress, ABI, governanceSigner)
 
-    return { deployerSigner, clientSigner, governanceSigner, 
+    return { deployerSigner, clientSigner, governanceSigner, adminSigner,
       strategyContract, vaultContract,
       tokenContract, FARMContract, sampleContract, hfVaultContract, hfStakeContract
     }
@@ -142,6 +142,22 @@ describe("Harvest-Farmer USDC", () => {
       const { vaultContract } = await setup()
       await expect(vaultContract.invest()).to.be.revertedWith("revert No balance of the deposited token")
     });
+
+    it("should be called the invest by only admin", async () => {
+      const { deployerSigner, clientSigner, tokenContract, strategyContract, vaultContract, adminSigner } = await setup()
+      await tokenContract.transfer(clientSigner.address, decimals("1000"))
+      // Deposit into contract
+      await tokenContract.connect(clientSigner).approve(vaultContract.address, decimals("1000"))
+      await vaultContract.connect(clientSigner).deposit(decimals("1000"))
+      await vaultContract.invest()
+
+      expect(await vaultContract.admin()).to.equal(deployerSigner.address)
+      await vaultContract.setAdmin(adminSigner.address);
+      expect(await vaultContract.admin()).to.equal(adminSigner.address)
+
+      await expect(vaultContract.invest()).to.be.revertedWith("revert Only admin")
+      await vaultContract.connect(adminSigner).invest()
+    })
   });
 
   // Check user functions

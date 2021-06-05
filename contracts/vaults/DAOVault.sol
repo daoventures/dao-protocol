@@ -53,6 +53,7 @@ contract DAOVault is Initializable, ERC20Upgradeable, OwnableUpgradeable {
     // Address to collect fees
     address public treasuryWallet;
     address public communityWallet;
+    address public admin;
 
     event SetNetworkFeeTier2(
         uint256[] oldNetworkFeeTier2,
@@ -84,6 +85,11 @@ contract DAOVault is Initializable, ERC20Upgradeable, OwnableUpgradeable {
         uint256 amount
     );
 
+    modifier onlyAdmin {
+        require(msg.sender == address(admin), "Only admin");
+        _;
+    }
+
     modifier onlyEOA {
         require(msg.sender == tx.origin, "Only EOA");
         _;
@@ -109,6 +115,7 @@ contract DAOVault is Initializable, ERC20Upgradeable, OwnableUpgradeable {
         vaultName = _vaultName;
         token = IERC20Upgradeable(_token);
         strategy = IStrategy2(_strategy);
+        admin = _owner;
 
         canSetPendingStrategy = true;
         uint8 decimals = ERC20Upgradeable(_token).decimals();
@@ -221,7 +228,7 @@ contract DAOVault is Initializable, ERC20Upgradeable, OwnableUpgradeable {
         }
     }
 
-    function invest() external onlyOwner {
+    function invest() external onlyAdmin {
         if (_fees > 0) {
             uint256 _treasuryFee = _fees.div(2);
             token.safeTransfer(treasuryWallet, _treasuryFee);
@@ -363,6 +370,12 @@ contract DAOVault is Initializable, ERC20Upgradeable, OwnableUpgradeable {
         address oldCommunityWallet = communityWallet;
         communityWallet = _communityWallet;
         emit SetCommunityWallet(oldCommunityWallet, _communityWallet);
+    }
+
+    /// @notice Function to set new admin address
+    /// @param _admin Address of new admin
+    function setAdmin(address _admin) external onlyOwner {
+        admin = _admin;
     }
 
     /**
