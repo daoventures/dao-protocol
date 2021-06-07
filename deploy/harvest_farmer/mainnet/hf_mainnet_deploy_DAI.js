@@ -1,5 +1,5 @@
 const { ethers } = require("hardhat");
-const { rinkeby: network_ } = require("../../../addresses/harvest_farmer");
+const { mainnet: network_ } = require("../../../addresses/harvest_farmer");
 
 const { FARMAddress, uniswapRouterAddress, WETHAddress } = network_.GLOBAL;
 const { tokenAddress, hfStakeAddress, hfVaultAddress } = network_.DAI;
