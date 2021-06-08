@@ -63,6 +63,12 @@ describe("DAO ElonApe Strategy", () => {
         // receipt = await tx.wait()
         // console.log(receipt.gasUsed.toString())
 
+        // Adjust farm composition
+        // await elonApeVault.connect(admin).setWeights([0, 5000, 5000]) // 17653.304222 591.395586 17644.360807
+        // await elonApeVault.connect(admin).setWeights([5000, 0, 5000]) // 17860.447166 594.659875 17721.860743
+        // await elonApeVault.connect(admin).setWeights([5000, 5000, 0]) // 17653.304222 591.395586 17644.360807
+        // await elonApeVault.connect(admin).setWeights([3333, 3333, 3334]) // 17750.838935 593.037147 17671.770961
+
         // Second deposit and invest
         await elonApeVault.connect(client).deposit(ethers.utils.parseUnits("10000", 6), 0)
         await elonApeVault.connect(client).deposit(ethers.utils.parseUnits("10000", 6), 1)
@@ -116,25 +122,25 @@ describe("DAO ElonApe Strategy", () => {
         // await WETHContract.deposit({value: ethers.utils.parseEther("1")})
         // await WETHContract.transfer(elonApeStrategy.address, ethers.utils.parseEther("1"))
 
-        // // Withdraw
-        // const withdrawSharesSmall = (await elonApeVault.balanceOf(client.address)).mul(1).div(100)
-        // const withdrawShares = (await elonApeVault.balanceOf(client.address)).mul(30).div(100)
-        // // console.log((await elonApeVault.balanceOf(client.address)).toString())
-        // // console.log(withdrawShares.toString()) // 8910.000000000000000000
-        // tx = await elonApeVault.connect(client).withdraw(withdrawShares, 0);
-        // // receipt = await tx.wait()
-        // // console.log("Deposit gas used:", receipt.gasUsed.toString())
-        // tx = await elonApeVault.connect(client).withdraw(withdrawSharesSmall, 1);
-        // // receipt = await tx.wait()
-        // // console.log("Deposit gas used:", receipt.gasUsed.toString())
+        // Withdraw
+        const withdrawSharesSmall = (await elonApeVault.balanceOf(client.address)).mul(1).div(100)
+        const withdrawShares = (await elonApeVault.balanceOf(client.address)).mul(30).div(100)
+        // console.log((await elonApeVault.balanceOf(client.address)).toString())
+        // console.log(withdrawShares.toString()) // 8910.000000000000000000
+        tx = await elonApeVault.connect(client).withdraw(withdrawShares, 0);
+        // receipt = await tx.wait()
+        // console.log("Deposit gas used:", receipt.gasUsed.toString())
+        tx = await elonApeVault.connect(client).withdraw(withdrawSharesSmall, 1);
+        // receipt = await tx.wait()
+        // console.log("Deposit gas used:", receipt.gasUsed.toString())
+        tx = await elonApeVault.connect(client).withdraw(withdrawShares, 2);
+        // receipt = await tx.wait()
+        // console.log("Deposit gas used:", receipt.gasUsed.toString())
         // tx = await elonApeVault.connect(client).withdraw(withdrawShares, 2);
-        // // receipt = await tx.wait()
-        // // console.log("Deposit gas used:", receipt.gasUsed.toString())
-        // // tx = await elonApeVault.connect(client).withdraw(withdrawShares, 2);
-        // // tx = await elonApeVault.connect(client).withdraw(withdrawShares, 0);
-        // // console.log("Withdraw amount for USDT", ethers.utils.formatUnits(await USDTContract.balanceOf(client.address), 6)) // 17750.838935
-        // // console.log("Withdraw amount for USDC", ethers.utils.formatUnits(await USDCContract.balanceOf(client.address), 6)) // 593.037147
-        // // console.log("Withdraw amount for DAI", ethers.utils.formatUnits(await DAIContract.balanceOf(client.address), 18)) // 17671.770961
+        // tx = await elonApeVault.connect(client).withdraw(withdrawShares, 0);
+        console.log("Withdraw amount for USDT", ethers.utils.formatUnits(await USDTContract.balanceOf(client.address), 6)) // 17750.838935
+        console.log("Withdraw amount for USDC", ethers.utils.formatUnits(await USDCContract.balanceOf(client.address), 6)) // 593.037147
+        console.log("Withdraw amount for DAI", ethers.utils.formatUnits(await DAIContract.balanceOf(client.address), 18)) // 17671.770961
 
         // // Withdraw after emergency withdraw
         // const withdrawShares = (await elonApeVault.balanceOf(client.address)).mul(30).div(100)

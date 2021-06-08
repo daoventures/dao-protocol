@@ -162,21 +162,21 @@ contract ElonApeStrategy is Ownable {
             // Invest all the funds to the farm that is furthest from target composition
             uint256 _furthest;
             uint256 _farmIndex;
+            uint256 _diff;
             // 1. Find out the farm that is furthest from target composition
             if (_poolSTSLATarget > _poolSTSLA) {
-                uint256 _diff = _poolSTSLATarget.sub(_poolSTSLA);
-                _furthest = _diff;
+                _furthest = _poolSTSLATarget.sub(_poolSTSLA);
                 _farmIndex = 0;
             }
             if (_poolWBTCTarget > _poolWBTC) {
-                uint256 _diff = _poolWBTCTarget.sub(_poolWBTC);
+                _diff = _poolWBTCTarget.sub(_poolWBTC);
                 if (_diff > _furthest) {
                     _furthest = _diff;
                     _farmIndex = 1;
                 }
             }
             if (_poolRenDOGETarget > _poolRenDOGE) {
-                uint256 _diff = _poolRenDOGETarget.sub(_poolRenDOGE);
+                _diff = _poolRenDOGETarget.sub(_poolRenDOGE);
                 if (_diff > _furthest) {
                     _furthest = _diff;
                     _farmIndex = 2;
