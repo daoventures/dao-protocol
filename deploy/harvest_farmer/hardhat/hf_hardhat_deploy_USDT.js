@@ -37,7 +37,7 @@ module.exports = async ({ deployments }) => {
     strategyAddress
   );
   const receipt2 = await tx.wait();
-  const vaultAddress = vaultFactoryContract.vaults(created_index);
+  const vaultAddress = await vaultFactoryContract.vaults(created_index);
 
   // Set vault address into strategy
   const strategyContract = await ethers.getContractAt(
