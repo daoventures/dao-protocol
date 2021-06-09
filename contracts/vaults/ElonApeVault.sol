@@ -188,20 +188,12 @@ contract ElonApeVault is ERC20("DAO Vault Elon", "daoELO"), Ownable, BaseRelayRe
 
     /// @notice Function to invest funds into strategy
     function invest() external onlyAdmin {
+        // Transfer out available network fees
+        transferOutNetworkFees();
+
         Token memory _USDT = tokens[0];
         Token memory _USDC = tokens[1];
         Token memory _DAI = tokens[2];
-
-        // Transfer out network fees
-        if (_fees != 0 && _USDT.token.balanceOf(address(this)) > _fees) {
-            uint256 _fee =  _fees.mul(2).div(5); // 40%
-            _USDT.token.safeTransfer(treasuryWallet, _fee); // 40%
-            _USDT.token.safeTransfer(communityWallet, _fee); // 40%
-            _USDT.token.safeTransfer(strategist, _fees.sub(_fee).sub(_fee)); // 20%
-            emit TransferredOutFees(_fees);
-            _fees = 0;
-        }
-
         // Calculation for keep portion of Stablecoins
         uint256 _poolInUSD = getAllPoolInUSD().sub(_fees);
         uint256 _toKeepUSDT = _poolInUSD.mul(_USDT.percKeepInVault).div(DENOMINATOR);
@@ -254,6 +246,68 @@ contract ElonApeVault is ERC20("DAO Vault Elon", "daoELO"), Ownable, BaseRelayRe
     /// @notice Function to reinvest all WETH back to farms in strategy
     function reinvest() external onlyAdmin {
         strategy.reinvest();
+    }
+
+    /// @notice Function to transfer out available network fees
+    function transferOutNetworkFees() public {
+        require(msg.sender == address(this) || msg.sender == admin, "Not authorized");
+        if (_fees != 0) {
+            bool canTransfer;
+            Token memory _token;
+            if (tokens[0].token.balanceOf(address(this)) > _fees) {
+                _token = tokens[0];
+                canTransfer = true;
+            } else if (tokens[1].token.balanceOf(address(this)) > _fees) {
+                _token = tokens[1];
+                canTransfer = true;
+            } else if (tokens[2].token.balanceOf(address(this)) > _fees) {
+                _token = tokens[2];
+                canTransfer = true;
+            }
+            if (canTransfer) {
+                uint256 _fee =  _fees.mul(2).div(5); // 40%
+                _token.token.safeTransfer(treasuryWallet, _fee); // 40%
+                _token.token.safeTransfer(communityWallet, _fee); // 40%
+                _token.token.safeTransfer(strategist, _fees.sub(_fee).sub(_fee)); // 20%
+                emit TransferredOutFees(_fees);
+                _fees = 0;
+            }
+        }
+    }
+
+    /// @notice Function to unlock migrate funds function
+    function unlockMigrateFunds() external onlyOwner {
+        unlockTime = block.timestamp.add(LOCKTIME);
+        canSetPendingStrategy = false;
+    }
+
+    /// @notice Function to migrate all funds from old strategy contract to new strategy contract
+    /// @notice This function only last for 1 days after success unlocked
+    function migrateFunds() external onlyOwner {
+        require(unlockTime <= block.timestamp && unlockTime.add(1 days) >= block.timestamp, "Function locked");
+        IERC20 WETH = IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+        uint256 _amount = WETH.balanceOf(address(strategy));
+        require(_amount > 0, "No balance to migrate");
+        require(pendingStrategy != address(0), "No pendingStrategy");
+
+        WETH.safeTransferFrom(address(strategy), pendingStrategy, _amount);
+
+        // Set new strategy
+        address oldStrategy = address(strategy); // For event purpose
+        strategy = IStrategy(pendingStrategy);
+        pendingStrategy = address(0);
+        canSetPendingStrategy = true;
+
+        // Approve new strategy
+        tokens[0].token.safeApprove(address(strategy), type(uint256).max);
+        tokens[0].token.safeApprove(oldStrategy, 0);
+        tokens[1].token.safeApprove(address(strategy), type(uint256).max);
+        tokens[1].token.safeApprove(oldStrategy, 0);
+        tokens[2].token.safeApprove(address(strategy), type(uint256).max);
+        tokens[2].token.safeApprove(oldStrategy, 0);
+
+        unlockTime = 0; // Lock back this function
+        emit MigrateFunds(oldStrategy, address(strategy), _amount);
     }
 
     /// @notice Function to set new network fee for deposit amount tier 2
@@ -364,41 +418,6 @@ contract ElonApeVault is ERC20("DAO Vault Elon", "daoELO"), Ownable, BaseRelayRe
     /// @param _weights Array with new weight of farms
     function setWeights(uint256[] memory _weights) external onlyAdmin {
         strategy.setWeights(_weights);
-    }
-
-    /// @notice Function to unlock migrate funds function
-    function unlockMigrateFunds() external onlyOwner {
-        unlockTime = block.timestamp.add(LOCKTIME);
-        canSetPendingStrategy = false;
-    }
-
-    /// @notice Function to migrate all funds from old strategy contract to new strategy contract
-    /// @notice This function only last for 1 days after success unlocked
-    function migrateFunds() external onlyOwner {
-        require(unlockTime <= block.timestamp && unlockTime.add(1 days) >= block.timestamp, "Function locked");
-        IERC20 WETH = IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
-        uint256 _amount = WETH.balanceOf(address(strategy));
-        require(_amount > 0, "No balance to migrate");
-        require(pendingStrategy != address(0), "No pendingStrategy");
-
-        WETH.safeTransferFrom(address(strategy), pendingStrategy, _amount);
-
-        // Set new strategy
-        address oldStrategy = address(strategy); // For event purpose
-        strategy = IStrategy(pendingStrategy);
-        pendingStrategy = address(0);
-        canSetPendingStrategy = true;
-
-        // Approve new strategy
-        tokens[0].token.safeApprove(address(strategy), type(uint256).max);
-        tokens[0].token.safeApprove(oldStrategy, 0);
-        tokens[1].token.safeApprove(address(strategy), type(uint256).max);
-        tokens[1].token.safeApprove(oldStrategy, 0);
-        tokens[2].token.safeApprove(address(strategy), type(uint256).max);
-        tokens[2].token.safeApprove(oldStrategy, 0);
-
-        unlockTime = 0; // Lock back this function
-        emit MigrateFunds(oldStrategy, address(strategy), _amount);
     }
 
     /// @notice Function to get all pool amount(vault+strategy) in USD
