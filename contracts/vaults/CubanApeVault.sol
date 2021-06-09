@@ -210,15 +210,11 @@ contract CubanApeVault is ERC20("DAO Vault Cuban", "daoCUB"), Ownable, BaseRelay
         Token memory _USDT = tokens[0];
         Token memory _USDC = tokens[1];
         Token memory _DAI = tokens[2];
-        // Calculation for keep portion of Stablecoins
+        // Calculation for keep portion of Stablecoins and swap balance of Stablecoins to WETH
         uint256 _poolInUSD = getAllPoolInUSD().sub(_fees);
-        uint256 _toKeepUSDT = _poolInUSD.mul(_USDT.percKeepInVault).div(_DENOMINATOR);
-        uint256 _toKeepUSDC = _poolInUSD.mul(_USDC.percKeepInVault).div(_DENOMINATOR);
-        uint256 _toKeepDAI = _poolInUSD.mul(_DAI.percKeepInVault).div(_DENOMINATOR);
-        // Swap balance of Stablecoins to WETH
-        _invest(_USDT.token, _toKeepUSDT);
-        _invest(_USDC.token, _toKeepUSDC);
-        _invest(_DAI.token, _toKeepDAI.mul(1e12)); // Follow decimals of DAI
+        _invest(_USDT.token, _poolInUSD.mul(_USDT.percKeepInVault).div(_DENOMINATOR));
+        _invest(_USDC.token, _poolInUSD.mul(_USDC.percKeepInVault).div(_DENOMINATOR));
+        _invest(_DAI.token, (_poolInUSD.mul(_DAI.percKeepInVault).div(_DENOMINATOR)).mul(1e12)); // Follow decimals of DAI
         // Invest all swapped WETH to strategy
         uint256 _balanceOfWETH = _WETH.balanceOf(address(this));
         if (_balanceOfWETH > 0) {
