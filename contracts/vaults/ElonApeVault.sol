@@ -35,6 +35,7 @@ contract ElonApeVault is ERC20("DAO Vault Elon", "daoELO"), Ownable, BaseRelayRe
     IStrategy public strategy;
     ICurveSwap private constant c3pool = ICurveSwap(0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7);
     uint256 private constant DENOMINATOR = 10000;
+    address public admin;
 
     address public pendingStrategy;
     bool public canSetPendingStrategy;
@@ -52,13 +53,12 @@ contract ElonApeVault is ERC20("DAO Vault Elon", "daoELO"), Ownable, BaseRelayRe
     // Address to collect fees
     address public treasuryWallet;
     address public communityWallet;
-    address public admin;
     address public strategist;
 
     mapping(uint256 => Token) public tokens;
 
-    event Deposit(address indexed tokenDeposit, address caller, uint256 amtDeposit, uint256 sharesMint);
-    event Withdraw(address indexed tokenWithdraw, address caller, uint256 amtWithdraw, uint256 sharesBurn);
+    event Deposit(address indexed tokenDeposit, address indexed caller, uint256 amtDeposit, uint256 sharesMint);
+    event Withdraw(address indexed tokenWithdraw, address indexed caller, uint256 amtWithdraw, uint256 sharesBurn);
     event TransferredOutFees(uint256 fees);
     event SetNetworkFeeTier2(uint256[] oldNetworkFeeTier2, uint256[] newNetworkFeeTier2);
     event SetNetworkFeePerc(uint256[] oldNetworkFeePerc, uint256[] newNetworkFeePerc);
@@ -126,7 +126,6 @@ contract ElonApeVault is ERC20("DAO Vault Elon", "daoELO"), Ownable, BaseRelayRe
         if (tokens[_tokenIndex].decimals == 18) { // To make consistency of 6 decimals
             _amount = _amount.div(1e12);
         }
-
         // Calculate network fee
         uint256 _networkFeePerc;
         if (_amount < networkFeeTier2[0]) { // Tier 1
@@ -144,7 +143,6 @@ contract ElonApeVault is ERC20("DAO Vault Elon", "daoELO"), Ownable, BaseRelayRe
 
         _amount = _amount.mul(1e12); // For LP token calculation
         uint256 _shares = totalSupply() == 0 ? _amount : _amount.mul(totalSupply()).div(_pool);
-
         _mint(_sender, _shares);
         emit Deposit(address(tokens[_tokenIndex].token), _sender, _amtDeposit, _shares);
     }
@@ -255,13 +253,13 @@ contract ElonApeVault is ERC20("DAO Vault Elon", "daoELO"), Ownable, BaseRelayRe
             bool canTransfer;
             Token memory _token;
             if (tokens[0].token.balanceOf(address(this)) > _fees) {
-                _token = tokens[0];
+                _token = tokens[0]; // USDT
                 canTransfer = true;
             } else if (tokens[1].token.balanceOf(address(this)) > _fees) {
-                _token = tokens[1];
+                _token = tokens[1]; // USDC
                 canTransfer = true;
             } else if (tokens[2].token.balanceOf(address(this)) > _fees) {
-                _token = tokens[2];
+                _token = tokens[2]; // DAI
                 canTransfer = true;
             }
             if (canTransfer) {
@@ -275,7 +273,7 @@ contract ElonApeVault is ERC20("DAO Vault Elon", "daoELO"), Ownable, BaseRelayRe
         }
     }
 
-    /// @notice Function to unlock migrate funds function
+    /// @notice Function to unlock migrateFunds()
     function unlockMigrateFunds() external onlyOwner {
         unlockTime = block.timestamp.add(LOCKTIME);
         canSetPendingStrategy = false;
@@ -407,7 +405,7 @@ contract ElonApeVault is ERC20("DAO Vault Elon", "daoELO"), Ownable, BaseRelayRe
     }
 
     /// @notice Function to set percentage of Stablecoins that keep in vault
-    /// @param _percentages Array with new percentages of Stablecoins that keep in vault
+    /// @param _percentages Array with new percentages of Stablecoins that keep in vault (3 elements, DENOMINATOR = 10000)
     function setPercTokenKeepInVault(uint256[] memory _percentages) external onlyAdmin {
         tokens[0].percKeepInVault = _percentages[0];
         tokens[1].percKeepInVault = _percentages[1];
@@ -415,7 +413,7 @@ contract ElonApeVault is ERC20("DAO Vault Elon", "daoELO"), Ownable, BaseRelayRe
     }
 
     /// @notice Function to set weight of farms in strategy
-    /// @param _weights Array with new weight of farms
+    /// @param _weights Array with new weight(percentage) of farms (3 elements, DENOMINATOR = 10000)
     function setWeights(uint256[] memory _weights) external onlyAdmin {
         strategy.setWeights(_weights);
     }
@@ -425,7 +423,7 @@ contract ElonApeVault is ERC20("DAO Vault Elon", "daoELO"), Ownable, BaseRelayRe
     function getAllPoolInUSD() public view returns (uint256) {
         uint256 _vaultPoolInUSD = (tokens[0].token.balanceOf(address(this)))
             .add(tokens[1].token.balanceOf(address(this)))
-            .add(tokens[2].token.balanceOf(address(this)).div(1e12))
+            .add(tokens[2].token.balanceOf(address(this)).div(1e12)) // DAI to 6 decimals
             .sub(_fees);
         return strategy.getTotalPool().add(_vaultPoolInUSD);
     }

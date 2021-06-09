@@ -100,7 +100,7 @@ contract ElonApeStrategy is Ownable {
         // Balancer
         sUSD.safeApprove(address(_bSwap), type(uint256).max);
         sTSLA.safeApprove(address(_bSwap), type(uint256).max);
-        // Sushiswap
+        // Sushi
         USDT.safeApprove(address(_sSwap), type(uint256).max);
         USDC.safeApprove(address(_sSwap), type(uint256).max);
         DAI.safeApprove(address(_sSwap), type(uint256).max);
@@ -113,7 +113,6 @@ contract ElonApeStrategy is Ownable {
     /// @param _vault Address of vault contract 
     function setVault(address _vault) external onlyOwner {
         require(vault == address(0), "Vault set");
-
         vault = _vault;
     }
 
@@ -346,12 +345,12 @@ contract ElonApeStrategy is Ownable {
     }
 
     /// @notice Function to set weight of farms
-    /// @param _weights Array with new weight of farms
+    /// @param _weights Array with new weight(percentage) of farms (3 elements, DENOMINATOR = 10000)
     function setWeights(uint256[] memory _weights) external onlyVault {
         weights = _weights;
     }
 
-    /// @notice Function to swap tokens with SushiSwap
+    /// @notice Function to swap tokens with Sushi
     /// @param _tokenA Token to be swapped
     /// @param _tokenB Token to be received
     /// @param _amountIn Amount of token to be swapped
@@ -364,10 +363,10 @@ contract ElonApeStrategy is Ownable {
         }
     }
 
-    /// @notice Function to get path for SushiSwap swap functions
+    /// @notice Function to get path for Sushi swap functions
     /// @param _tokenA Token to be swapped
     /// @param _tokenB Token to be received
-    /// @return Array of address
+    /// @return Array of addresses
     function _getPath(address _tokenA, address _tokenB) private pure returns (address[] memory) {
         address[] memory _path = new address[](2);
         _path[0] = _tokenA;
