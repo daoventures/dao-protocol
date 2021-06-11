@@ -121,9 +121,15 @@ contract ElonApeStrategy is Ownable {
     /// @param _amountUSDC 6 decimals
     /// @param _amountDAI 18 decimals
     function invest(uint256 _amountUSDT, uint256 _amountUSDC, uint256 _amountDAI) external onlyVault {
-        USDT.safeTransferFrom(address(vault), address(this), _amountUSDT);
-        USDC.safeTransferFrom(address(vault), address(this), _amountUSDC);
-        DAI.safeTransferFrom(address(vault), address(this), _amountDAI);
+        if (_amountUSDT > 0) {
+            USDT.safeTransferFrom(address(vault), address(this), _amountUSDT);
+        }
+        if (_amountUSDC > 0) {
+            USDC.safeTransferFrom(address(vault), address(this), _amountUSDC);
+        }
+        if (_amountDAI > 0) {
+            DAI.safeTransferFrom(address(vault), address(this), _amountDAI);
+        }
         uint256 _totalInvestInUSD = _amountUSDT.add(_amountUSDC).add(_amountDAI.div(1e12));
         emit AmtToInvest(_totalInvestInUSD);
 
@@ -232,9 +238,18 @@ contract ElonApeStrategy is Ownable {
     /// @notice Function to swap all available Stablecoins to WETH
     /// @return Balance of received WETH
     function _swapAllStablecoinsToWETH() private returns (uint256) {
-        _swapExactTokensForTokens(address(USDT), address(WETH), USDT.balanceOf(address(this)));
-        _swapExactTokensForTokens(address(USDC), address(WETH), USDC.balanceOf(address(this)));
-        _swapExactTokensForTokens(address(DAI), address(WETH), DAI.balanceOf(address(this)));
+        uint256 _USDTBalance = USDT.balanceOf(address(this));
+        if (_USDTBalance > 1e6) { // Set minimum swap amount to avoid error
+            _swapExactTokensForTokens(address(USDT), address(WETH), _USDTBalance);
+        }
+        uint256 _USDCBalance = USDC.balanceOf(address(this));
+        if (_USDCBalance > 1e6) {
+            _swapExactTokensForTokens(address(USDC), address(WETH), _USDCBalance);
+        }
+        uint256 _DAIBalance = DAI.balanceOf(address(this));
+        if (_DAIBalance > 1e18) {
+            _swapExactTokensForTokens(address(DAI), address(WETH), _DAIBalance);
+        }
         return WETH.balanceOf(address(this));
     }
 

@@ -193,10 +193,23 @@ contract ElonApeVault is ERC20("DAO Vault Elon", "daoELO"), Ownable, BaseRelayRe
         // Calculation for keep portion of Stablecoins and transfer balance of Stablecoins to strategy
         uint256 _poolInUSD = getAllPoolInUSD();
         strategy.invest(
-            _USDT.token.balanceOf(address(this)).sub(_poolInUSD.mul(_USDT.percKeepInVault).div(DENOMINATOR)),
-            _USDC.token.balanceOf(address(this)).sub(_poolInUSD.mul(_USDC.percKeepInVault).div(DENOMINATOR)),
-            _DAI.token.balanceOf(address(this)).sub((_poolInUSD.mul(_DAI.percKeepInVault).div(DENOMINATOR)).mul(1e12))
+            _invest(_USDT, _poolInUSD),
+            _invest(_USDC, _poolInUSD),
+            _invest(_DAI, _poolInUSD)
         );
+    }
+
+    /// @notice Function to determine amount of Stablecoin to invest
+    /// @param _token Type of Stablecoin (in struct)
+    /// @param _poolInUSD Amount of pool (6 decimals)
+    function _invest(Token memory _token, uint256 _poolInUSD) private view returns (uint256) {
+        uint256 _tokenBalance = _token.token.balanceOf(address(this));
+        uint256 _toKeep = _poolInUSD.mul(_token.percKeepInVault).div(DENOMINATOR);
+        if (_tokenBalance > _toKeep) {
+            return _tokenBalance.sub(_toKeep);
+        } else {
+            return 0;
+        }
     }
 
     /// @notice Function to swap Stablecoin within vault with Curve
