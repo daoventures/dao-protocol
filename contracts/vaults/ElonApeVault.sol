@@ -141,9 +141,7 @@ contract ElonApeVault is ERC20("DAO Vault Elon", "daoELO"), Ownable, BaseRelayRe
         _fees = _fees.add(_fee);
         _amount = _amount.sub(_fee);
 
-        _amount = _amount.mul(1e12); // For LP token calculation
-        uint256 _shares = totalSupply() == 0 ? _amount : _amount.mul(totalSupply()).div(_pool);
-        _mint(_sender, _shares);
+        _mint(_sender, _amount.mul(1e12));
         emit Deposit(address(tokens[_tokenIndex].token), _sender, _amtDeposit, _shares);
     }
 
