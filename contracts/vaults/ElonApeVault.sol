@@ -119,7 +119,6 @@ contract ElonApeVault is ERC20("DAO Vault Elon", "daoELO"), Ownable, BaseRelayRe
         require(msg.sender == tx.origin || isTrustedForwarder(msg.sender), "Only EOA or Biconomy");
         require(_amount > 0, "Amount must > 0");
 
-        uint256 _pool = getAllPoolInUSD().mul(1e12);
         address _sender = _msgSender();
         tokens[_tokenIndex].token.safeTransferFrom(_sender, address(this), _amount);
         uint256 _amtDeposit = _amount; // For event purpose
@@ -141,7 +140,8 @@ contract ElonApeVault is ERC20("DAO Vault Elon", "daoELO"), Ownable, BaseRelayRe
         _fees = _fees.add(_fee);
         _amount = _amount.sub(_fee);
 
-        _mint(_sender, _amount.mul(1e12));
+        uint256 _shares = _amount.mul(1e12);
+        _mint(_sender, _shares);
         emit Deposit(address(tokens[_tokenIndex].token), _sender, _amtDeposit, _shares);
     }
 

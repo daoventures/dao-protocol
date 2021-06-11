@@ -39,9 +39,9 @@ describe("DAO ElonApe Strategy", () => {
             "function balanceOf(address) external view returns (uint)"
         ]
         const WETHContract = new ethers.Contract(WETHAddress, WETH_ABI, deployer);
-        await USDTContract.connect(unlockedSigner).transfer(client.address, ethers.utils.parseUnits("1000", 6))
-        await USDCContract.connect(unlockedSigner).transfer(client.address, ethers.utils.parseUnits("1000", 6))
-        await DAIContract.connect(unlockedSigner).transfer(client.address, ethers.utils.parseUnits("1000", 18))
+        await USDTContract.connect(unlockedSigner).transfer(client.address, ethers.utils.parseUnits("2000", 6))
+        await USDCContract.connect(unlockedSigner).transfer(client.address, ethers.utils.parseUnits("2000", 6))
+        await DAIContract.connect(unlockedSigner).transfer(client.address, ethers.utils.parseUnits("2000", 18))
         await USDTContract.connect(client).approve(elonApeVault.address, ethers.constants.MaxUint256)
         await USDCContract.connect(client).approve(elonApeVault.address, ethers.constants.MaxUint256)
         await DAIContract.connect(client).approve(elonApeVault.address, ethers.constants.MaxUint256)
@@ -70,11 +70,11 @@ describe("DAO ElonApe Strategy", () => {
         // await elonApeVault.connect(admin).setWeights([5000, 5000, 0]) // 17653.304222 591.395586 17644.360807
         // await elonApeVault.connect(admin).setWeights([3333, 3333, 3334]) // 17750.838935 593.037147 17671.770961
 
-        // // Second deposit and invest
-        // await elonApeVault.connect(client).deposit(ethers.utils.parseUnits("10000", 6), 0)
-        // await elonApeVault.connect(client).deposit(ethers.utils.parseUnits("10000", 6), 1)
-        // await elonApeVault.connect(client).deposit(ethers.utils.parseUnits("10000", 18), 2)
-        // await elonApeVault.connect(admin).invest()
+        // Second deposit and invest
+        await elonApeVault.connect(client).deposit(ethers.utils.parseUnits("1000", 6), 0)
+        await elonApeVault.connect(client).deposit(ethers.utils.parseUnits("1000", 6), 1)
+        await elonApeVault.connect(client).deposit(ethers.utils.parseUnits("1000", 18), 2)
+        await elonApeVault.connect(admin).invest()
 
         // // Fees
         // console.log((await USDTContract.balanceOf(treasury.address)).toString()) // 240.000000
@@ -129,14 +129,14 @@ describe("DAO ElonApe Strategy", () => {
         // console.log((await elonApeVault.balanceOf(client.address)).toString())
         // console.log(withdrawShares.toString()) // 8910.000000000000000000
         tx = await elonApeVault.connect(client).withdraw(withdrawShares, 0);
-        // receipt = await tx.wait()
-        // console.log("Deposit gas used:", receipt.gasUsed.toString())
+        receipt = await tx.wait()
+        console.log("Withdraw gas used:", receipt.gasUsed.toString())
         tx = await elonApeVault.connect(client).withdraw(withdrawSharesSmall, 1);
-        // receipt = await tx.wait()
-        // console.log("Deposit gas used:", receipt.gasUsed.toString())
+        receipt = await tx.wait()
+        console.log("Withdraw gas used:", receipt.gasUsed.toString())
         tx = await elonApeVault.connect(client).withdraw(withdrawShares, 2);
         // receipt = await tx.wait()
-        // console.log("Deposit gas used:", receipt.gasUsed.toString())
+        // console.log("Withdraw gas used:", receipt.gasUsed.toString())
         // tx = await elonApeVault.connect(client).withdraw(withdrawShares, 2);
         // tx = await elonApeVault.connect(client).withdraw(withdrawShares, 0);
         console.log("Withdraw amount for USDT", ethers.utils.formatUnits(await USDTContract.balanceOf(client.address), 6))
