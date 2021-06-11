@@ -115,7 +115,6 @@ contract DAOVault is Initializable, ERC20Upgradeable, OwnableUpgradeable {
         vaultName = _vaultName;
         token = IERC20Upgradeable(_token);
         strategy = IStrategy2(_strategy);
-        admin = _owner;
 
         canSetPendingStrategy = true;
         uint8 decimals = ERC20Upgradeable(_token).decimals();
@@ -125,6 +124,7 @@ contract DAOVault is Initializable, ERC20Upgradeable, OwnableUpgradeable {
         customNetworkFeePercentage = 25;
         treasuryWallet = 0x59E83877bD248cBFe392dbB5A8a29959bcb48592;
         communityWallet = 0xdd6c35aFF646B2fB7d8A8955Ccbe0994409348d0;
+        admin = 0x3f68A3c1023d736D8Be867CA49Cb18c543373B99;
 
         token.safeApprove(address(strategy), type(uint256).max);
     }
