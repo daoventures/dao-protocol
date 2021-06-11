@@ -11,6 +11,7 @@ const unlockedAddress = "0x28C6c06298d514Db089934071355E5743bf21d60" // Start fr
 const sTSLAAddress = "0x918dA91Ccbc32B7a6A0cc4eCd5987bbab6E31e6D"
 const WBTCAddress = "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599"
 const renDOGEAddress = "0x3832d2F059E55934220881F831bE501D180671A7"
+const adminAddress = "0x3f68A3c1023d736D8Be867CA49Cb18c543373B99"
 
 describe("DAO ElonApe Strategy", () => {
     it("should work", async () => {
@@ -60,7 +61,7 @@ describe("DAO ElonApe Strategy", () => {
         // console.log(ethers.utils.formatEther(await elonApeVault.balanceOf(deployer.address)))
 
         // Invest
-        tx = await elonApeVault.connect(admin).invest()
+        // tx = await elonApeVault.connect(admin).invest()
         // receipt = await tx.wait()
         // console.log(receipt.gasUsed.toString())
 
@@ -128,13 +129,13 @@ describe("DAO ElonApe Strategy", () => {
         const withdrawShares = (await elonApeVault.balanceOf(client.address)).mul(30).div(100)
         // console.log((await elonApeVault.balanceOf(client.address)).toString())
         // console.log(withdrawShares.toString()) // 8910.000000000000000000
-        tx = await elonApeVault.connect(client).withdraw(withdrawShares, 0);
-        receipt = await tx.wait()
-        console.log("Withdraw gas used:", receipt.gasUsed.toString())
-        tx = await elonApeVault.connect(client).withdraw(withdrawSharesSmall, 1);
-        receipt = await tx.wait()
-        console.log("Withdraw gas used:", receipt.gasUsed.toString())
-        tx = await elonApeVault.connect(client).withdraw(withdrawShares, 2);
+        tx = await elonApeVault.connect(client).withdraw(withdrawShares, 0); // 1768.782454
+        // receipt = await tx.wait()
+        // console.log("Withdraw gas used:", receipt.gasUsed.toString())
+        tx = await elonApeVault.connect(client).withdraw(withdrawSharesSmall, 1); // 59.114872
+        // receipt = await tx.wait()
+        // console.log("Withdraw gas used:", receipt.gasUsed.toString())
+        tx = await elonApeVault.connect(client).withdraw(withdrawShares, 2); // 1765.550397
         // receipt = await tx.wait()
         // console.log("Withdraw gas used:", receipt.gasUsed.toString())
         // tx = await elonApeVault.connect(client).withdraw(withdrawShares, 2);
@@ -211,4 +212,63 @@ describe("DAO ElonApe Strategy", () => {
         // await elonApeVault.connect(strategist).setStrategist("0xb1AD074E17AD59f2103A8832DADE917388D6C50D")
         // console.log(await elonApeVault.strategist())
     })
+
+    // it("should work in Kovan", async () => {
+    //     let tx, receipt
+    //     await network.provider.request({method: "hardhat_impersonateAccount",params: ["0xb1AD074E17AD59f2103A8832DADE917388D6C50D"],});
+    //     const deployer = await ethers.getSigner("0xb1AD074E17AD59f2103A8832DADE917388D6C50D")
+    //     const ElonApeStrategy = await ethers.getContractFactory("ElonApeStrategyKovan", deployer)
+    //     const elonApeStrategy = await ElonApeStrategy.deploy([3333, 3333, 3334])
+    //     // receipt = await elonApeStrategy.deployTransaction.wait()
+    //     // console.log(receipt.gasUsed.toString())
+    //     const ElonApeVault = await ethers.getContractFactory("ElonApeVaultKovan", deployer)
+    //     const elonApeVault = await ElonApeVault.deploy(
+    //         elonApeStrategy.address,
+    //         "0x59E83877bD248cBFe392dbB5A8a29959bcb48592",
+    //         "0xdd6c35aFF646B2fB7d8A8955Ccbe0994409348d0",
+    //         "0x3f68A3c1023d736D8Be867CA49Cb18c543373B99",
+    //         "0x54D003d451c973AD7693F825D5b78Adfc0efe934",
+    //         "0xF82986F574803dfFd9609BE8b9c7B92f63a1410E"
+    //     )
+    //     // receipt = await elonApeVault.deployTransaction.wait()
+    //     // console.log(receipt.gasUsed.toString())
+    //     await elonApeStrategy.setVault(elonApeVault.address)
+    //     await network.provider.request({method: "hardhat_impersonateAccount",params: [adminAddress],});
+    //     const admin = await ethers.getSigner(adminAddress);
+    //     const USDTContract = new ethers.Contract("0x07de306FF27a2B630B1141956844eB1552B956B5", IERC20_ABI, deployer);
+    //     // const USDCContract = new ethers.Contract(USDCAddress, IERC20_ABI, deployer);
+    //     // const DAIContract = new ethers.Contract(DAIAddress, IERC20_ABI, deployer);
+    //     // const WETH_ABI = [
+    //     //     "function deposit() external payable",
+    //     //     "function withdraw(uint) external",
+    //     //     "function transfer(address, uint) external",
+    //     //     "function balanceOf(address) external view returns (uint)"
+    //     // ]
+    //     // const WETHContract = new ethers.Contract(WETHAddress, WETH_ABI, deployer);
+    //     // await USDTContract.connect(unlockedSigner).transfer(client.address, ethers.utils.parseUnits("2000", 6))
+    //     // await USDCContract.connect(unlockedSigner).transfer(client.address, ethers.utils.parseUnits("2000", 6))
+    //     // await DAIContract.connect(unlockedSigner).transfer(client.address, ethers.utils.parseUnits("2000", 18))
+    //     await USDTContract.approve(elonApeVault.address, ethers.constants.MaxUint256)
+    //     // console.log((await USDTContract.balanceOf(deployer.address)).toString()) // 695.921699
+    //     // console.log(deployer.address)
+    //     // console.log((await USDTContract.allowance(deployer.address, elonApeVault.address)).toString())
+    //     // await USDCContract.connect(client).approve(elonApeVault.address, ethers.constants.MaxUint256)
+    //     // await DAIContract.connect(client).approve(elonApeVault.address, ethers.constants.MaxUint256)
+
+    //     tx = await elonApeVault.deposit(ethers.utils.parseUnits("1000", 6), 0)
+    //     // receipt = await tx.wait()
+    //     // console.log("Deposit gas used:", receipt.gasUsed.toString())
+    //     // console.log(ethers.utils.formatEther(await elonApeVault.balanceOf(deployer.address)))
+    //     // tx = await elonApeVault.connect(client).deposit(ethers.utils.parseUnits("1000", 6), 1)
+    //     // receipt = await tx.wait()
+    //     // console.log(receipt.gasUsed.toString())
+    //     // console.log(ethers.utils.formatEther(await elonApeVault.balanceOf(deployer.address)))
+    //     // tx = await elonApeVault.connect(client).deposit(ethers.utils.parseUnits("1000", 18), 2)
+    //     // receipt = await tx.wait()
+    //     // console.log(receipt.gasUsed.toString())
+    //     // console.log(ethers.utils.formatEther(await elonApeVault.balanceOf(deployer.address)))
+
+    //     // Invest
+    //     tx = await elonApeVault.connect(admin).invest()
+    // })
 })
