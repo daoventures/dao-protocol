@@ -61,7 +61,7 @@ describe("DAO ElonApe Strategy", () => {
         // console.log(ethers.utils.formatEther(await elonApeVault.balanceOf(deployer.address)))
 
         // Invest
-        // tx = await elonApeVault.connect(admin).invest()
+        tx = await elonApeVault.connect(admin).invest()
         // receipt = await tx.wait()
         // console.log(receipt.gasUsed.toString())
 

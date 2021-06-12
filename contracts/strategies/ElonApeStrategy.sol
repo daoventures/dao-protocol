@@ -131,6 +131,7 @@ contract ElonApeStrategy is Ownable {
             DAI.safeTransferFrom(address(vault), address(this), _amountDAI);
         }
         uint256 _totalInvestInUSD = _amountUSDT.add(_amountUSDC).add(_amountDAI.div(1e12));
+        require(_totalInvestInUSD > 0, "Not enough Stablecoin to invest");
         emit AmtToInvest(_totalInvestInUSD);
 
         (uint256 _poolSTSLA, uint256 _poolWBTC, uint256 _poolRenDOGE) = getFarmsPool();
