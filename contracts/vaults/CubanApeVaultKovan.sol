@@ -34,7 +34,7 @@ interface ISushiSwap {
     function getAmountsOut(uint256 amountIn, address[] memory path) external view returns (uint[] memory amounts);
 }
 
-contract CubanApeVault is ERC20("DAO Vault Cuban", "daoCUB"), Ownable, BaseRelayRecipient {
+contract CubanApeVaultKovan is ERC20("DAO Vault Cuban", "daoCUB"), Ownable, BaseRelayRecipient {
     using SafeERC20 for IERC20;
     using SafeMath for uint256;
 
@@ -45,9 +45,9 @@ contract CubanApeVault is ERC20("DAO Vault Cuban", "daoCUB"), Ownable, BaseRelay
     }
 
     IStrategy public strategy;
-    IERC20 private constant _WETH = IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+    IERC20 private constant _WETH = IERC20(0xd0A1E359811322d97991E03f863a0C30C2cF029C);
     ICurveSwap private constant _cSwap = ICurveSwap(0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7);
-    ISushiSwap private constant _sSwap = ISushiSwap(0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F);
+    ISushiSwap private constant _sSwap = ISushiSwap(0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506);
     uint256 private constant _DENOMINATOR = 10000;
     address public admin;
 
@@ -99,20 +99,20 @@ contract CubanApeVault is ERC20("DAO Vault Cuban", "daoCUB"), Ownable, BaseRelay
         strategist = _strategist;
         trustedForwarder = _biconomy;
 
-        IERC20 _USDT = IERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7);
-        IERC20 _USDC = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
-        IERC20 _DAI = IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
+        IERC20 _USDT = IERC20(0x07de306FF27a2B630B1141956844eB1552B956B5);
+        IERC20 _USDC = IERC20(0xb7a4F3E9097C08dA09517b5aB877F7a917224ede);
+        IERC20 _DAI = IERC20(0x4F96Fe3b7A6Cf9725f59d353F723c1bDb64CA6Aa);
         tokens[0] = Token(_USDT, 6, 200);
         tokens[1] = Token(_USDC, 6, 200);
         tokens[2] = Token(_DAI, 18, 200);
 
         _WETH.safeApprove(_strategy, type(uint256).max);
         _WETH.safeApprove(address(_sSwap), type(uint256).max);
-        _USDT.safeApprove(address(_cSwap), type(uint256).max);
+        // _USDT.safeApprove(address(_cSwap), type(uint256).max);
         _USDT.safeApprove(address(_sSwap), type(uint256).max);
-        _USDC.safeApprove(address(_cSwap), type(uint256).max);
+        // _USDC.safeApprove(address(_cSwap), type(uint256).max);
         _USDC.safeApprove(address(_sSwap), type(uint256).max);
-        _DAI.safeApprove(address(_cSwap), type(uint256).max);
+        // _DAI.safeApprove(address(_cSwap), type(uint256).max);
         _DAI.safeApprove(address(_sSwap), type(uint256).max);
 
         canSetPendingStrategy = true;

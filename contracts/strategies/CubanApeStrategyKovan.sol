@@ -32,12 +32,12 @@ interface IChainlink {
     function latestAnswer() external view returns (int256);
 }
 
-contract CubanApeStrategy is Ownable {
+contract CubanApeStrategyKovan is Ownable {
     using SafeERC20 for IERC20;
     using SafeMath for uint256;
 
-    IERC20 private constant _WETH = IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2); // 18 decimals
-    ISushiSwap private constant _sSwap = ISushiSwap(0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F);
+    IERC20 private constant _WETH = IERC20(0xd0A1E359811322d97991E03f863a0C30C2cF029C); // 18 decimals
+    ISushiSwap private constant _sSwap = ISushiSwap(0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506);
 
     // Farms
     IERC20 private constant _renDOGE = IERC20(0x3832d2F059E55934220881F831bE501D180671A7); // 8 decimals
@@ -52,7 +52,7 @@ contract CubanApeStrategy is Ownable {
     address public vault;
     uint256[] public weights; // [renDOGE, MATIC, AAVE, SUSHI, AXS, INJ, ALCX]
     uint256 private constant DENOMINATOR = 10000;
-    bool public isVesting;
+    bool public isVesting = true;
 
     event AmtToInvest(uint256 _amount); // In ETH
     // composition in ETH: renDOGE, MATIC, AAVE, SUSHI, AXS, INJ, ALCX
@@ -68,13 +68,13 @@ contract CubanApeStrategy is Ownable {
         weights = _weights;
 
         _WETH.safeApprove(address(_sSwap), type(uint256).max);
-        _renDOGE.safeApprove(address(_sSwap), type(uint256).max);
-        _MATIC.safeApprove(address(_sSwap), type(uint256).max);
-        _AAVE.safeApprove(address(_sSwap), type(uint256).max);
-        _SUSHI.safeApprove(address(_sSwap), type(uint256).max);
-        _AXS.safeApprove(address(_sSwap), type(uint256).max);
-        _INJ.safeApprove(address(_sSwap), type(uint256).max);
-        _ALCX.safeApprove(address(_sSwap), type(uint256).max);
+        // _renDOGE.safeApprove(address(_sSwap), type(uint256).max);
+        // _MATIC.safeApprove(address(_sSwap), type(uint256).max);
+        // _AAVE.safeApprove(address(_sSwap), type(uint256).max);
+        // _SUSHI.safeApprove(address(_sSwap), type(uint256).max);
+        // _AXS.safeApprove(address(_sSwap), type(uint256).max);
+        // _INJ.safeApprove(address(_sSwap), type(uint256).max);
+        // _ALCX.safeApprove(address(_sSwap), type(uint256).max);
     }
 
     /// @notice Function to set vault address that interact with this contract. This function can only execute once when deployment.
@@ -90,111 +90,111 @@ contract CubanApeStrategy is Ownable {
         _WETH.safeTransferFrom(address(vault), address(this), _amount);
         emit AmtToInvest(_amount);
 
-        // Due to the stack too deep error, pools are present in array
-        uint256[] memory _pools = getFarmsPool();
-        uint256 _totalPool = _amount.add(_getTotalPool());
-        // Calculate target composition for each farm
-        uint256[] memory _poolsTarget = new uint256[](7);
-        for (uint256 _i=0 ; _i<7 ; _i++) {
-            _poolsTarget[_i] = _totalPool.mul(weights[_i]).div(DENOMINATOR);
-        }
-        emit CurrentComposition(_pools[0], _pools[1], _pools[2], _pools[3], _pools[4], _pools[5], _pools[6]);
-        emit TargetComposition(_poolsTarget[0], _poolsTarget[1], _poolsTarget[2], _poolsTarget[3], _poolsTarget[4], _poolsTarget[5], _poolsTarget[6]);
-        // If there is no negative value(need to swap out from farm in order to drive back the composition)
-        // We proceed with invest funds into 7 farms and drive composition back to target
-        // Else, we invest all the funds into the farm that is furthest from target composition
-        if (
-            _poolsTarget[0] > _pools[0] &&
-            _poolsTarget[1] > _pools[1] &&
-            _poolsTarget[2] > _pools[2] &&
-            _poolsTarget[3] > _pools[3] &&
-            _poolsTarget[4] > _pools[4] &&
-            _poolsTarget[5] > _pools[5] &&
-            _poolsTarget[6] > _pools[6]
-        ) {
-            // Invest ETH into renDOGE
-            _invest(_poolsTarget[0].sub(_pools[0]), _renDOGE);
-            // Invest ETH into MATIC
-            _invest(_poolsTarget[1].sub(_pools[1]), _MATIC);
-            // Invest ETH into AAVE
-            _invest(_poolsTarget[2].sub(_pools[2]), _AAVE);
-            // Invest ETH into SUSHI
-            _invest(_poolsTarget[3].sub(_pools[3]), _SUSHI);
-            // Invest ETH into AXS
-            _invest(_poolsTarget[4].sub(_pools[4]), _AXS);
-            // Invest ETH into INJ
-            _invest(_poolsTarget[5].sub(_pools[5]), _INJ);
-            // Invest ETH into ALCX
-            _invest(_poolsTarget[6].sub(_pools[6]), _ALCX);
-        } else {
-            // Invest all the funds to the farm that is furthest from target composition
-            uint256 _furthest;
-            uint256 _farmIndex;
-            uint256 _diff;
-            // 1. Find out the farm that is furthest from target composition
-            if (_poolsTarget[0] > _pools[0]) {
-                _furthest = _poolsTarget[0].sub(_pools[0]);
-                _farmIndex = 0;
-            }
-            if (_poolsTarget[1] > _pools[1]) {
-                _diff = _poolsTarget[1].sub(_pools[1]);
-                if (_diff > _furthest) {
-                    _furthest = _diff;
-                    _farmIndex = 1;
-                }
-            }
-            if (_poolsTarget[2] > _pools[2]) {
-                _diff = _poolsTarget[2].sub(_pools[2]);
-                if (_diff > _furthest) {
-                    _furthest = _diff;
-                    _farmIndex = 2;
-                }
-            }
-            if (_poolsTarget[3] > _pools[3]) {
-                _diff = _poolsTarget[3].sub(_pools[3]);
-                if (_diff > _furthest) {
-                    _furthest = _diff;
-                    _farmIndex = 3;
-                }
-            }
-            if (_poolsTarget[4] > _pools[4]) {
-                _diff = _poolsTarget[4].sub(_pools[4]);
-                if (_diff > _furthest) {
-                    _furthest = _diff;
-                    _farmIndex = 4;
-                }
-            }
-            if (_poolsTarget[5] > _pools[5]) {
-                _diff = _poolsTarget[5].sub(_pools[5]);
-                if (_diff > _furthest) {
-                    _furthest = _diff;
-                    _farmIndex = 5;
-                }
-            }
-            if (_poolsTarget[6] > _pools[6]) {
-                _diff = _poolsTarget[6].sub(_pools[6]);
-                if (_diff > _furthest) {
-                    _furthest = _diff;
-                    _farmIndex = 6;
-                }
-            }
-            // 2. Put all the yield into the farm that is furthest from target composition
-            if (_farmIndex == 0) {
-                _invest(_amount, _renDOGE);
-            } else if (_farmIndex == 1) {
-                _invest(_amount, _MATIC);
-            } else if (_farmIndex == 2) {
-                _invest(_amount, _AAVE);
-            } else if (_farmIndex == 3) {
-                _invest(_amount, _SUSHI);
-            } else if (_farmIndex == 4) {
-                _invest(_amount, _AXS);
-            } else if (_farmIndex == 5) {
-                _invest(_amount, _INJ);
-            } else {
-                _invest(_amount, _ALCX);
-            }
-        }
+        // // Due to the stack too deep error, pools are present in array
+        // uint256[] memory _pools = getFarmsPool();
+        // uint256 _totalPool = _amount.add(_getTotalPool());
+        // // Calculate target composition for each farm
+        // uint256[] memory _poolsTarget = new uint256[](7);
+        // for (uint256 _i=0 ; _i<7 ; _i++) {
+        //     _poolsTarget[_i] = _totalPool.mul(weights[_i]).div(DENOMINATOR);
+        // }
+        // emit CurrentComposition(_pools[0], _pools[1], _pools[2], _pools[3], _pools[4], _pools[5], _pools[6]);
+        // emit TargetComposition(_poolsTarget[0], _poolsTarget[1], _poolsTarget[2], _poolsTarget[3], _poolsTarget[4], _poolsTarget[5], _poolsTarget[6]);
+        // // If there is no negative value(need to swap out from farm in order to drive back the composition)
+        // // We proceed with invest funds into 7 farms and drive composition back to target
+        // // Else, we invest all the funds into the farm that is furthest from target composition
+        // if (
+        //     _poolsTarget[0] > _pools[0] &&
+        //     _poolsTarget[1] > _pools[1] &&
+        //     _poolsTarget[2] > _pools[2] &&
+        //     _poolsTarget[3] > _pools[3] &&
+        //     _poolsTarget[4] > _pools[4] &&
+        //     _poolsTarget[5] > _pools[5] &&
+        //     _poolsTarget[6] > _pools[6]
+        // ) {
+        //     // Invest ETH into renDOGE
+        //     _invest(_poolsTarget[0].sub(_pools[0]), _renDOGE);
+        //     // Invest ETH into MATIC
+        //     _invest(_poolsTarget[1].sub(_pools[1]), _MATIC);
+        //     // Invest ETH into AAVE
+        //     _invest(_poolsTarget[2].sub(_pools[2]), _AAVE);
+        //     // Invest ETH into SUSHI
+        //     _invest(_poolsTarget[3].sub(_pools[3]), _SUSHI);
+        //     // Invest ETH into AXS
+        //     _invest(_poolsTarget[4].sub(_pools[4]), _AXS);
+        //     // Invest ETH into INJ
+        //     _invest(_poolsTarget[5].sub(_pools[5]), _INJ);
+        //     // Invest ETH into ALCX
+        //     _invest(_poolsTarget[6].sub(_pools[6]), _ALCX);
+        // } else {
+        //     // Invest all the funds to the farm that is furthest from target composition
+        //     uint256 _furthest;
+        //     uint256 _farmIndex;
+        //     uint256 _diff;
+        //     // 1. Find out the farm that is furthest from target composition
+        //     if (_poolsTarget[0] > _pools[0]) {
+        //         _furthest = _poolsTarget[0].sub(_pools[0]);
+        //         _farmIndex = 0;
+        //     }
+        //     if (_poolsTarget[1] > _pools[1]) {
+        //         _diff = _poolsTarget[1].sub(_pools[1]);
+        //         if (_diff > _furthest) {
+        //             _furthest = _diff;
+        //             _farmIndex = 1;
+        //         }
+        //     }
+        //     if (_poolsTarget[2] > _pools[2]) {
+        //         _diff = _poolsTarget[2].sub(_pools[2]);
+        //         if (_diff > _furthest) {
+        //             _furthest = _diff;
+        //             _farmIndex = 2;
+        //         }
+        //     }
+        //     if (_poolsTarget[3] > _pools[3]) {
+        //         _diff = _poolsTarget[3].sub(_pools[3]);
+        //         if (_diff > _furthest) {
+        //             _furthest = _diff;
+        //             _farmIndex = 3;
+        //         }
+        //     }
+        //     if (_poolsTarget[4] > _pools[4]) {
+        //         _diff = _poolsTarget[4].sub(_pools[4]);
+        //         if (_diff > _furthest) {
+        //             _furthest = _diff;
+        //             _farmIndex = 4;
+        //         }
+        //     }
+        //     if (_poolsTarget[5] > _pools[5]) {
+        //         _diff = _poolsTarget[5].sub(_pools[5]);
+        //         if (_diff > _furthest) {
+        //             _furthest = _diff;
+        //             _farmIndex = 5;
+        //         }
+        //     }
+        //     if (_poolsTarget[6] > _pools[6]) {
+        //         _diff = _poolsTarget[6].sub(_pools[6]);
+        //         if (_diff > _furthest) {
+        //             _furthest = _diff;
+        //             _farmIndex = 6;
+        //         }
+        //     }
+        //     // 2. Put all the yield into the farm that is furthest from target composition
+        //     if (_farmIndex == 0) {
+        //         _invest(_amount, _renDOGE);
+        //     } else if (_farmIndex == 1) {
+        //         _invest(_amount, _MATIC);
+        //     } else if (_farmIndex == 2) {
+        //         _invest(_amount, _AAVE);
+        //     } else if (_farmIndex == 3) {
+        //         _invest(_amount, _SUSHI);
+        //     } else if (_farmIndex == 4) {
+        //         _invest(_amount, _AXS);
+        //     } else if (_farmIndex == 5) {
+        //         _invest(_amount, _INJ);
+        //     } else {
+        //         _invest(_amount, _ALCX);
+        //     }
+        // }
     }
 
     /// @notice Function to invest funds into farm
@@ -329,7 +329,7 @@ contract CubanApeStrategy is Ownable {
     /// @notice Get total pool in USD (sum of 7 tokens)
     /// @return Total pool in USD (6 decimals)
     function getTotalPoolInUSD() public view returns (uint256) {
-        IChainlink _pricefeed = IChainlink(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419);  // ETH/USD
+        IChainlink _pricefeed = IChainlink(0x9326BFA02ADD2366b30bacB125260Af641031331); // ETH/USD
         return _getTotalPool().mul(uint256(_pricefeed.latestAnswer())).div(1e20);
     }
 
