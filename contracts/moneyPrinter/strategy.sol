@@ -8,6 +8,7 @@ import "../../interfaces/IUniswapV2Router02.sol";
 import "../../interfaces/IUniswapV2Pair.sol";
 import "../../interfaces/ILPPool.sol";
 import "../../interfaces/ILendingPool.sol";
+import "../../interfaces/IAAVEPOOL.sol";
 
 contract moneyPrinterStrategy {
     using SafeMath for uint;
@@ -16,6 +17,9 @@ contract moneyPrinterStrategy {
     IERC20 DAI; //TODO add addresses
     IERC20 USDC;
     IERC20 USDT;
+    IERC20 SUSHI;
+    IERC20 MATIC;
+    IERC20 QUICK;
 
     IUniswapV2Router02 public router;
     IUniswapV2Router02 public shushiRouter;
@@ -25,16 +29,57 @@ contract moneyPrinterStrategy {
     ILPPool USDCUSDTsushiswapPool;
     ILPPool USDCDAIsushiswapPool;
     ILendingPool aaveLendingPool;
-
+    IAAVEPOOL aavePool;
+    
     constructor() {}
 
-    function deposit(uint _amount, IERC20 _token) external {
+    function deposit(uint _amount, IERC20 _token) public {
         _swapToDepositTokens(_amount, _token);
-        _depositToSushi();
-        _depositToquickSwap();
-        _depositToCurve();
+
+        uint daiToDeposit = (DAI.balanceOf(address(this))).mul(3333).div(10000);
+        uint usdctoDeposit = (USDC.balanceOf(address(this))).mul(3333).div(10000);
+        uint usdtToDeposit = (USDT.balanceOf(address(this))).mul(3333).div(10000);
+        
+        _depositToSushi(daiToDeposit, usdctoDeposit, usdtToDeposit);
+        _depositToquickSwap(daiToDeposit, usdctoDeposit, usdtToDeposit);
+        _depositToCurve(daiToDeposit, usdctoDeposit, usdtToDeposit);
     }   
 
+    function harvest() external {
+        _harvestFromSushi();
+        _harvestFromQuick();
+        //_harvestFromCurve();// TODO
+
+        deposit(DAI.balanceOf(address(this)), DAI);
+    }
+
+    function _harvestFromSushi() internal {
+        USDCUSDTsushiswapPool.withdraw(USDCUSDTsushiswapPool.earned(address(this)));
+        USDCDAIsushiswapPool.withdraw(USDCDAIsushiswapPool.earned(address(this)));
+
+        address[] memory path = new address[](2);
+        path[0] = address(SUSHI);
+        path[1] = address(DAI);
+        router.swapExactTokensForTokens(SUSHI.balanceOf(address(this)), 0, path, address(this), block.timestamp);
+
+        path[0] = address(MATIC);
+        router.swapExactTokensForTokens(MATIC.balanceOf(address(this)), 0, path, address(this), block.timestamp);
+    }
+
+    function _harvestFromQuick() internal {
+        USDCUSDTQuickswapPool.withdraw(USDCUSDTQuickswapPool.earned(address(this)));
+        USDCDAIQuickswapPool.withdraw(USDCDAIQuickswapPool.earned(address(this)));
+
+        address[] memory path = new address[](2);
+        path[0] = address(QUICK);
+        path[1] = address(DAI);
+
+        router.swapExactTokensForTokens(QUICK.balanceOf(address(this)), 0, path, address(this), block.timestamp);
+    }
+
+    function _harvestFromCurve() internal {
+        //TODO
+    }
 
     function _swapToDepositTokens(uint _amount, IERC20 _token) internal {
         address [] memory path = new address[](2);
@@ -49,36 +94,34 @@ contract moneyPrinterStrategy {
         router.swapExactTokensForTokens(sourceTokenAmount,0,path,address(this),block.timestamp);
 
         //Deposit to AAvE to get aTokens //Check
-        aaveLendingPool.deposit(address(DAI), sourceTokenAmount, address(this), 0);
-        aaveLendingPool.deposit(address(USDC), sourceTokenAmount, address(this), 0);
-        aaveLendingPool.deposit(address(USDT), sourceTokenAmount, address(this), 0);
+        // aaveLendingPool.deposit(address(DAI), sourceTokenAmount, address(this), 0);
+        // aaveLendingPool.deposit(address(USDC), sourceTokenAmount, address(this), 0);
+        // aaveLendingPool.deposit(address(USDT), sourceTokenAmount, address(this), 0);
     }
 
-    function _depositToSushi() internal{
-        uint usdcBalance = USDC.balanceOf(address(this));
-        uint daiBalance = USDC.balanceOf(address(this));
-        uint usdtBalance = USDC.balanceOf(address(this));
-
-        (,,uint usdc_daipoolToken) = shushiRouter.addLiquidity(address(USDC), address(DAI), usdcBalance.mul(3333).div(10000), daiBalance.mul(3333).div(10000), 0, 0, address(this), block.timestamp);
-        (,,uint usdt_usdcpoolToken) = shushiRouter.addLiquidity(address(USDC), address(USDT), usdcBalance.mul(3333).div(10000), usdtBalance.mul(3333).div(10000), 0, 0, address(this), block.timestamp);
+    function _depositToSushi(uint _daiAmount, uint _usdcAmount, uint _usdtAmount) internal{
+        
+        (,,uint usdc_daipoolToken) = shushiRouter.addLiquidity(address(USDC), address(DAI), _usdcAmount, _daiAmount, 0, 0, address(this), block.timestamp);
+        (,,uint usdt_usdcpoolToken) = shushiRouter.addLiquidity(address(USDC), address(USDT), _usdcAmount, _usdtAmount, 0, 0, address(this), block.timestamp);
 
         USDCUSDTsushiswapPool.stake(usdt_usdcpoolToken);
         USDCDAIsushiswapPool.stake(usdc_daipoolToken);
     }
 
-    function _depositToquickSwap() internal{
-        uint usdcBalance = USDC.balanceOf(address(this));
-        uint daiBalance = USDC.balanceOf(address(this));
-        uint usdtBalance = USDC.balanceOf(address(this));
-
-        (,,uint usdc_daipoolToken) = quickSwapRouter.addLiquidity(address(USDC), address(DAI), usdcBalance.mul(3333).div(10000), daiBalance.mul(3333).div(10000), 0, 0, address(this), block.timestamp);
-        (,,uint usdt_usdcpoolToken) = quickSwapRouter.addLiquidity(address(USDC), address(USDT), usdcBalance.mul(3333).div(10000), usdtBalance.mul(3333).div(10000), 0, 0, address(this), block.timestamp);
+    function _depositToquickSwap(uint _daiAmount, uint _usdcAmount, uint _usdtAmount) internal{
+ 
+        (,,uint usdc_daipoolToken) = quickSwapRouter.addLiquidity(address(USDC), address(DAI), _usdcAmount, _daiAmount, 0, 0, address(this), block.timestamp);
+        (,,uint usdt_usdcpoolToken) = quickSwapRouter.addLiquidity(address(USDC), address(USDT), _usdcAmount, _usdtAmount, 0, 0, address(this), block.timestamp);
 
         USDCUSDTQuickswapPool.stake(usdt_usdcpoolToken);
         USDCDAIQuickswapPool.stake(usdc_daipoolToken);
     }
 
-    function _depositToCurve() internal {
-        //TODO
+    function _depositToCurve(uint _daiAmount, uint _usdcAmount, uint _usdtAmount) internal {
+        uint[3] memory amounts;
+        amounts[0] = _daiAmount;
+        amounts[1] = _usdcAmount;
+        amounts[2] = _usdtAmount;
+        aavePool.add_liquidity(amounts, 0, true);
     }
 }
