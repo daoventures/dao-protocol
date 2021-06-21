@@ -159,6 +159,14 @@ contract moneyPrinterStrategy {
         quickSwapRouter.removeLiquidity(address(DAI), address(USDT), DAIUSDTQuickLpToken, 0, 0, address(this), block.timestamp);
     }
 
+    function _withdrawFromCurve(uint _amount) internal {
+        uint lpTokenToWithdraw = rewardGauge.balanceOf(address(this)).mul(_amount).div(getValueInPool());
+        rewardGauge.withdraw(lpTokenToWithdraw);
+        uint[3] minAMmounts = new uint[](3);
+
+        curveAavePair.remove_liquidity(lpTokenToWithdraw, minAMmounts, true);
+    }
+
 /*     function _harvestFromSushi() internal {
         // USDCUSDTsushiswapPool.withdraw(USDCUSDTsushiswapPool.earned(address(this)));
         // USDCDAIsushiswapPool.withdraw(USDCDAIsushiswapPool.earned(address(this)));
