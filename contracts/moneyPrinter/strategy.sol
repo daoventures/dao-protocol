@@ -13,32 +13,35 @@ import "../../interfaces/ICurvePair.sol";
 import "../../interfaces/IGauge.sol";
 import "../../interfaces/WexPolyMaster.sol";
 
+import "hardhat/console.sol";
+
 contract moneyPrinterStrategy {
     using SafeMath for uint;
     using SafeERC20 for IERC20;
 
     address vault;
+    address treasury = 0x986a2fCa9eDa0e06fBf7839B89BfC006eE2a23Dd; //TODO change 
 
-    IERC20 DAI; //TODO add addresses
-    IERC20 USDC;
-    IERC20 USDT;
+    IERC20 DAI = IERC20(0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063); //TODO add addresses
+    IERC20 USDC = IERC20(0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174);
+    IERC20 USDT = IERC20(0xc2132D05D31c914a87C6611C10748AEb04B58e8F);
     IERC20 SUSHI;
-    IERC20 MATIC;
-    IERC20 CRV;
-    IERC20 QUICK;
-    IERC20 Wexpoly;
+    IERC20 MATIC = IERC20(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
+    IERC20 CRV = IERC20(0x172370d5Cd63279eFa6d502DAB29171933a610AF);
+    IERC20 QUICK = IERC20(0x831753DD7087CaC61aB5644b308642cc1c33Dc13);
+    IERC20 Wexpoly = IERC20(0x4c4BF319237D98a30A929A96112EfFa8DA3510EB);
     IERC20 curveLpToken = IERC20(0xE7a24EF0C5e95Ffb0f6684b813A78F2a3AD7D171);
 
     IUniswapV2Router02 public router;
-    IUniswapV2Router02 public WexPolyRouter;
-    IUniswapV2Router02 public quickSwapRouter;
+    IUniswapV2Router02 public WexPolyRouter = IUniswapV2Router02(0x3a1D87f206D12415f5b0A33E786967680AAb4f6d);
+    IUniswapV2Router02 public quickSwapRouter = IUniswapV2Router02(0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff);
     ILPPool USDCUSDTQuickswapPool;
     ILPPool USDCDAIQuickswapPool;
     ILPPool USDCUSDTsushiswapPool;
     ILPPool USDCDAIsushiswapPool;
-    ILPPool DAIUSDTQuickswapPool;
-    ILendingPool aaveLendingPool;
-    ICurvePair curveAavePair;
+    ILPPool DAIUSDTQuickswapPool = ILPPool(0x97Efe8470727FeE250D7158e6f8F63bb4327c8A2);
+    // ILendingPool aaveLendingPool;
+    ICurvePair curveAavePair = ICurvePair(0x445FE580eF8d70FF569aB36e80c647af338db351);
     IGauge rewardGauge = IGauge(0xe381C25de995d62b453aF8B931aAc84fcCaa7A62);
     ICurveFi public curveFi = ICurveFi(0x445FE580eF8d70FF569aB36e80c647af338db351);
     //lpToken 0xE7a24EF0C5e95Ffb0f6684b813A78F2a3AD7D171
@@ -48,8 +51,9 @@ contract moneyPrinterStrategy {
     //claim from gauge
 
 
-    WexPolyMaster public wexStakingContract;
-    
+    WexPolyMaster public wexStakingContract = WexPolyMaster(0xC8Bd86E5a132Ac0bf10134e270De06A8Ba317BFe);
+    IUniswapV2Pair public WexUSDT_USDCPair = IUniswapV2Pair(0x7242e19A0937ac33472febD69462668a4cf5bbC5);
+    IUniswapV2Pair public QuickDAI_USDTPair = IUniswapV2Pair(0x59153f27eeFE07E5eCE4f9304EBBa1DA6F53CA88);
         
 
     uint private daiInPool;
@@ -60,16 +64,37 @@ contract moneyPrinterStrategy {
     uint private maticInPool;
     uint usdtusdcWexPID = 9;
 
-    mapping(address => int128) curveIds;
+    mapping(IERC20 => int128) curveIds;
 
     constructor() {
-        // curveIds[0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48] = 2;
-        // curveIds[0xdAC17F958D2ee523a2206206994597C13D831ec7] = 3;
-        // curveIds[0x6B175474E89094C44Da98b954EedeAC495271d0F] = 1;
+        curveIds[DAI] = 0;
+        curveIds[USDC] = 1;
+        curveIds[USDT] = 2;
+        
+        DAI.approve(address(WexPolyRouter), type(uint).max);
+        DAI.approve(address(quickSwapRouter), type(uint).max);
+        DAI.approve(address(curveFi), type(uint).max);
+        USDC.approve(address(WexPolyRouter), type(uint).max);
+        USDC.approve(address(quickSwapRouter), type(uint).max);
+        USDC.approve(address(curveFi), type(uint).max);
+        USDT.approve(address(WexPolyRouter), type(uint).max);
+        USDT.approve(address(quickSwapRouter), type(uint).max);
+        USDT.approve(address(curveFi), type(uint).max);
+        CRV.approve(address(quickSwapRouter), type(uint).max);
+        MATIC.approve(address(quickSwapRouter), type(uint).max);
+        QUICK.approve(address(quickSwapRouter), type(uint).max);
+        Wexpoly.approve(address(quickSwapRouter), type(uint).max);
+        curveLpToken.approve(address(rewardGauge), type(uint).max);
+        curveLpToken.approve(address(curveAavePair), type(uint).max);
+        WexUSDT_USDCPair.approve(address(wexStakingContract), type(uint).max);
+        WexUSDT_USDCPair.approve(address(WexPolyRouter), type(uint).max);
+        QuickDAI_USDTPair.approve(address(DAIUSDTQuickswapPool), type(uint).max);
+        QuickDAI_USDTPair.approve(address(quickSwapRouter), type(uint).max);
     }
 
     function deposit(uint _amount, IERC20 _token) external {
         require(msg.sender == vault, "Only vault");
+        _token.safeTransferFrom(vault, address(this), _amount);
         _deposit(_amount, _token);
     }
 
@@ -79,7 +104,9 @@ contract moneyPrinterStrategy {
         uint daiToDeposit = (DAI.balanceOf(address(this))).div(2); //.mul(3333).div(10000);
         uint usdcToDeposit = (USDC.balanceOf(address(this))).div(2); //.mul(3333).div(10000);
         uint usdtToDeposit = (USDT.balanceOf(address(this))).div(3); //.mul(3333).div(10000);
-        
+        console.log("usdc", USDC.balanceOf(address(this)), usdcToDeposit);
+        console.log("dai", DAI.balanceOf(address(this)),daiToDeposit);
+        console.log("usdt", USDT.balanceOf(address(this)),usdtToDeposit);
         _depositToWexPoly(usdtToDeposit, usdcToDeposit);
         _depositToquickSwap(daiToDeposit, usdtToDeposit);
         _depositToCurve(daiToDeposit, usdtToDeposit, usdtToDeposit);
@@ -103,6 +130,7 @@ contract moneyPrinterStrategy {
         require(msg.sender == vault, "Only vault");
         _withdrawFromWexPoly(_amount);
         _withdrawFromquickSwap(_amount);
+        _withdrawFromCurve(_amount);
 
         uint daiBalance = DAI.balanceOf(address(this));
         uint usdcBalance = USDC.balanceOf(address(this));
@@ -113,25 +141,32 @@ contract moneyPrinterStrategy {
         daiInPool = daiInPool.sub(daiBalance);
 
         //convert to _token 
-        curveFi.exchange_underlying(curveIds[address(DAI)], curveIds[address(_token)], daiBalance, 0);
-        curveFi.exchange_underlying(curveIds[address(USDC)], curveIds[address(_token)], usdcBalance, 0);
-        curveFi.exchange_underlying(curveIds[address(USDT)], curveIds[address(_token)], usdtBalance, 0);
+        curveFi.exchange_underlying(curveIds[DAI], curveIds[_token], daiBalance, 0);
+        curveFi.exchange_underlying(curveIds[USDC], curveIds[_token], usdcBalance, 0);//TODO comment
+        curveFi.exchange_underlying(curveIds[USDT], curveIds[_token], usdtBalance, 0);
 
         _token.safeTransfer(address(vault), _token.balanceOf(address(this)));
     }
 
     function harvest() external {
+        require(msg.sender == vault, "only Vault");
+        //TODO 10% to treasury
         _harvestFromWexPoly();
         _harvestFromQuick();
         _harvestFromCurve();
 
+        DAI.transfer(treasury, DAI.balanceOf(address(this)).mul(10).div(100));//10% to treasury
         _deposit(DAI.balanceOf(address(this)), DAI);
     }
 
     function _withdrawFromWexPoly(uint _amount) internal {
-        uint USDCUSDTLpToken = wexStakingContract.pendingWex(usdtusdcWexPID, address(this)).mul(_amount).div(getValueInPool());
+        (uint amountStaked,,) = wexStakingContract.userInfo(usdtusdcWexPID, address(this));
+        
+        uint USDCUSDTLpToken = amountStaked.mul(_amount).div(getValueInPool());
         wexStakingContract.withdraw(usdtusdcWexPID, USDCUSDTLpToken, false);
-
+        console.log('USDCUSDTLpToken',USDCUSDTLpToken, amountStaked);
+        console.log('balance-USDCUSDTLpToken', WexUSDT_USDCPair.balanceOf(address(this)));
+        USDCUSDTLpToken = USDCUSDTLpToken > amountStaked ? amountStaked : USDCUSDTLpToken;
         WexPolyRouter.removeLiquidity(address(USDT), address(USDC), USDCUSDTLpToken, 0, 0, address(this), block.timestamp);
         
     }
@@ -153,16 +188,28 @@ contract moneyPrinterStrategy {
     } */
 
     function _withdrawFromquickSwap(uint _amount) internal {
-        uint DAIUSDTQuickLpToken = DAIUSDTQuickswapPool.balanceOf(address(this)).mul(_amount).div(getValueInPool());
+        console.log('DAIUSDTQuickswapPool', DAIUSDTQuickswapPool.balanceOf(address(this)), DAIUSDTQuickswapPool.balanceOf(address(this)).mul(_amount).div(getValueInPool()));
+        uint lpTokenBalance = DAIUSDTQuickswapPool.balanceOf(address(this));
+        uint DAIUSDTQuickLpToken = lpTokenBalance.mul(_amount).div(getValueInPool());
 
-        USDCUSDTQuickswapPool.withdraw(DAIUSDTQuickLpToken);
+        DAIUSDTQuickLpToken = DAIUSDTQuickLpToken > lpTokenBalance ? lpTokenBalance: DAIUSDTQuickLpToken;
+
+        DAIUSDTQuickswapPool.withdraw(DAIUSDTQuickLpToken);
         quickSwapRouter.removeLiquidity(address(DAI), address(USDT), DAIUSDTQuickLpToken, 0, 0, address(this), block.timestamp);
     }
 
     function _withdrawFromCurve(uint _amount) internal {
-        uint lpTokenToWithdraw = rewardGauge.balanceOf(address(this)).mul(_amount).div(getValueInPool());
+        uint lpTokenBalance = rewardGauge.balanceOf(address(this));
+        uint lpTokenToWithdraw = lpTokenBalance.mul(_amount).div(getValueInPool());
+        console.log('withdrawCurve', lpTokenBalance, lpTokenToWithdraw);
+
+        lpTokenToWithdraw = lpTokenToWithdraw > lpTokenBalance ? lpTokenBalance: lpTokenToWithdraw;
+
         rewardGauge.withdraw(lpTokenToWithdraw);
-        uint[3] minAMmounts = new uint[](3);
+        uint[3] memory minAMmounts; //
+        minAMmounts[0] = 0;
+        minAMmounts[1] = 0;
+        minAMmounts[2] = 0;
 
         curveAavePair.remove_liquidity(lpTokenToWithdraw, minAMmounts, true);
     }
@@ -190,13 +237,16 @@ contract moneyPrinterStrategy {
  */
     function _harvestFromWexPoly() internal {
         uint WexpolyEarned = wexStakingContract.pendingWex(usdtusdcWexPID, address(this));
-        wexStakingContract.claim(usdtusdcWexPID);
+        
+        if(WexpolyEarned > 0 ) {
+            wexStakingContract.claim(usdtusdcWexPID);
 
-        address[] memory path = new address[](2);
-        path[0] = address(Wexpoly);
-        path[1] = address(DAI);
-     
-        router.swapExactTokensForTokens(WexpolyEarned, 0, path, address(this), block.timestamp);
+            address[] memory path = new address[](2);
+            path[0] = address(Wexpoly);
+            path[1] = address(DAI);
+
+            quickSwapRouter.swapExactTokensForTokens(WexpolyEarned, 0, path, address(this), block.timestamp);
+        }        
     }
 /* 
     function _harvestFromQuick() internal {
@@ -223,41 +273,49 @@ contract moneyPrinterStrategy {
 
         uint quickBalance = QUICK.balanceOf(address(this));
         // quickInPool = quickInPool.add(quickBalance); //check decimals
+        if(quickBalance > 0) {
+            address[] memory path = new address[](2);
+            path[0] = address(QUICK);
+            path[1] = address(DAI);
 
-        address[] memory path = new address[](2);
-        path[0] = address(QUICK);
-        path[1] = address(DAI);
+            quickSwapRouter.swapExactTokensForTokens(quickBalance, 0, path, address(this), block.timestamp);
+        }
 
-        router.swapExactTokensForTokens(quickBalance, 0, path, address(this), block.timestamp);
     }
 
     function _harvestFromCurve() internal {
-        rewardGauge.claim_reward();
+        rewardGauge.claim_rewards(); 
 
         address[] memory path = new address[](2);
-        path[0] = address(MATIC);
         path[1] = address(DAI);
 
-        quickSwapRouter.swapExactTokensForTokens(MATIC.balanceOf(address(this)), 0, path, address(this), block.timestamp);
+        if(MATIC.balanceOf(address(this)) > 0) {
+            path[0] = address(MATIC);    
+            quickSwapRouter.swapExactTokensForTokens(MATIC.balanceOf(address(this)), 0, path, address(this), block.timestamp);
+        }
 
-        path[0] = address(CRV);
-        quickSwapRouter.swapExactTokensForTokens(CRV.balanceOf(address(this)), 0, path, address(this), block.timestamp);
+        if(CRV.balanceOf(address(this)) > 0) {
+            path[0] = address(CRV);
+            quickSwapRouter.swapExactTokensForTokens(CRV.balanceOf(address(this)), 0, path, address(this), block.timestamp);
+        }
+        
     }
 
     function _swapToDepositTokens(uint _amount, IERC20 _token) internal {
         if(_token == USDT) {
             //convert 27.77% to DAI and 22.77% to USDC
             uint amountToSwap = _amount.mul(2277).div(10000);
-            curveFi.exchange_underlying(curveIds[address(_token)], curveIds[address(DAI)], amountToSwap, 0);
-            curveFi.exchange_underlying(curveIds[address(_token)], curveIds[address(USDC)], amountToSwap, 0);
+            curveFi.exchange_underlying(curveIds[_token], curveIds[DAI], amountToSwap, 0);
+            curveFi.exchange_underlying(curveIds[_token], curveIds[USDC], amountToSwap, 0);
         }else  {
-            //convert 72.21% to USDT
+            //convert 44.44% to USDT
             //27.77% to DAI || USDC depending on the deposit token
-            uint amountToUSDT = _amount.mul(7221).div(10000);
+            uint amountToUSDT = _amount.mul(4444).div(10000);
 
-            address _tokenToGet = _token == DAI ? address(USDC) : address(DAI); //return USDC if sourceToken is DAI, else return DAI.
-            curveFi.exchange_underlying(curveIds[address(_token)], curveIds[address(USDT)], amountToUSDT, 0);
-            curveFi.exchange_underlying(curveIds[address(_token)], curveIds[_tokenToGet], _amount.sub(amountToUSDT), 0);
+            IERC20 _tokenToGet = _token == DAI ? USDC : DAI; //return USDC if sourceToken is DAI, else return DAI.
+            console.log('usdcBalance', USDC.balanceOf(address(this)), amountToUSDT);
+            curveFi.exchange_underlying(curveIds[_token], curveIds[USDT], amountToUSDT, 0);
+            curveFi.exchange_underlying(curveIds[_token], curveIds[_tokenToGet], _amount.mul(2777).div(10000), 0);
         }
     }
 
@@ -298,9 +356,9 @@ contract moneyPrinterStrategy {
         daiInPool = daiInPool.add(_daiAmount);
         usdtInPool = usdtInPool.add(_usdtAmount.mul(1e12));
         
-        (,,uint usdc_usdtpoolToken) = quickSwapRouter.addLiquidity(address(DAI), address(USDT), _daiAmount, _usdtAmount, 0, 0, address(this), block.timestamp);
+        (,,uint dai_usdtpoolToken) = quickSwapRouter.addLiquidity(address(DAI), address(USDT), _daiAmount, _usdtAmount, 0, 0, address(this), block.timestamp);
 
-        DAIUSDTQuickswapPool.stake(usdc_usdtpoolToken);
+        DAIUSDTQuickswapPool.stake(dai_usdtpoolToken);
     }
 /*     function _depositToSushi(uint _daiAmount, uint _usdcAmount, uint _usdtAmount) internal{
         daiInPool = daiInPool.add(_daiAmount);
@@ -340,19 +398,38 @@ contract moneyPrinterStrategy {
  */
 
     function _depositToCurve(uint _daiAmount, uint _usdcAmount, uint _usdtAmount) internal {
-        daiInPool = daiInPool.add(_daiAmount);
-        usdcInPool = usdcInPool.add(_usdcAmount.mul(1e12));
-        usdtInPool = usdtInPool.add(_usdtAmount.mul(1e12));
+
 
         uint[3] memory amounts;
         amounts[0] = _daiAmount;
         amounts[1] = _usdcAmount;
         amounts[2] = _usdtAmount;
+        console.log('Add Liquidity to Curve');
+        console.log(_daiAmount, _usdcAmount, _usdtAmount);
+        console.log(DAI.balanceOf(address(this)), USDC.balanceOf(address(this)), USDT.balanceOf(address(this)));
         
-        curveAavePair.add_liquidity(amounts, 0, true);
+        uint daiBalance = DAI.balanceOf(address(this));
+        uint usdcBalance = USDC.balanceOf(address(this));
+        uint usdtBalance = USDT.balanceOf(address(this));
+
+        _daiAmount = _daiAmount > daiBalance ? daiBalance : _daiAmount;
+        _usdcAmount = _usdcAmount > usdcBalance ? usdcBalance : _usdcAmount;
+        _usdtAmount = _usdtAmount > usdtBalance ? usdtBalance : _usdtAmount;
+
+        curveAavePair.add_liquidity([_daiAmount, _usdcAmount, _usdtAmount], 0, true);
         //deposit to gauge
         rewardGauge.deposit(curveLpToken.balanceOf(address(this)));
+
+        daiInPool = daiInPool.add(_daiAmount);
+        usdcInPool = usdcInPool.add(_usdcAmount.mul(1e12));
+        usdtInPool = usdtInPool.add(_usdtAmount.mul(1e12));
         
+    }
+
+    function setVault(address _vault) external {
+        //TODO add admin
+        require(vault == address(0), "Cannot set vault");
+        vault = _vault;
     }
 
     function getValueInPool() public view returns (uint) {
