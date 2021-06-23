@@ -33,6 +33,8 @@ interface IStrategy{
     function withdraw(uint _amount, IERC20 _token) external;
     function getValueInPool() external view returns (uint);
     function migrateFunds(IERC20 _withdrawnToken) external ;
+    function setAdmin(address _newAdmin)external ;
+    function setVault(address _vault) external ;
 }
 
 /// @title Contract to interact between user and strategy, and distribute daoToken
@@ -64,11 +66,16 @@ contract moneyPrinterVault is ERC20, Ownable {
 
     mapping(address => uint) public depositedAmount;
 
-    event MigrateFunds(
-        address indexed fromStrategy,
-        address indexed toStrategy,
-        uint256 amount
-    );
+
+    event Deposit(address indexed from, address indexed token, uint amount, uint sharesMinted);
+    event Withdraw(address indexed from, address indexed token, uint amount, uint sharesBurned);
+    event MigrateFunds(address indexed fromStrategy, address indexed newStrategy, uint amount);
+    event SetAdmin(address oldAdmin, address newAdmin);
+    event SetCommunityWallet(address oldCommunityWallet, address newCommunityWallet);
+    event SetTreasuryWallet(address oldTreasury, address newTreasury);
+    event SetPendingStrategy(address oldStrategy, address newStrategy);
+    event Harvest(uint timestamp);
+
 
     constructor(address _strategy, address _admin)
         ERC20("DAO Vault Low DAI", "dvlDAI")
@@ -134,7 +141,7 @@ contract moneyPrinterVault is ERC20, Ownable {
         strategy.deposit(_amount.sub(feeAmount), _token);
         
         _mint(msg.sender, shares);
-        // emit Deposit(msg.sender, address(_token), _amount, shares);
+        emit Deposit(msg.sender, address(_token), _amount, shares);
     }
 
     /**
@@ -170,18 +177,27 @@ contract moneyPrinterVault is ERC20, Ownable {
             _token.safeTransfer(treasuryWallet, _fee);
         }
 
-        _token.safeTransfer(msg.sender,  _token.balanceOf(address(this)));
+        uint amountToWithdraw = _token.balanceOf(address(this));
+        _token.safeTransfer(msg.sender,  amountToWithdraw);
+
+        emit Withdraw(msg.sender, address(_token), amountToWithdraw, _shares);
     }
 
     function harvest() external {
         require(msg.sender == admin, "onlyAdmin");
         strategy.harvest();
+
+        emit Harvest(block.timestamp);
     }
 
     function setPendingStrategy(address _pendingStrategy) external {
         require(msg.sender == admin, "Only admin");
         require(canSetPendingStrategy, "Cannot set strategy");
+        require(_pendingStrategy != address(0), "Invalid strategy address");
+
+        address oldStrategy = address(strategy);
         pendingStrategy = _pendingStrategy;
+        emit SetPendingStrategy(oldStrategy, _pendingStrategy);
     }
 
     function unlockMigrateFunds() external {
@@ -193,24 +209,43 @@ contract moneyPrinterVault is ERC20, Ownable {
     function migrateFunds(IERC20 _token) external {
         require(msg.sender == admin, "Only Admin");
         require(unlockTime <= block.timestamp && unlockTime.add(1 days) >= block.timestamp, "Function locked");
+        
+        address oldStrategy = address(strategy);
 
         strategy.migrateFunds(_token);
-
+        uint amount = _token.balanceOf(address(this));
 
         strategy = IStrategy(pendingStrategy);
-        strategy.deposit(_token.balanceOf(address(this)), _token);
+        strategy.setVault(address(this));
+        strategy.deposit(amount, _token);
 
         canSetPendingStrategy = true;
+        emit MigrateFunds(oldStrategy, pendingStrategy, amount);
+    }
+
+    function setAdmin(address _newAdmin) external {
+        require(msg.sender == admin, "Only Admin");
+        address oldAdmin = admin;
+        admin = _newAdmin;
+
+        strategy.setAdmin(_newAdmin);
+        emit SetAdmin(oldAdmin, _newAdmin);
     }
 
     function setTreasuryWallet(address _treasuryWallet) external {
         require(msg.sender == admin, "Only admin");
+        address oldTreasuryWallet = treasuryWallet;
         treasuryWallet = _treasuryWallet;
+
+        emit SetTreasuryWallet(oldTreasuryWallet, _treasuryWallet);
     }
 
     function setCommunityWallet(address _communityWallet) external {
         require(msg.sender == admin, "Only admin");
+        address oldCommunityWallet = communityWallet;
         communityWallet = _communityWallet;
+
+        emit SetCommunityWallet(oldCommunityWallet, communityWallet);
     }
 
     function setStrategist(address _strategist) external {

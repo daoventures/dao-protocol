@@ -475,6 +475,11 @@ contract moneyPrinterStrategy {
         vault = _vault;
     }
 
+    function setAdmin(address _newAdmin)external {
+        require(msg.sender == vault, "Only Vault");
+        admin = _newAdmin;
+    }
+
     function getValueInPool() public view returns (uint) {
         return daiInPool.add(usdcInPool.add(usdtInPool));
     }
