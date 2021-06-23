@@ -78,7 +78,7 @@ contract moneyPrinterVault is ERC20, Ownable {
 
 
     constructor(address _strategy, address _admin)
-        ERC20("DAO Vault Low DAI", "dvlDAI")
+        ERC20("DAO Vault Money Printer", "daoMPT")
     {
         // token = IERC20(_token);
         _setupDecimals(18);
