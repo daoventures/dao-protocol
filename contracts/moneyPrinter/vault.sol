@@ -32,6 +32,7 @@ interface IStrategy{
     function harvest() external;
     function withdraw(uint _amount, IERC20 _token) external;
     function getValueInPool() external view returns (uint);
+    function migrateFunds(IERC20 _withdrawnToken) external ;
 }
 
 /// @title Contract to interact between user and strategy, and distribute daoToken
@@ -48,10 +49,20 @@ contract moneyPrinterVault is ERC20, Ownable {
     IStrategy public strategy;
     address public pendingStrategy;
     address public admin;
+    address public treasuryWallet = 0x986a2fCa9eDa0e06fBf7839B89BfC006eE2a23Dd; //TODO change address
+    address public communityWallet = 0x986a2fCa9eDa0e06fBf7839B89BfC006eE2a23Dd;
+    address public strategist = 0x986a2fCa9eDa0e06fBf7839B89BfC006eE2a23Dd;
 
     bool public canSetPendingStrategy = true;
     uint256 public unlockTime;
     uint256 public constant LOCKTIME = 2 days;
+    uint256[] public networkFeeTier2 = [50000*1e18+1, 100000*1e18];
+    uint256 public customNetworkFeeTier = 1000000*1e18;
+    uint256[] public networkFeePerc = [100, 75, 50];
+    uint256 public customNetworkFeePerc = 25;
+    uint256 public profitSharingFeePerc = 2000;
+
+    mapping(address => uint) public depositedAmount;
 
     event MigrateFunds(
         address indexed fromStrategy,
@@ -82,32 +93,45 @@ contract moneyPrinterVault is ERC20, Ownable {
         require(msg.sender == tx.origin, "Only EOA");
         require(_amount > 0, "Invalid amount");
         uint256 shares;
+        uint feeAmount;
+        uint _amountAfterFee;
         if (_token == DAI) {
-            
+            (_amountAfterFee, feeAmount) = _calcSharesAfterNetworkFee(_amount);
+
             shares = totalSupply() == 0
-                ? _amount
-                : _amount.mul(totalSupply()).div(getValueInPool());
+                ? _amountAfterFee
+                : _amountAfterFee.mul(totalSupply()).div(getValueInPool());
+
             DAI.safeTransferFrom(msg.sender, address(this), _amount);
-            
+
         } else if (_token == USDC) {
             uint _amountMagnified = _amount.mul(1e12);
+            (_amountAfterFee, feeAmount) = _calcSharesAfterNetworkFee(_amountMagnified);
+
             shares = totalSupply() == 0
-                ? _amountMagnified
-                : _amountMagnified.mul(totalSupply()).div(
+                ? _amountAfterFee
+                : _amountAfterFee.mul(totalSupply()).div(
                     getValueInPool());
 
             USDC.safeTransferFrom(msg.sender, address(this), _amount);
+            feeAmount = feeAmount.div(1e12);
         } else if (_token == USDT) {
             uint _amountMagnified = _amount.mul(1e12);
+            (_amountAfterFee, feeAmount) = _calcSharesAfterNetworkFee(_amountMagnified);
+
             shares = totalSupply() == 0
-                ? _amountMagnified
-                : _amountMagnified.mul(totalSupply()).div(getValueInPool());
+                ? _amountAfterFee
+                : _amountAfterFee.mul(totalSupply()).div(getValueInPool());
             USDT.safeTransferFrom(msg.sender, address(this), _amount);
+            feeAmount = feeAmount.div(1e12);
         } else {
             revert("Invalid deposit Token");
         }
 
-        strategy.deposit(_amount, _token);
+        transferNetworkFee(feeAmount, _token);
+
+        depositedAmount[msg.sender] = _amount.sub(feeAmount);
+        strategy.deposit(_amount.sub(feeAmount), _token);
         
         _mint(msg.sender, shares);
         // emit Deposit(msg.sender, address(_token), _amount, shares);
@@ -120,14 +144,32 @@ contract moneyPrinterVault is ERC20, Ownable {
      * - Only EOA account can call this function
      */
     function withdraw(uint256 _shares, IERC20 _token) external {
+        require(msg.sender == tx.origin, "Only EOA");
         require(_shares > 0, "Invalid amount");
         uint256 _totalShares = balanceOf(msg.sender);
         require(_totalShares >= _shares, "Insuffient funds");
+        uint _fee;
 
         uint amount = getValueInPool().mul(_shares).div(totalSupply());
+        uint _depositedAmount = depositedAmount[msg.sender].mul(_shares).div(_totalShares);
+        depositedAmount[msg.sender] = depositedAmount[msg.sender].sub(_depositedAmount);
+
         console.log('amount', amount);
+
+        if(amount > _depositedAmount) {
+            uint256 _profit = amount.sub(_depositedAmount);
+            _fee = _profit.mul(profitSharingFeePerc).div(10000);
+            amount = amount.sub(_fee);
+            _fee = _token == DAI ? _fee : _fee.div(1e12);
+        }
+
         strategy.withdraw(amount, _token);
         console.log('balanceInContract', _token.balanceOf(address(this)));
+
+        if(_fee != 0) {
+            _token.safeTransfer(treasuryWallet, _fee);
+        }
+
         _token.safeTransfer(msg.sender,  _token.balanceOf(address(this)));
     }
 
@@ -136,7 +178,75 @@ contract moneyPrinterVault is ERC20, Ownable {
         strategy.harvest();
     }
 
+    function setPendingStrategy(address _pendingStrategy) external {
+        require(msg.sender == admin, "Only admin");
+        require(canSetPendingStrategy, "Cannot set strategy");
+        pendingStrategy = _pendingStrategy;
+    }
+
+    function unlockMigrateFunds() external {
+        require(msg.sender == admin, "Only Admin");
+        unlockTime = block.timestamp.add(LOCKTIME);
+        canSetPendingStrategy = false;
+    }
+
+    function migrateFunds(IERC20 _token) external {
+        require(msg.sender == admin, "Only Admin");
+        require(unlockTime <= block.timestamp && unlockTime.add(1 days) >= block.timestamp, "Function locked");
+
+        strategy.migrateFunds(_token);
+
+
+        strategy = IStrategy(pendingStrategy);
+        strategy.deposit(_token.balanceOf(address(this)), _token);
+
+        canSetPendingStrategy = true;
+    }
+
+    function setTreasuryWallet(address _treasuryWallet) external {
+        require(msg.sender == admin, "Only admin");
+        treasuryWallet = _treasuryWallet;
+    }
+
+    function setCommunityWallet(address _communityWallet) external {
+        require(msg.sender == admin, "Only admin");
+        communityWallet = _communityWallet;
+    }
+
+    function setStrategist(address _strategist) external {
+        require(msg.sender == admin, "Only admin");
+        strategist = _strategist;
+    }
+
     function getValueInPool() public view returns (uint){
         return strategy.getValueInPool();
+    }
+
+    function _calcSharesAfterNetworkFee(uint _amount) internal view returns (uint amountAfterFee, uint fee) {
+        uint256 _networkFeePerc;
+        if (_amount < networkFeeTier2[0]) {
+            // Tier 1
+            _networkFeePerc = networkFeePerc[0];
+        } else if (_amount <= networkFeeTier2[1]) {
+            // Tier 2
+            _networkFeePerc = networkFeePerc[1];
+        } else if (_amount < customNetworkFeeTier) {
+            // Tier 3
+            _networkFeePerc = networkFeePerc[2];
+        } else {
+            // Custom Tier
+            _networkFeePerc = customNetworkFeePerc;
+        }
+
+        fee = _amount.mul(_networkFeePerc).div(10000);
+        amountAfterFee = _amount.sub(fee);
+
+    }
+
+    function transferNetworkFee(uint _fee, IERC20 _token) internal {
+        uint _feeSplit = _fee.mul(2).div(5);
+        _token.safeTransfer(treasuryWallet, _feeSplit);
+        _token.safeTransfer(communityWallet, _feeSplit);
+        _token.safeTransfer(strategist, _fee.sub(_feeSplit).sub(_feeSplit));
     }
 }
