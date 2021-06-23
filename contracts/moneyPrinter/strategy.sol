@@ -21,8 +21,9 @@ contract moneyPrinterStrategy {
 
     address vault;
     address treasury = 0x986a2fCa9eDa0e06fBf7839B89BfC006eE2a23Dd; //TODO change 
+    address admin;
 
-    IERC20 DAI = IERC20(0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063); //TODO add addresses
+    IERC20 DAI = IERC20(0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063); 
     IERC20 USDC = IERC20(0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174);
     IERC20 USDT = IERC20(0xc2132D05D31c914a87C6611C10748AEb04B58e8F);
     IERC20 SUSHI;
@@ -66,7 +67,7 @@ contract moneyPrinterStrategy {
 
     mapping(IERC20 => int128) curveIds;
 
-    constructor() {
+    constructor(address _admin) {
         curveIds[DAI] = 0;
         curveIds[USDC] = 1;
         curveIds[USDT] = 2;
@@ -90,6 +91,8 @@ contract moneyPrinterStrategy {
         WexUSDT_USDCPair.approve(address(WexPolyRouter), type(uint).max);
         QuickDAI_USDTPair.approve(address(DAIUSDTQuickswapPool), type(uint).max);
         QuickDAI_USDTPair.approve(address(quickSwapRouter), type(uint).max);
+
+        admin = _admin;
     }
 
     function deposit(uint _amount, IERC20 _token) external {
@@ -141,8 +144,12 @@ contract moneyPrinterStrategy {
         daiInPool = daiInPool.sub(daiBalance);
 
         //convert to _token 
+
+        if(_token != DAI)
         curveFi.exchange_underlying(curveIds[DAI], curveIds[_token], daiBalance, 0);
-        curveFi.exchange_underlying(curveIds[USDC], curveIds[_token], usdcBalance, 0);//TODO comment
+        if(_token != USDC)
+        curveFi.exchange_underlying(curveIds[USDC], curveIds[_token], usdcBalance, 0);
+        if(_token != USDT)
         curveFi.exchange_underlying(curveIds[USDT], curveIds[_token], usdtBalance, 0);
 
         _token.safeTransfer(address(vault), _token.balanceOf(address(this)));
@@ -150,13 +157,48 @@ contract moneyPrinterStrategy {
 
     function harvest() external {
         require(msg.sender == vault, "only Vault");
-        //TODO 10% to treasury
+        
         _harvestFromWexPoly();
         _harvestFromQuick();
         _harvestFromCurve();
 
         DAI.transfer(treasury, DAI.balanceOf(address(this)).mul(10).div(100));//10% to treasury
         _deposit(DAI.balanceOf(address(this)), DAI);
+    }
+
+    function migrateFunds(IERC20 _token)external {
+        require(msg.sender == vault, "Only Vault");
+
+        //withdraw from wexPoly
+        (uint amountStaked,,) = wexStakingContract.userInfo(usdtusdcWexPID, address(this));
+        wexStakingContract.withdraw(usdtusdcWexPID, amountStaked, false);
+        WexPolyRouter.removeLiquidity(address(USDT), address(USDC), amountStaked, 0, 0, address(this), block.timestamp);
+
+        //withdraw from quickSwap
+        uint lpTokenBalanceQSwap = DAIUSDTQuickswapPool.balanceOf(address(this));
+        DAIUSDTQuickswapPool.withdraw(lpTokenBalanceQSwap);
+        quickSwapRouter.removeLiquidity(address(DAI), address(USDT), lpTokenBalanceQSwap, 0, 0, address(this), block.timestamp);
+
+        //withdraw from curve
+        uint lpTokenBalanceCurve = rewardGauge.balanceOf(address(this));
+        rewardGauge.withdraw(lpTokenBalanceCurve);
+        uint[3] memory minAMmounts; //
+        minAMmounts[0] = 0;
+        minAMmounts[1] = 0;
+        minAMmounts[2] = 0;
+        curveAavePair.remove_liquidity(lpTokenBalanceCurve, minAMmounts, true);
+
+
+        //swap and withdraw
+        if(_token != DAI)
+        curveFi.exchange_underlying(curveIds[DAI], curveIds[_token], DAI.balanceOf(address(this)), 0);
+        if(_token != USDC)
+        curveFi.exchange_underlying(curveIds[USDC], curveIds[_token], USDC.balanceOf(address(this)), 0);
+        if(_token != USDT)
+        curveFi.exchange_underlying(curveIds[USDT], curveIds[_token], USDT.balanceOf(address(this)), 0);
+
+        _token.safeTransfer(address(vault), _token.balanceOf(address(this)));
+
     }
 
     function _withdrawFromWexPoly(uint _amount) internal {
@@ -427,7 +469,8 @@ contract moneyPrinterStrategy {
     }
 
     function setVault(address _vault) external {
-        //TODO add admin
+        require(msg.sender == admin);
+        
         require(vault == address(0), "Cannot set vault");
         vault = _vault;
     }
