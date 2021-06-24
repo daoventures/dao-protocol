@@ -180,6 +180,7 @@ contract moneyPrinterVault is ERC20, Ownable {
         uint amountToWithdraw = _token.balanceOf(address(this));
         _token.safeTransfer(msg.sender,  amountToWithdraw);
 
+        _burn(msg.sender, _shares);
         emit Withdraw(msg.sender, address(_token), amountToWithdraw, _shares);
     }
 
