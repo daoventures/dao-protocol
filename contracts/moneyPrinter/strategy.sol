@@ -217,10 +217,11 @@ contract moneyPrinterStrategy {
         
         // uint USDCUSDTLpToken = amountStaked.mul(_amount).div(getValueInPool());
         uint USDCUSDTLpToken = amountStaked.mul(_amount).div(amountDeposited);
+        USDCUSDTLpToken = USDCUSDTLpToken > amountStaked ? amountStaked : USDCUSDTLpToken;
         wexStakingContract.withdraw(usdtusdcWexPID, USDCUSDTLpToken, false);
         console.log('USDCUSDTLpToken',USDCUSDTLpToken, amountStaked, amountDeposited);
         console.log('balance-USDCUSDTLpToken', WexUSDT_USDCPair.balanceOf(address(this)));
-        USDCUSDTLpToken = USDCUSDTLpToken > amountStaked ? amountStaked : USDCUSDTLpToken;
+        
         WexPolyRouter.removeLiquidity(address(USDT), address(USDC), USDCUSDTLpToken, 0, 0, address(this), block.timestamp);
         
     }
@@ -257,6 +258,7 @@ contract moneyPrinterStrategy {
     function _withdrawFromCurve(uint _amount) internal {
         uint lpTokenBalance = rewardGauge.balanceOf(address(this));
         // uint lpTokenToWithdraw = lpTokenBalance.mul(_amount).div(getValueInPool());
+        console.log('curve calculations', lpTokenBalance, _amount, amountDeposited);
         uint lpTokenToWithdraw = lpTokenBalance.mul(_amount).div(amountDeposited);
         console.log('withdrawCurve', lpTokenBalance, lpTokenToWithdraw);
 

@@ -110,7 +110,7 @@ contract moneyPrinterVault is ERC20, Ownable {
                 : _amountAfterFee.mul(totalSupply()).div(getValueInPool());
 
             DAI.safeTransferFrom(msg.sender, address(this), _amount);
-
+            depositedAmount[msg.sender] = _amountAfterFee;
         } else if (_token == USDC) {
             uint _amountMagnified = _amount.mul(1e12);
             (_amountAfterFee, feeAmount) = _calcSharesAfterNetworkFee(_amountMagnified);
@@ -121,6 +121,8 @@ contract moneyPrinterVault is ERC20, Ownable {
                     getValueInPool());
 
             USDC.safeTransferFrom(msg.sender, address(this), _amount);
+            
+            depositedAmount[msg.sender] = _amountAfterFee;
             feeAmount = feeAmount.div(1e12);
         } else if (_token == USDT) {
             uint _amountMagnified = _amount.mul(1e12);
@@ -130,6 +132,8 @@ contract moneyPrinterVault is ERC20, Ownable {
                 ? _amountAfterFee
                 : _amountAfterFee.mul(totalSupply()).div(getValueInPool());
             USDT.safeTransferFrom(msg.sender, address(this), _amount);
+
+            depositedAmount[msg.sender] = _amountAfterFee;
             feeAmount = feeAmount.div(1e12);
         } else {
             revert("Invalid deposit Token");
@@ -137,7 +141,6 @@ contract moneyPrinterVault is ERC20, Ownable {
 
         transferNetworkFee(feeAmount, _token);
 
-        depositedAmount[msg.sender] = _amount.sub(feeAmount);
         strategy.deposit(_amount.sub(feeAmount), _token);
         
         _mint(msg.sender, shares);
@@ -162,11 +165,11 @@ contract moneyPrinterVault is ERC20, Ownable {
         depositedAmount[msg.sender] = depositedAmount[msg.sender].sub(_depositedAmount);
 
         console.log('amount', amount);
-
+        console.log('_depositedAmount', _depositedAmount);
         if(amount > _depositedAmount) {
             uint256 _profit = amount.sub(_depositedAmount);
             _fee = _profit.mul(profitSharingFeePerc).div(10000);
-            amount = amount.sub(_fee);
+            // amount = amount.sub(_fee);
             _fee = _token == DAI ? _fee : _fee.div(1e12);
         }
 
