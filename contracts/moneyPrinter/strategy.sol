@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 pragma solidity 0.7.6;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -23,38 +24,32 @@ contract moneyPrinterStrategy {
     address treasury = 0x986a2fCa9eDa0e06fBf7839B89BfC006eE2a23Dd; //TODO change 
     address admin;
 
-    IERC20 DAI = IERC20(0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063); 
-    IERC20 USDC = IERC20(0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174);
-    IERC20 USDT = IERC20(0xc2132D05D31c914a87C6611C10748AEb04B58e8F);
-    IERC20 SUSHI;
-    IERC20 MATIC = IERC20(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
-    IERC20 CRV = IERC20(0x172370d5Cd63279eFa6d502DAB29171933a610AF);
-    IERC20 QUICK = IERC20(0x831753DD7087CaC61aB5644b308642cc1c33Dc13);
-    IERC20 Wexpoly = IERC20(0x4c4BF319237D98a30A929A96112EfFa8DA3510EB);
-    IERC20 curveLpToken = IERC20(0xE7a24EF0C5e95Ffb0f6684b813A78F2a3AD7D171);
+    IERC20 public constant DAI = IERC20(0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063); 
+    IERC20 public constant USDC = IERC20(0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174);
+    IERC20 public constant USDT = IERC20(0xc2132D05D31c914a87C6611C10748AEb04B58e8F);
+    //IERC20 public constant SUSHI; // not used
+    IERC20 public constant MATIC = IERC20(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
+    IERC20 public constant CRV = IERC20(0x172370d5Cd63279eFa6d502DAB29171933a610AF);
+    IERC20 public constant QUICK = IERC20(0x831753DD7087CaC61aB5644b308642cc1c33Dc13);
+    IERC20 public constant Wexpoly = IERC20(0x4c4BF319237D98a30A929A96112EfFa8DA3510EB);
+    IERC20 public constant curveLpToken = IERC20(0xE7a24EF0C5e95Ffb0f6684b813A78F2a3AD7D171);
 
-    IUniswapV2Router02 public router;
-    IUniswapV2Router02 public WexPolyRouter = IUniswapV2Router02(0x3a1D87f206D12415f5b0A33E786967680AAb4f6d);
-    IUniswapV2Router02 public quickSwapRouter = IUniswapV2Router02(0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff);
-    ILPPool USDCUSDTQuickswapPool;
-    ILPPool USDCDAIQuickswapPool;
-    ILPPool USDCUSDTsushiswapPool;
-    ILPPool USDCDAIsushiswapPool;
-    ILPPool DAIUSDTQuickswapPool = ILPPool(0x97Efe8470727FeE250D7158e6f8F63bb4327c8A2);
+    // IUniswapV2Router02 public router; //not used
+    IUniswapV2Router02 public constant WexPolyRouter = IUniswapV2Router02(0x3a1D87f206D12415f5b0A33E786967680AAb4f6d);
+    IUniswapV2Router02 public constant quickSwapRouter = IUniswapV2Router02(0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff);
+    // ILPPool USDCUSDTQuickswapPool; //notUsed
+    // ILPPool USDCDAIQuickswapPool; //notUsed
+    // ILPPool USDCUSDTsushiswapPool; //notUsed
+    // ILPPool USDCDAIsushiswapPool; //notUsed
+    ILPPool public constant DAIUSDTQuickswapPool = ILPPool(0x97Efe8470727FeE250D7158e6f8F63bb4327c8A2);
     // ILendingPool aaveLendingPool;
-    ICurvePair curveAavePair = ICurvePair(0x445FE580eF8d70FF569aB36e80c647af338db351);
-    IGauge rewardGauge = IGauge(0xe381C25de995d62b453aF8B931aAc84fcCaa7A62);
-    ICurveFi public curveFi = ICurveFi(0x445FE580eF8d70FF569aB36e80c647af338db351);
-    //lpToken 0xE7a24EF0C5e95Ffb0f6684b813A78F2a3AD7D171
-    //Gauge 0xe381C25de995d62b453aF8B931aAc84fcCaa7A62
-    //deposit to curve
-    //depositLP tokens to gauge
-    //claim from gauge
-
-
-    WexPolyMaster public wexStakingContract = WexPolyMaster(0xC8Bd86E5a132Ac0bf10134e270De06A8Ba317BFe);
-    IUniswapV2Pair public WexUSDT_USDCPair = IUniswapV2Pair(0x7242e19A0937ac33472febD69462668a4cf5bbC5);
-    IUniswapV2Pair public QuickDAI_USDTPair = IUniswapV2Pair(0x59153f27eeFE07E5eCE4f9304EBBa1DA6F53CA88);
+    ICurvePair public constant curveAavePair = ICurvePair(0x445FE580eF8d70FF569aB36e80c647af338db351);
+    IGauge public constant rewardGauge = IGauge(0xe381C25de995d62b453aF8B931aAc84fcCaa7A62);
+    ICurveFi public constant curveFi = ICurveFi(0x445FE580eF8d70FF569aB36e80c647af338db351);
+    
+    WexPolyMaster public constant wexStakingContract = WexPolyMaster(0xC8Bd86E5a132Ac0bf10134e270De06A8Ba317BFe);
+    IUniswapV2Pair public constant WexUSDT_USDCPair = IUniswapV2Pair(0x7242e19A0937ac33472febD69462668a4cf5bbC5);
+    IUniswapV2Pair public constant QuickDAI_USDTPair = IUniswapV2Pair(0x59153f27eeFE07E5eCE4f9304EBBa1DA6F53CA88);
         
 
     uint private daiInPool;
@@ -162,7 +157,7 @@ contract moneyPrinterStrategy {
         if(_token != USDT)
         curveFi.exchange_underlying(curveIds[USDT], curveIds[_token], usdtBalance, 0);
 
-        amountDeposited = _amount < amountDeposited ? amountDeposited.sub(_amount) : _amount;
+        amountDeposited = _amount < amountDeposited ? amountDeposited.sub(_amount) : 0;
         _token.safeTransfer(address(vault), _token.balanceOf(address(this)));
     }
 
@@ -362,8 +357,8 @@ contract moneyPrinterStrategy {
 
     function _swapToDepositTokens(uint _amount, IERC20 _token) internal {
         if(_token == USDT) {
-            //convert 27.77% to DAI and 22.77% to USDC
-            uint amountToSwap = _amount.mul(2277).div(10000);
+            //convert 27.77% to DAI and 27.77% to USDC
+            uint amountToSwap = _amount.mul(2777).div(10000);
             curveFi.exchange_underlying(curveIds[_token], curveIds[DAI], amountToSwap, 0);
             curveFi.exchange_underlying(curveIds[_token], curveIds[USDC], amountToSwap, 0);
         }else  {
