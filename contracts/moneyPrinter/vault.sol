@@ -43,10 +43,9 @@ contract moneyPrinterVault is ERC20, Ownable {
     using Address for address;
     using SafeMath for uint256;
 
-    IERC20 public token;
-    IERC20 DAI = IERC20(0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063); 
-    IERC20 USDC = IERC20(0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174);
-    IERC20 USDT = IERC20(0xc2132D05D31c914a87C6611C10748AEb04B58e8F);
+    IERC20 public DAI = IERC20(0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063); 
+    IERC20 public USDC = IERC20(0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174);
+    IERC20 public USDT = IERC20(0xc2132D05D31c914a87C6611C10748AEb04B58e8F);
 
     IStrategy public strategy;
     address public pendingStrategy;
@@ -80,7 +79,6 @@ contract moneyPrinterVault is ERC20, Ownable {
     constructor(address _strategy, address _admin)
         ERC20("DAO Vault Money Printer", "daoMPT")
     {
-        // token = IERC20(_token);
         _setupDecimals(18);
         strategy = IStrategy(_strategy);
         admin = _admin; 
@@ -169,7 +167,7 @@ contract moneyPrinterVault is ERC20, Ownable {
         if(amount > _depositedAmount) {
             uint256 _profit = amount.sub(_depositedAmount);
             _fee = _profit.mul(profitSharingFeePerc).div(10000);
-            // amount = amount.sub(_fee);
+            
             _fee = _token == DAI ? _fee : _fee.div(1e12);
         }
 
@@ -221,6 +219,12 @@ contract moneyPrinterVault is ERC20, Ownable {
 
         strategy = IStrategy(pendingStrategy);
         strategy.setVault(address(this));
+
+        //approve new strategy
+        DAI.safeApprove(pendingStrategy, type(uint).max);
+        USDC.safeApprove(pendingStrategy, type(uint).max);
+        USDT.safeApprove(pendingStrategy, type(uint).max);
+
         strategy.deposit(amount, _token);
 
         canSetPendingStrategy = true;
