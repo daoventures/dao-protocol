@@ -38,7 +38,7 @@ interface IStrategy{
 }
 
 /// @title Contract to interact between user and strategy, and distribute daoToken
-contract moneyPrinterVault is ERC20, Ownable {
+contract MoneyPrinterVault is ERC20, Ownable {
     using SafeERC20 for IERC20;
     using Address for address;
     using SafeMath for uint256;

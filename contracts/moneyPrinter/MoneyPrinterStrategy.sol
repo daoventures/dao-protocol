@@ -16,7 +16,7 @@ import "../../interfaces/WexPolyMaster.sol";
 
 import "hardhat/console.sol";
 
-contract moneyPrinterStrategy {
+contract MoneyPrinterStrategy {
     using SafeMath for uint;
     using SafeERC20 for IERC20;
 
