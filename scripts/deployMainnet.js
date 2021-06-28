@@ -4,11 +4,9 @@ async function main() {
     'ElonApeStrategy',
     deployer,
   )
-  const elonApeStrategy = await ElonApeStrategy.deploy(
-    '0xdd6c35aFF646B2fB7d8A8955Ccbe0994409348d0', // Community wallet
-    '0x54D003d451c973AD7693F825D5b78Adfc0efe934', // Strategist
-    '0x3f68A3c1023d736D8Be867CA49Cb18c543373B99', // Admin
-  )
+  const elonApeStrategy = await ElonApeStrategy.deploy([3333, 3333, 3333], {
+    gasLimit: 9000000,
+  })
   const ElonApeVault = await ethers.getContractFactory('ElonApeVault', deployer)
   const elonApeVault = await ElonApeVault.deploy(
     elonApeStrategy.address,

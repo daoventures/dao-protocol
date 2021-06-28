@@ -1,5 +1,5 @@
 # Deployment
-## Deploy on Hardhat mainnet fork (and show estimated gas fees)
+## Deploy on Hardhat Mainnet fork (and show estimated gas fees)
 ```
 npx hardhat run scripts/deployHardhat.js
 ```

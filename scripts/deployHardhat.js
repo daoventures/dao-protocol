@@ -1,6 +1,6 @@
-const axios = require("axios");
-const { ethers } = require("hardhat");
-require("dotenv").config();
+const axios = require('axios')
+const { ethers } = require('hardhat')
+require('dotenv').config()
 
 async function main() {
   let tx, receipt, totalGasUsed
@@ -9,7 +9,10 @@ async function main() {
     'ElonApeStrategy',
     deployer,
   )
-  const elonApeStrategy = await ElonApeStrategy.deploy([3333, 3333, 3333])
+  const elonApeStrategy = await ElonApeStrategy.deploy([3333, 3333, 3333], {
+    gasLimit: 9000000,
+  })
+  console.log(elonApeStrategy.deployTransaction.gasLimit.toString())
   receipt = await elonApeStrategy.deployTransaction.wait()
   totalGasUsed = new ethers.BigNumber.from(receipt.gasUsed.toString())
 
@@ -29,17 +32,27 @@ async function main() {
   receipt = await tx.wait()
   totalGasUsed = totalGasUsed.add(receipt.gasUsed.toString())
 
-  const res = await axios.get(`https://api.etherscan.io/api?module=gastracker&action=gasoracle&apikey=${process.env.ETHERSCAN_API_KEY}`);
-  const proposeGasPriceInGwei = ethers.BigNumber.from(res.data.result.ProposeGasPrice); // Can choose between SafeGasPrice, ProposeGasPrice and FastGasPrice
-  const proposeGasPrice = proposeGasPriceInGwei.mul("1000000000");
-  const deployerMainnet = new ethers.Wallet(process.env.PRIVATE_KEY);
-  const deployerBalance = await ethers.provider.getBalance(deployerMainnet.address);
+  const res = await axios.get(
+    `https://api.etherscan.io/api?module=gastracker&action=gasoracle&apikey=${process.env.ETHERSCAN_API_KEY}`,
+  )
+  const proposeGasPriceInGwei = ethers.BigNumber.from(
+    res.data.result.ProposeGasPrice,
+  ) // Can choose between SafeGasPrice, ProposeGasPrice and FastGasPrice
+  const proposeGasPrice = proposeGasPriceInGwei.mul('1000000000')
+  const deployerMainnet = new ethers.Wallet(process.env.PRIVATE_KEY)
+  const deployerBalance = await ethers.provider.getBalance(
+    deployerMainnet.address,
+  )
 
-  console.log("Estimated gas used:", totalGasUsed.toString())
+  console.log('Estimated gas used:', totalGasUsed.toString())
   console.log(`Estimated gas price(Etherscan): ${proposeGasPriceInGwei} Gwei`)
-  console.log(`Estimated deployment fee: ${ethers.utils.formatEther(totalGasUsed.mul(proposeGasPrice))} ETH`)
-  console.log(`Your balance: ${ethers.utils.formatEther(deployerBalance)} ETH`);
-  console.log("Please make sure you have enough ETH before deploy.");
+  console.log(
+    `Estimated deployment fee: ${ethers.utils.formatEther(
+      totalGasUsed.mul(proposeGasPrice),
+    )} ETH`,
+  )
+  console.log(`Your balance: ${ethers.utils.formatEther(deployerBalance)} ETH`)
+  console.log('Please make sure you have enough ETH before deploy.')
 }
 
 main()
