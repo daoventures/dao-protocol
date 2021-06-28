@@ -113,7 +113,7 @@ contract MoneyPrinterVault is ERC20, Ownable {
                 : _amountAfterFee.mul(totalSupply()).div(getValueInPool());
 
             DAI.safeTransferFrom(msg.sender, address(this), _amount);
-            depositedAmount[msg.sender] = _amountAfterFee;
+            depositedAmount[msg.sender] = depositedAmount[msg.sender].add(_amountAfterFee);
         } else if (_token == USDC) {
             uint _amountMagnified = _amount.mul(1e12);
             (_amountAfterFee, feeAmount) = _calcSharesAfterNetworkFee(_amountMagnified);
@@ -125,7 +125,7 @@ contract MoneyPrinterVault is ERC20, Ownable {
 
             USDC.safeTransferFrom(msg.sender, address(this), _amount);
             
-            depositedAmount[msg.sender] = _amountAfterFee;
+            depositedAmount[msg.sender] = depositedAmount[msg.sender].add(_amountAfterFee);
             feeAmount = feeAmount.div(1e12);
         } else if (_token == USDT) {
             uint _amountMagnified = _amount.mul(1e12);
@@ -136,7 +136,7 @@ contract MoneyPrinterVault is ERC20, Ownable {
                 : _amountAfterFee.mul(totalSupply()).div(getValueInPool());
             USDT.safeTransferFrom(msg.sender, address(this), _amount);
 
-            depositedAmount[msg.sender] = _amountAfterFee;
+            depositedAmount[msg.sender] = depositedAmount[msg.sender].add(_amountAfterFee);
             feeAmount = feeAmount.div(1e12);
         } else {
             revert("Invalid deposit Token");

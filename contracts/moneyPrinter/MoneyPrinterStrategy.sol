@@ -137,17 +137,17 @@ contract MoneyPrinterStrategy {
  */
     function withdraw(uint _amount, IERC20 _token) external {
         require(msg.sender == vault, "Only vault");
-        _withdrawFromWexPoly(_amount);
-        _withdrawFromquickSwap(_amount);
-        _withdrawFromCurve(_amount);
+        (uint usdtFromwSwap, uint usdcFromwSwap) = _withdrawFromWexPoly(_amount);
+        (uint daiFromQSwap, uint usdtFromQSwap) = _withdrawFromquickSwap(_amount);
+        (uint daiFromCurve, uint usdcFromCurve, uint usdtFromCurve) = _withdrawFromCurve(_amount);
 
-        uint daiBalance = DAI.balanceOf(address(this));
-        uint usdcBalance = USDC.balanceOf(address(this));
-        uint usdtBalance = USDT.balanceOf(address(this));
+        uint daiBalance =  daiFromQSwap.add(daiFromCurve);//DAI.balanceOf(address(this));
+        uint usdcBalance = usdcFromwSwap.add(usdcFromCurve);// USDC.balanceOf(address(this));
+        uint usdtBalance = usdtFromQSwap.add(usdtFromCurve).add(usdtFromwSwap);// USDT.balanceOf(address(this));
 
-        usdtInPool = usdtInPool.sub(usdtBalance);
-        usdcInPool = usdcInPool.sub(usdcBalance);
-        daiInPool = daiInPool.sub(daiBalance);
+        usdtInPool = usdtBalance < usdtInPool ? usdtInPool.sub(usdtBalance): 0;
+        usdcInPool = usdcBalance < usdcInPool ? usdcInPool.sub(usdcBalance): 0;
+        daiInPool = daiBalance < daiInPool ? daiInPool.sub(daiBalance): 0;
 
         //convert to _token 
 
@@ -208,7 +208,7 @@ contract MoneyPrinterStrategy {
 
     }
 
-    function _withdrawFromWexPoly(uint _amount) internal {
+    function _withdrawFromWexPoly(uint _amount) internal returns (uint _withdrawnUSDT, uint _withdrawnUSDC){
         (uint amountStaked,,) = wexStakingContract.userInfo(usdtusdcWexPID, address(this));
         
         // uint USDCUSDTLpToken = amountStaked.mul(_amount).div(getValueInPool());
@@ -218,7 +218,7 @@ contract MoneyPrinterStrategy {
         console.log('USDCUSDTLpToken',USDCUSDTLpToken, amountStaked, amountDeposited);
         console.log('balance-USDCUSDTLpToken', WexUSDT_USDCPair.balanceOf(address(this)));
         
-        WexPolyRouter.removeLiquidity(address(USDT), address(USDC), USDCUSDTLpToken, 0, 0, address(this), block.timestamp);
+        (_withdrawnUSDT, _withdrawnUSDC) = WexPolyRouter.removeLiquidity(address(USDT), address(USDC), USDCUSDTLpToken, 0, 0, address(this), block.timestamp);
         
     }
 
@@ -238,7 +238,7 @@ contract MoneyPrinterStrategy {
         USDCDAIQuickswapPool.withdraw(USDCDAIQuickLpToken);
     } */
 
-    function _withdrawFromquickSwap(uint _amount) internal {
+    function _withdrawFromquickSwap(uint _amount) internal returns(uint _withdrawnDAI, uint _withdrawnUSDT){
         console.log('DAIUSDTQuickswapPool', DAIUSDTQuickswapPool.balanceOf(address(this)), DAIUSDTQuickswapPool.balanceOf(address(this)).mul(_amount).div(getValueInPool()));
         uint lpTokenBalance = DAIUSDTQuickswapPool.balanceOf(address(this));
         // uint DAIUSDTQuickLpToken = lpTokenBalance.mul(_amount).div(getValueInPool());
@@ -248,10 +248,10 @@ contract MoneyPrinterStrategy {
         DAIUSDTQuickLpToken = DAIUSDTQuickLpToken > lpTokenBalance ? lpTokenBalance: DAIUSDTQuickLpToken;
         console.log('DAIUSDTQuickLpToken',DAIUSDTQuickLpToken);
         DAIUSDTQuickswapPool.withdraw(DAIUSDTQuickLpToken);
-        quickSwapRouter.removeLiquidity(address(DAI), address(USDT), DAIUSDTQuickLpToken, 0, 0, address(this), block.timestamp);
+        (_withdrawnDAI, _withdrawnUSDT) = quickSwapRouter.removeLiquidity(address(DAI), address(USDT), DAIUSDTQuickLpToken, 0, 0, address(this), block.timestamp);
     }
 
-    function _withdrawFromCurve(uint _amount) internal {
+    function _withdrawFromCurve(uint _amount) internal returns (uint _withdrawnDAI, uint _withdrawnUSDC, uint _withdrawnUSDT){
         uint lpTokenBalance = rewardGauge.balanceOf(address(this));
         // uint lpTokenToWithdraw = lpTokenBalance.mul(_amount).div(getValueInPool());
         console.log('curve calculations', lpTokenBalance, _amount, amountDeposited);
@@ -266,7 +266,11 @@ contract MoneyPrinterStrategy {
         minAMmounts[1] = 0;
         minAMmounts[2] = 0;
 
-        curveAavePair.remove_liquidity(lpTokenToWithdraw, minAMmounts, true);
+        uint[3] memory withdrawnAmounts = curveAavePair.remove_liquidity(lpTokenToWithdraw, minAMmounts, true);
+
+        _withdrawnDAI = withdrawnAmounts[0];
+        _withdrawnUSDC = withdrawnAmounts[1];
+        _withdrawnUSDT = withdrawnAmounts[2];
     }
 
 /*     function _harvestFromSushi() internal {
