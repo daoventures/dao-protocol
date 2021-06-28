@@ -23,11 +23,7 @@ async function main() {
   // Verify strategy contract
   await run('verify:verify', {
     address: strategyAddress,
-    constructorArguments: [
-      '0xdd6c35aFF646B2fB7d8A8955Ccbe0994409348d0', // Community wallet
-      '0x54D003d451c973AD7693F825D5b78Adfc0efe934', // Strategist
-      '0x3f68A3c1023d736D8Be867CA49Cb18c543373B99', // Admin
-    ],
+    constructorArguments: [[3333, 3333, 3333]],
     contract:
       'contracts/strategies/ElonApeStrategy.sol:ElonApeStrategy',
   })
