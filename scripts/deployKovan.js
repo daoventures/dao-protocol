@@ -4,9 +4,7 @@ async function main() {
     'ElonApeStrategyKovan',
     deployer,
   )
-  const elonApeStrategy = await ElonApeStrategy.deploy([3333, 3333, 3333], {
-    gasLimit: 9000000,
-  })
+  const elonApeStrategy = await ElonApeStrategy.deploy([3333, 3333, 3333])
   const ElonApeVault = await ethers.getContractFactory(
     'ElonApeVaultKovan',
     deployer,
@@ -18,6 +16,7 @@ async function main() {
     '0x3f68A3c1023d736D8Be867CA49Cb18c543373B99', // Admin
     '0x54D003d451c973AD7693F825D5b78Adfc0efe934', // Strategist
     '0xF82986F574803dfFd9609BE8b9c7B92f63a1410E', // Biconomy
+    { gasLimit: 9000000 },
   )
   await elonApeStrategy.setVault(elonApeVault.address)
 

@@ -9,13 +9,10 @@ async function main() {
     'ElonApeStrategy',
     deployer,
   )
-  const elonApeStrategy = await ElonApeStrategy.deploy([3333, 3333, 3333], {
-    gasLimit: 9000000,
-  })
-  console.log(elonApeStrategy.deployTransaction.gasLimit.toString())
+  const elonApeStrategy = await ElonApeStrategy.deploy([3333, 3333, 3333])
   receipt = await elonApeStrategy.deployTransaction.wait()
   totalGasUsed = new ethers.BigNumber.from(receipt.gasUsed.toString())
-
+  
   const ElonApeVault = await ethers.getContractFactory('ElonApeVault', deployer)
   const elonApeVault = await ElonApeVault.deploy(
     elonApeStrategy.address,
@@ -24,9 +21,11 @@ async function main() {
     '0x3f68A3c1023d736D8Be867CA49Cb18c543373B99', // Admin
     '0x54D003d451c973AD7693F825D5b78Adfc0efe934', // Strategist
     '0x84a0856b038eaAd1cC7E297cF34A7e72685A8693', // Biconomy
-  )
-  receipt = await elonApeVault.deployTransaction.wait()
-  totalGasUsed = totalGasUsed.add(receipt.gasUsed.toString())
+    { gasLimit: 9000000 },
+    )
+    console.log(elonApeVault.deployTransaction.gasLimit.toString())
+    receipt = await elonApeVault.deployTransaction.wait()
+    totalGasUsed = totalGasUsed.add(receipt.gasUsed.toString())
 
   tx = await elonApeStrategy.setVault(elonApeVault.address)
   receipt = await tx.wait()
