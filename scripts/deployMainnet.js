@@ -4,7 +4,9 @@ async function main() {
     'ElonApeStrategy',
     deployer,
   )
-  const elonApeStrategy = await ElonApeStrategy.deploy([3333, 3333, 3333])
+  const elonApeStrategy = await ElonApeStrategy.deploy([3333, 3333, 3333], {
+    gasLimit: 9000000,
+  })
   const ElonApeVault = await ethers.getContractFactory('ElonApeVault', deployer)
   const elonApeVault = await ElonApeVault.deploy(
     elonApeStrategy.address,

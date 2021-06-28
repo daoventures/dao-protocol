@@ -9,7 +9,9 @@ async function main() {
     'ElonApeStrategy',
     deployer,
   )
-  const elonApeStrategy = await ElonApeStrategy.deploy([3333, 3333, 3333])
+  const elonApeStrategy = await ElonApeStrategy.deploy([3333, 3333, 3333], {
+    gasLimit: 9000000,
+  })
   receipt = await elonApeStrategy.deployTransaction.wait()
   totalGasUsed = new ethers.BigNumber.from(receipt.gasUsed.toString())
   
@@ -23,7 +25,6 @@ async function main() {
     '0x84a0856b038eaAd1cC7E297cF34A7e72685A8693', // Biconomy
     { gasLimit: 9000000 },
     )
-    console.log(elonApeVault.deployTransaction.gasLimit.toString())
     receipt = await elonApeVault.deployTransaction.wait()
     totalGasUsed = totalGasUsed.add(receipt.gasUsed.toString())
 
