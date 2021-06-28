@@ -20,9 +20,9 @@ contract MoneyPrinterStrategy {
     using SafeMath for uint;
     using SafeERC20 for IERC20;
 
-    address vault;
-    address treasury = 0x986a2fCa9eDa0e06fBf7839B89BfC006eE2a23Dd; //TODO change 
-    address admin;
+    address public vault;
+    address public treasury;// = 0x986a2fCa9eDa0e06fBf7839B89BfC006eE2a23Dd; //TODO change 
+    address public admin;
 
     IERC20 public constant DAI = IERC20(0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063); 
     IERC20 public constant USDC = IERC20(0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174);
@@ -63,7 +63,7 @@ contract MoneyPrinterStrategy {
 
     mapping(IERC20 => int128) curveIds;
 
-    constructor(address _admin) {
+    constructor(address _admin, address _treasury) {
         curveIds[DAI] = 0;
         curveIds[USDC] = 1;
         curveIds[USDT] = 2;
@@ -89,6 +89,7 @@ contract MoneyPrinterStrategy {
         QuickDAI_USDTPair.approve(address(quickSwapRouter), type(uint).max);
 
         admin = _admin;
+        treasury= _treasury;
     }
 
     function deposit(uint _amount, IERC20 _token) external {
@@ -492,6 +493,11 @@ contract MoneyPrinterStrategy {
     function setAdmin(address _newAdmin)external {
         require(msg.sender == vault, "Only Vault");
         admin = _newAdmin;
+    }
+
+    function setTreasuryWallet(address _treasury)external {
+        require(msg.sender == vault, "Only Vault");
+        treasury = _treasury;
     }
 
     function getValueInPool() public view returns (uint) {

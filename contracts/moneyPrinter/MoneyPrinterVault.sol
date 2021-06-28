@@ -35,6 +35,7 @@ interface IStrategy{
     function migrateFunds(IERC20 _withdrawnToken) external ;
     function setAdmin(address _newAdmin)external ;
     function setVault(address _vault) external ;
+    function setTreasuryWallet(address _newTreasury) external;
 }
 
 /// @title Contract to interact between user and strategy, and distribute daoToken
@@ -50,9 +51,9 @@ contract MoneyPrinterVault is ERC20, Ownable {
     IStrategy public strategy;
     address public pendingStrategy;
     address public admin;
-    address public treasuryWallet = 0x986a2fCa9eDa0e06fBf7839B89BfC006eE2a23Dd; //TODO change address
-    address public communityWallet = 0x986a2fCa9eDa0e06fBf7839B89BfC006eE2a23Dd;
-    address public strategist = 0x986a2fCa9eDa0e06fBf7839B89BfC006eE2a23Dd;
+    address public treasuryWallet ; //= 0x986a2fCa9eDa0e06fBf7839B89BfC006eE2a23Dd; //TODO remove address
+    address public communityWallet ; //= 0x986a2fCa9eDa0e06fBf7839B89BfC006eE2a23Dd;
+    address public strategist ; //= 0x986a2fCa9eDa0e06fBf7839B89BfC006eE2a23Dd;
 
     bool public canSetPendingStrategy = true;
     uint256 public unlockTime;
@@ -76,12 +77,16 @@ contract MoneyPrinterVault is ERC20, Ownable {
     event Harvest(uint timestamp);
 
 
-    constructor(address _strategy, address _admin)
+    constructor(address _strategy, address _admin, address _treasuryWallet, address _communityWallet, address _strategist)
         ERC20("DAO Vault Money Printer", "daoMPT")
     {
         _setupDecimals(18);
         strategy = IStrategy(_strategy);
         admin = _admin; 
+
+        treasuryWallet = _treasuryWallet;
+        communityWallet = _communityWallet;
+        strategist = _strategist;
 
         DAI.safeApprove(_strategy, type(uint).max);
         USDC.safeApprove(_strategy, type(uint).max);
@@ -244,7 +249,8 @@ contract MoneyPrinterVault is ERC20, Ownable {
         require(msg.sender == admin, "Only admin");
         address oldTreasuryWallet = treasuryWallet;
         treasuryWallet = _treasuryWallet;
-
+        strategy.setTreasuryWallet(_treasuryWallet);
+        
         emit SetTreasuryWallet(oldTreasuryWallet, _treasuryWallet);
     }
 
