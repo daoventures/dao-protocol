@@ -21,7 +21,6 @@ contract MoneyPrinterStrategy is Ownable{
 
     address public vault;
     address public treasury;
-    address public admin;
 
     IERC20 public constant DAI = IERC20(0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063); 
     IERC20 public constant USDC = IERC20(0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174);
@@ -57,7 +56,7 @@ contract MoneyPrinterStrategy is Ownable{
 
     mapping(IERC20 => int128) curveIds;
 
-    constructor(address _admin, address _treasury) {
+    constructor(address _treasury) {
         curveIds[DAI] = 0;
         curveIds[USDC] = 1;
         curveIds[USDT] = 2;
@@ -82,7 +81,6 @@ contract MoneyPrinterStrategy is Ownable{
         QuickDAI_USDTPair.approve(address(DAIUSDTQuickswapPool), type(uint).max);
         QuickDAI_USDTPair.approve(address(quickSwapRouter), type(uint).max);
 
-        admin = _admin;
         treasury= _treasury;
     }
 
@@ -370,15 +368,11 @@ contract MoneyPrinterStrategy is Ownable{
     }
 
     function setVault(address _vault) external onlyOwner{
-        require(msg.sender == admin);
         console.log('vault', vault);
         require(vault == address(0), "Cannot set vault");
         vault = _vault;
     }
 
-    function setAdmin(address _newAdmin)external onlyVault {
-        admin = _newAdmin;
-    }
 
     function setTreasuryWallet(address _treasury)external onlyVault{
         treasury = _treasury;

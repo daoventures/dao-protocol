@@ -312,6 +312,7 @@ contract MoneyPrinterVault is ERC20, Ownable, BaseRelayRecipient {
     }
 
     function setTreasuryWallet(address _treasuryWallet) external onlyOwner {
+        require(_treasuryWallet != address(0), "Invalid Address");
         address oldTreasuryWallet = treasuryWallet;
         treasuryWallet = _treasuryWallet;
         strategy.setTreasuryWallet(_treasuryWallet);
@@ -320,6 +321,7 @@ contract MoneyPrinterVault is ERC20, Ownable, BaseRelayRecipient {
     }
 
     function setCommunityWallet(address _communityWallet) external onlyOwner{
+        require(_communityWallet != address(0), "Invalid Address");
         address oldCommunityWallet = communityWallet;
         communityWallet = _communityWallet;
 
@@ -327,6 +329,7 @@ contract MoneyPrinterVault is ERC20, Ownable, BaseRelayRecipient {
     }
 
     function setStrategist(address _strategist) external {
+        require(_strategist != address(0), "Invalid Address");
         require(msg.sender == owner() || msg.sender == strategist, "Only admin");
         strategist = _strategist;
     }
