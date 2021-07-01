@@ -51,6 +51,14 @@ const setup = async () => {
     return { moneyPrinterVault, moneyPrinterStrategy, USDT, USDC, DAI, treasury, deployer, unlockedUser, admin, unlockedUser2/* sampleContract */ }
 }
 
+
+const increaseTime = async (_timeInMilliSeconds)=> {
+    let result = await network.provider.request({
+        method: "evm_increaseTime",
+        params: [_timeInMilliSeconds]
+    })
+}
+
 describe("Money Printer - USDC", () => {
 
     it('Should deploy correctly', async() => {
@@ -87,32 +95,35 @@ describe("Money Printer - USDC", () => {
 })
 
 describe("Owner functions", async() => {
-    const {moneyPrinterVault, moneyPrinterStrategy, admin, deployer, unlockedUser} = await setup()
     it('Should fail when owner is not calling', async() => {
-        await expect(moneyPrinterVault.connect(unlockedUser).setPendingStrategy(moneyPrinterStrategy.address)).to.be.revertedWith("Only Owner")
-        await expect(moneyPrinterVault.setAdmin(admin.address)).to.be.revertedWith("Only Owner")
-        await expect(moneyPrinterVault.setTreasuryWallet(admin.address)).to.be.revertedWith("Only Owner")
-        await expect(moneyPrinterVault.setCommunityWallet(admin.address)).to.be.revertedWith("Only Owner")
+        const {moneyPrinterVault, moneyPrinterStrategy, admin, deployer, unlockedUser} = await setup()
+        await expect( moneyPrinterVault.connect(unlockedUser).setPendingStrategy(moneyPrinterStrategy.address)).to.be.revertedWith("Ownable: caller is not the owner")
+        await expect( moneyPrinterVault.connect(unlockedUser).setAdmin(admin.address)).to.be.revertedWith("Ownable: caller is not the owner")
+        await expect( moneyPrinterVault.connect(unlockedUser).setTreasuryWallet(admin.address)).to.be.revertedWith("Ownable: caller is not the owner")
+        await expect( moneyPrinterVault.connect(unlockedUser).setCommunityWallet(admin.address)).to.be.revertedWith("Ownable: caller is not the owner")
     })
 
     it('Should work correctly with Owner', async() => {
+        const {moneyPrinterVault, moneyPrinterStrategy, admin, deployer, unlockedUser} = await setup()
         await moneyPrinterVault.connect(deployer).setPendingStrategy(moneyPrinterStrategy.address)
-        await moneyPrinterVault.setAdmin(admin.address)
-        await moneyPrinterVault.setTreasuryWallet(admin.address)
-        await moneyPrinterVault.setCommunityWallet(admin.address)
+        await moneyPrinterVault.connect(deployer).setAdmin(admin.address)
+        await moneyPrinterVault.connect(deployer).setTreasuryWallet(admin.address)
+        await moneyPrinterVault.connect(deployer).setCommunityWallet(admin.address)
     })
 })
 
 describe("Admin functions", async() => {
-    const {moneyPrinterVault, moneyPrinterStrategy, admin, deployer, unlockedUser} = await setup()
-    it('Should fail when owner is not admin', async() => {
-        await expect(moneyPrinterVault.connect(admin).yield(moneyPrinterStrategy.address)).to.be.revertedWith("Only Admin")
-        await expect(moneyPrinterVault.harvest()).to.be.revertedWith("Only Admin")
+    it('Should fail when admin is not calling', async() => {
+        const {moneyPrinterVault, moneyPrinterStrategy, admin, deployer, unlockedUser} = await setup()
+        await expect( moneyPrinterVault.connect(deployer).yield()).to.be.revertedWith("Only Admin")
+        // await expect(await moneyPrinterVault.yield()).to.be.revertedWith("Only Admin")
     })
 
     it('Should work correctly with admin', async() => {
-        await moneyPrinterVault.connect(admin).yield(moneyPrinterStrategy.address)
-        await moneyPrinterVault.harvest().to.be.revertedWith("Only Admin")
+        const {moneyPrinterVault, moneyPrinterStrategy, admin, deployer, unlockedUser, USDC} = await setup()
+        await moneyPrinterVault.connect(unlockedUser).deposit(ethers.utils.parseUnits("100", 6), USDC.address)
+        await increaseTime(3600000)
+        await moneyPrinterVault.connect(admin).yield()
     })
 })
 
@@ -131,9 +142,9 @@ describe("EmergencyWithdraw", async() => {
 
     it('Should not allow other functions during emergency', async() => {
         const {moneyPrinterVault, moneyPrinterStrategy, admin, USDC, unlockedUser, deployer} = await setup()
-        await expect(await moneyPrinterVault.connect(unlockedUser).deposit(ethers.utils.parseUnits("100", 6), USDC.address)).to.be.revertedWith("Cannot deposit during emergency")
-        await expect(await moneyPrinterVault.connect(admin).yield()).to.be.revertedWith("Cannot call during emergency")
-        await expect(await moneyPrinterVault.connect(deployer).migrateFunds(USDC.address)).to.be.revertedWith("Cannot call during emergency")
+        await expect( moneyPrinterVault.connect(unlockedUser).deposit(ethers.utils.parseUnits("100", 6), USDC.address)).to.be.revertedWith("Cannot deposit during emergency")
+        await expect( moneyPrinterVault.connect(admin).yield()).to.be.revertedWith("Cannot call during emergency")
+        await expect( moneyPrinterVault.connect(deployer).migrateFunds(USDC.address)).to.be.revertedWith("Cannot call during emergency")
     })
 
     it('Should remove emergency on reInvest', async() => {
@@ -142,5 +153,15 @@ describe("EmergencyWithdraw", async() => {
         await moneyPrinterVault.connect(admin).emergencyWithdraw(USDC.address)
         await moneyPrinterVault.connect(deployer).reInvest()
         await moneyPrinterVault.connect(unlockedUser).deposit(ethers.utils.parseUnits("100", 6), USDC.address)
+    })
+})
+
+describe("Normal flow", async() => {
+    it('Should deposit, yield, withdraw correctly', async() => {
+        const {moneyPrinterVault, moneyPrinterStrategy, admin, USDC, unlockedUser, deployer} = await setup()
+        await moneyPrinterVault.connect(unlockedUser).deposit(ethers.utils.parseUnits("100", 6), USDC.address)
+        await increaseTime(3600000)
+        await moneyPrinterVault.connect(admin).yield()
+        await moneyPrinterVault.connect(unlockedUser).withdraw(moneyPrinterVault.balanceOf(unlockedUser.address), USDC.address)
     })
 })
