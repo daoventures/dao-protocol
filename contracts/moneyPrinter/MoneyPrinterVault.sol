@@ -35,7 +35,6 @@ interface IStrategy{
     function withdraw(uint _amount, IERC20 _token) external;
     function getValueInPool() external view returns (uint);
     function migrateFunds(IERC20 _withdrawnToken) external ;
-    function setAdmin(address _newAdmin)external ;
     function setVault(address _vault) external ;
     function setTreasuryWallet(address _newTreasury) external;
 }
@@ -309,7 +308,6 @@ contract MoneyPrinterVault is ERC20, Ownable, BaseRelayRecipient {
         address oldAdmin = admin;
         admin = _newAdmin;
 
-        strategy.setAdmin(_newAdmin);
         emit SetAdmin(oldAdmin, _newAdmin);
     }
 
