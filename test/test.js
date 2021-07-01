@@ -32,7 +32,6 @@ describe("DAO Stablecoins Strategy", () => {
         const USDTContract = new ethers.Contract(USDTAddress, IERC20_ABI, unlockedSigner);
         const USDCContract = new ethers.Contract(USDCAddress, IERC20_ABI, unlockedSigner);
         const DAIContract = new ethers.Contract(DAIAddress, IERC20_ABI, unlockedSigner);
-        const WETHContract = new ethers.Contract(WETHAddress, IERC20_ABI, unlockedSigner);
         await USDTContract.transfer(client.address, ethers.utils.parseUnits("20000", 6))
         await USDCContract.transfer(client.address, ethers.utils.parseUnits("20000", 6))
         await DAIContract.transfer(client.address, ethers.utils.parseEther("20000"))
@@ -117,14 +116,16 @@ describe("DAO Stablecoins Strategy", () => {
 
         // Emergency withdraw
         // const cvStake = new ethers.Contract("0x22eE18aca7F3Ee920D01F25dA85840D12d98E8Ca", ["function balanceOf(address) external view returns (uint)"], deployer)
-        // console.log((await cvStake.balanceOf(earnStrategy.address)).toString()) // 27087.758562398130458430
-        // console.log((await WETHContract.balanceOf(earnStrategy.address)).toString())
-        // await earnVault.connect(admin).emergencyWithdraw()
         // console.log((await cvStake.balanceOf(earnStrategy.address)).toString())
-        // console.log((await WETHContract.balanceOf(earnStrategy.address)).toString()) // 13.228547461526512468
-        // await earnVault.connect(admin).reinvest()
+        // console.log(ethers.utils.formatUnits(await USDTContract.balanceOf(earnVault.address), 6))
+        await earnVault.connect(admin).emergencyWithdraw()
         // console.log((await cvStake.balanceOf(earnStrategy.address)).toString())
-        // console.log((await WETHContract.balanceOf(earnStrategy.address)).toString())
+        // console.log(ethers.utils.formatUnits(await USDTContract.balanceOf(earnVault.address), 6))
+        // console.log(ethers.utils.formatUnits(await USDCContract.balanceOf(earnVault.address), 6))
+        // console.log(ethers.utils.formatEther(await DAIContract.balanceOf(earnVault.address)))
+        await earnVault.connect(admin).reinvest()
+        // console.log((await cvStake.balanceOf(earnStrategy.address)).toString())
+        // console.log(ethers.utils.formatUnits(await USDTContract.balanceOf(earnVault.address), 6))
 
         const withdrawAmt = await earnVault.balanceOf(client.address)
         await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 2)
@@ -140,18 +141,12 @@ describe("DAO Stablecoins Strategy", () => {
         // await earnStrategy2.setVault(earnVault.address)
         // await earnVault.setPendingStrategy(earnStrategy2.address)
         // await earnVault.connect(admin).emergencyWithdraw()
-        // await earnVault.unlockMigrateFunds()
+        // await earnVault.unlockInvestNewStrategy()
         // network.provider.send("evm_increaseTime", [86400*2])
-        // await earnStrategy.approveMigrate()
-        // const WETHBalance = await WETHContract.balanceOf(earnStrategy.address)
-        // // console.log(WETHBalance.toString())
-        // await earnVault.migrateFunds()
-        // expect(await WETHContract.balanceOf(earnStrategy.address)).to.equal(0)
-        // expect(await WETHContract.balanceOf(earnStrategy2.address)).to.equal(WETHBalance)
+        // await earnVault.investNewStrategy()
         // await earnVault.connect(admin).addPool(4) // susdv2
         // await earnVault.connect(admin).switchPool(4)
         // await earnVault.connect(admin).reinvest()
-        // expect(await WETHContract.balanceOf(earnStrategy.address)).to.equal(0)
         // await earnVault.connect(client).deposit(ethers.utils.parseUnits("10000", 6), 0)
         // await earnVault.connect(client).deposit(ethers.utils.parseUnits("10000", 6), 1)
         // await earnVault.connect(client).deposit(ethers.utils.parseUnits("10000", 18), 2)
@@ -181,362 +176,365 @@ describe("DAO Stablecoins Strategy", () => {
         // expect(await earnVault.treasuryWallet()).to.equal(sampleAddress)
         // await earnVault.setCommunityWallet(sampleAddress)
         // expect(await earnVault.communityWallet()).to.equal(sampleAddress)
+        // expect(await earnStrategy.communityWallet()).to.equal(sampleAddress)
         // await earnVault.setBiconomy(sampleAddress)
         // expect(await earnVault.trustedForwarder()).to.equal(sampleAddress)
         // await earnVault.setAdmin(sampleAddress)
         // expect(await earnVault.admin()).to.equal(sampleAddress)
+        // expect(await earnStrategy.admin()).to.equal(sampleAddress)
         // await earnVault.connect(strategist).setStrategist(sampleAddress)
         // expect(await earnVault.strategist()).to.equal(sampleAddress)
+        // expect(await earnStrategy.strategist()).to.equal(sampleAddress)
     })
 
-    it("should work for busdv2", async () => {
-        const [deployer, client, admin, strategist, biconomy, treasury, community] = await ethers.getSigners()
-        const EarnStrategy = await ethers.getContractFactory("EarnStrategy", deployer)
-        const earnStrategy = await EarnStrategy.deploy()
-        const ZapReward = await ethers.getContractFactory("ZapReward", deployer)
-        const zapReward = await ZapReward.deploy(earnStrategy.address)
-        await earnStrategy.setZapReward(zapReward.address)
-        const EarnVault = await ethers.getContractFactory("EarnVault", deployer)
-        const earnVault = await EarnVault.deploy(earnStrategy.address, treasury.address, community.address, admin.address, strategist.address, biconomy.address)
-        await earnStrategy.setVault(earnVault.address)
+    // it("should work for busdv2", async () => {
+    //     const [deployer, client, admin, strategist, biconomy, treasury, community] = await ethers.getSigners()
+    //     const EarnStrategy = await ethers.getContractFactory("EarnStrategy", deployer)
+    //     const earnStrategy = await EarnStrategy.deploy()
+    //     const ZapReward = await ethers.getContractFactory("ZapReward", deployer)
+    //     const zapReward = await ZapReward.deploy(earnStrategy.address)
+    //     await earnStrategy.setZapReward(zapReward.address)
+    //     const EarnVault = await ethers.getContractFactory("EarnVault", deployer)
+    //     const earnVault = await EarnVault.deploy(earnStrategy.address, treasury.address, community.address, admin.address, strategist.address, biconomy.address)
+    //     await earnStrategy.setVault(earnVault.address)
 
-        await network.provider.request({method: "hardhat_impersonateAccount",params: [unlockedAddress],});
-        const unlockedSigner = await ethers.getSigner(unlockedAddress);
-        const USDTContract = new ethers.Contract(USDTAddress, IERC20_ABI, unlockedSigner);
-        const USDCContract = new ethers.Contract(USDCAddress, IERC20_ABI, unlockedSigner);
-        const DAIContract = new ethers.Contract(DAIAddress, IERC20_ABI, unlockedSigner);
-        await USDTContract.transfer(client.address, ethers.utils.parseUnits("20000", 6))
-        await USDCContract.transfer(client.address, ethers.utils.parseUnits("20000", 6))
-        await DAIContract.transfer(client.address, ethers.utils.parseEther("20000"))
-        await USDTContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
-        await USDCContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
-        await DAIContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
+    //     await network.provider.request({method: "hardhat_impersonateAccount",params: [unlockedAddress],});
+    //     const unlockedSigner = await ethers.getSigner(unlockedAddress);
+    //     const USDTContract = new ethers.Contract(USDTAddress, IERC20_ABI, unlockedSigner);
+    //     const USDCContract = new ethers.Contract(USDCAddress, IERC20_ABI, unlockedSigner);
+    //     const DAIContract = new ethers.Contract(DAIAddress, IERC20_ABI, unlockedSigner);
+    //     await USDTContract.transfer(client.address, ethers.utils.parseUnits("20000", 6))
+    //     await USDCContract.transfer(client.address, ethers.utils.parseUnits("20000", 6))
+    //     await DAIContract.transfer(client.address, ethers.utils.parseEther("20000"))
+    //     await USDTContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
+    //     await USDCContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
+    //     await DAIContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
 
-        await earnVault.connect(admin).addPool(34) // busdv2
-        await earnVault.connect(admin).switchPool(34)
+    //     await earnVault.connect(admin).addPool(34) // busdv2
+    //     await earnVault.connect(admin).switchPool(34)
 
-        await earnVault.connect(client).deposit(ethers.utils.parseUnits("10000", 6), 0)
-        await earnVault.connect(client).deposit(ethers.utils.parseUnits("10000", 6), 1)
-        await earnVault.connect(client).deposit(ethers.utils.parseEther("10000"), 2)
+    //     await earnVault.connect(client).deposit(ethers.utils.parseUnits("10000", 6), 0)
+    //     await earnVault.connect(client).deposit(ethers.utils.parseUnits("10000", 6), 1)
+    //     await earnVault.connect(client).deposit(ethers.utils.parseEther("10000"), 2)
 
-        await earnVault.connect(admin).invest()
-        await earnVault.connect(admin).yield()
+    //     await earnVault.connect(admin).invest()
+    //     await earnVault.connect(admin).yield()
 
-        const withdrawAmt = await earnVault.balanceOf(client.address)
-        await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 2)
-        await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 1)
-        await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 0)
-    })
+    //     const withdrawAmt = await earnVault.balanceOf(client.address)
+    //     await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 2)
+    //     await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 1)
+    //     await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 0)
+    // })
 
-    it("should work for Y", async () => {
-        const [deployer, client, admin, strategist, biconomy, treasury, community] = await ethers.getSigners()
-        const EarnStrategy = await ethers.getContractFactory("EarnStrategy", deployer)
-        const earnStrategy = await EarnStrategy.deploy()
-        const ZapReward = await ethers.getContractFactory("ZapReward", deployer)
-        const zapReward = await ZapReward.deploy(earnStrategy.address)
-        await earnStrategy.setZapReward(zapReward.address)
-        const EarnVault = await ethers.getContractFactory("EarnVault", deployer)
-        const earnVault = await EarnVault.deploy(earnStrategy.address, treasury.address, community.address, admin.address, strategist.address, biconomy.address)
-        await earnStrategy.setVault(earnVault.address)
+    // it("should work for Y", async () => {
+    //     const [deployer, client, admin, strategist, biconomy, treasury, community] = await ethers.getSigners()
+    //     const EarnStrategy = await ethers.getContractFactory("EarnStrategy", deployer)
+    //     const earnStrategy = await EarnStrategy.deploy()
+    //     const ZapReward = await ethers.getContractFactory("ZapReward", deployer)
+    //     const zapReward = await ZapReward.deploy(earnStrategy.address)
+    //     await earnStrategy.setZapReward(zapReward.address)
+    //     const EarnVault = await ethers.getContractFactory("EarnVault", deployer)
+    //     const earnVault = await EarnVault.deploy(earnStrategy.address, treasury.address, community.address, admin.address, strategist.address, biconomy.address)
+    //     await earnStrategy.setVault(earnVault.address)
 
-        await network.provider.request({method: "hardhat_impersonateAccount",params: [unlockedAddress],});
-        const unlockedSigner = await ethers.getSigner(unlockedAddress);
-        const USDTContract = new ethers.Contract(USDTAddress, IERC20_ABI, unlockedSigner);
-        const USDCContract = new ethers.Contract(USDCAddress, IERC20_ABI, unlockedSigner);
-        const DAIContract = new ethers.Contract(DAIAddress, IERC20_ABI, unlockedSigner);
-        await USDTContract.transfer(client.address, ethers.utils.parseUnits("20000", 6))
-        await USDCContract.transfer(client.address, ethers.utils.parseUnits("20000", 6))
-        await DAIContract.transfer(client.address, ethers.utils.parseEther("20000"))
-        await USDTContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
-        await USDCContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
-        await DAIContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
+    //     await network.provider.request({method: "hardhat_impersonateAccount",params: [unlockedAddress],});
+    //     const unlockedSigner = await ethers.getSigner(unlockedAddress);
+    //     const USDTContract = new ethers.Contract(USDTAddress, IERC20_ABI, unlockedSigner);
+    //     const USDCContract = new ethers.Contract(USDCAddress, IERC20_ABI, unlockedSigner);
+    //     const DAIContract = new ethers.Contract(DAIAddress, IERC20_ABI, unlockedSigner);
+    //     await USDTContract.transfer(client.address, ethers.utils.parseUnits("20000", 6))
+    //     await USDCContract.transfer(client.address, ethers.utils.parseUnits("20000", 6))
+    //     await DAIContract.transfer(client.address, ethers.utils.parseEther("20000"))
+    //     await USDTContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
+    //     await USDCContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
+    //     await DAIContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
 
-        await earnVault.connect(admin).addPool(2) // Y
-        await earnVault.connect(admin).switchPool(2)
+    //     await earnVault.connect(admin).addPool(2) // Y
+    //     await earnVault.connect(admin).switchPool(2)
 
-        await earnVault.connect(client).deposit(ethers.utils.parseUnits("10000", 6), 0)
-        await earnVault.connect(client).deposit(ethers.utils.parseUnits("10000", 6), 1)
-        await earnVault.connect(client).deposit(ethers.utils.parseEther("10000"), 2)
+    //     await earnVault.connect(client).deposit(ethers.utils.parseUnits("10000", 6), 0)
+    //     await earnVault.connect(client).deposit(ethers.utils.parseUnits("10000", 6), 1)
+    //     await earnVault.connect(client).deposit(ethers.utils.parseEther("10000"), 2)
 
-        await earnVault.connect(admin).invest()
-        await earnVault.connect(admin).yield()
+    //     await earnVault.connect(admin).invest()
+    //     await earnVault.connect(admin).yield()
 
-        const withdrawAmt = await earnVault.balanceOf(client.address)
-        await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 2)
-        await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 1)
-        await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 0)
-    })
+    //     const withdrawAmt = await earnVault.balanceOf(client.address)
+    //     await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 2)
+    //     await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 1)
+    //     await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 0)
+    // })
 
-    it("should work for saave", async () => {
-        const [deployer, client, admin, strategist, biconomy, treasury, community] = await ethers.getSigners()
-        const EarnStrategy = await ethers.getContractFactory("EarnStrategy", deployer)
-        const earnStrategy = await EarnStrategy.deploy()
-        const ZapReward = await ethers.getContractFactory("ZapReward", deployer)
-        const zapReward = await ZapReward.deploy(earnStrategy.address)
-        await earnStrategy.setZapReward(zapReward.address)
-        const EarnVault = await ethers.getContractFactory("EarnVault", deployer)
-        const earnVault = await EarnVault.deploy(earnStrategy.address, treasury.address, community.address, admin.address, strategist.address, biconomy.address)
-        await earnStrategy.setVault(earnVault.address)
+    // it("should work for saave", async () => {
+    //     const [deployer, client, admin, strategist, biconomy, treasury, community] = await ethers.getSigners()
+    //     const EarnStrategy = await ethers.getContractFactory("EarnStrategy", deployer)
+    //     const earnStrategy = await EarnStrategy.deploy()
+    //     const ZapReward = await ethers.getContractFactory("ZapReward", deployer)
+    //     const zapReward = await ZapReward.deploy(earnStrategy.address)
+    //     await earnStrategy.setZapReward(zapReward.address)
+    //     const EarnVault = await ethers.getContractFactory("EarnVault", deployer)
+    //     const earnVault = await EarnVault.deploy(earnStrategy.address, treasury.address, community.address, admin.address, strategist.address, biconomy.address)
+    //     await earnStrategy.setVault(earnVault.address)
 
-        await network.provider.request({method: "hardhat_impersonateAccount",params: [unlockedAddress],});
-        const unlockedSigner = await ethers.getSigner(unlockedAddress);
-        const USDTContract = new ethers.Contract(USDTAddress, IERC20_ABI, unlockedSigner);
-        const USDCContract = new ethers.Contract(USDCAddress, IERC20_ABI, unlockedSigner);
-        const DAIContract = new ethers.Contract(DAIAddress, IERC20_ABI, unlockedSigner);
-        await USDTContract.transfer(client.address, ethers.utils.parseUnits("20000", 6))
-        await USDCContract.transfer(client.address, ethers.utils.parseUnits("20000", 6))
-        await DAIContract.transfer(client.address, ethers.utils.parseEther("20000"))
-        await USDTContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
-        await USDCContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
-        await DAIContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
+    //     await network.provider.request({method: "hardhat_impersonateAccount",params: [unlockedAddress],});
+    //     const unlockedSigner = await ethers.getSigner(unlockedAddress);
+    //     const USDTContract = new ethers.Contract(USDTAddress, IERC20_ABI, unlockedSigner);
+    //     const USDCContract = new ethers.Contract(USDCAddress, IERC20_ABI, unlockedSigner);
+    //     const DAIContract = new ethers.Contract(DAIAddress, IERC20_ABI, unlockedSigner);
+    //     await USDTContract.transfer(client.address, ethers.utils.parseUnits("20000", 6))
+    //     await USDCContract.transfer(client.address, ethers.utils.parseUnits("20000", 6))
+    //     await DAIContract.transfer(client.address, ethers.utils.parseEther("20000"))
+    //     await USDTContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
+    //     await USDCContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
+    //     await DAIContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
 
-        await earnVault.connect(admin).addPool(26) // saave
-        await earnVault.connect(admin).switchPool(26)
+    //     await earnVault.connect(admin).addPool(26) // saave
+    //     await earnVault.connect(admin).switchPool(26)
 
-        await earnVault.connect(client).deposit(ethers.utils.parseUnits("10000", 6), 0)
-        await earnVault.connect(client).deposit(ethers.utils.parseUnits("10000", 6), 1)
-        await earnVault.connect(client).deposit(ethers.utils.parseEther("10000"), 2)
+    //     await earnVault.connect(client).deposit(ethers.utils.parseUnits("10000", 6), 0)
+    //     await earnVault.connect(client).deposit(ethers.utils.parseUnits("10000", 6), 1)
+    //     await earnVault.connect(client).deposit(ethers.utils.parseEther("10000"), 2)
 
-        await earnVault.connect(admin).invest()
-        await earnVault.connect(admin).yield()
+    //     await earnVault.connect(admin).invest()
+    //     await earnVault.connect(admin).yield()
 
-        const withdrawAmt = await earnVault.balanceOf(client.address)
-        await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 2)
-        await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 1)
-        await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 0)
-    })
+    //     const withdrawAmt = await earnVault.balanceOf(client.address)
+    //     await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 2)
+    //     await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 1)
+    //     await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 0)
+    // })
 
-    it("should work for usdn", async () => {
-        const [deployer, client, admin, strategist, biconomy, treasury, community] = await ethers.getSigners()
-        const EarnStrategy = await ethers.getContractFactory("EarnStrategy", deployer)
-        const earnStrategy = await EarnStrategy.deploy()
-        const ZapReward = await ethers.getContractFactory("ZapReward", deployer)
-        const zapReward = await ZapReward.deploy(earnStrategy.address)
-        await earnStrategy.setZapReward(zapReward.address)
-        const EarnVault = await ethers.getContractFactory("EarnVault", deployer)
-        const earnVault = await EarnVault.deploy(earnStrategy.address, treasury.address, community.address, admin.address, strategist.address, biconomy.address)
-        await earnStrategy.setVault(earnVault.address)
+    // it("should work for usdn", async () => {
+    //     const [deployer, client, admin, strategist, biconomy, treasury, community] = await ethers.getSigners()
+    //     const EarnStrategy = await ethers.getContractFactory("EarnStrategy", deployer)
+    //     const earnStrategy = await EarnStrategy.deploy()
+    //     const ZapReward = await ethers.getContractFactory("ZapReward", deployer)
+    //     const zapReward = await ZapReward.deploy(earnStrategy.address)
+    //     await earnStrategy.setZapReward(zapReward.address)
+    //     const EarnVault = await ethers.getContractFactory("EarnVault", deployer)
+    //     const earnVault = await EarnVault.deploy(earnStrategy.address, treasury.address, community.address, admin.address, strategist.address, biconomy.address)
+    //     await earnStrategy.setVault(earnVault.address)
 
-        await network.provider.request({method: "hardhat_impersonateAccount",params: [unlockedAddress],});
-        const unlockedSigner = await ethers.getSigner(unlockedAddress);
-        const USDTContract = new ethers.Contract(USDTAddress, IERC20_ABI, unlockedSigner);
-        const USDCContract = new ethers.Contract(USDCAddress, IERC20_ABI, unlockedSigner);
-        const DAIContract = new ethers.Contract(DAIAddress, IERC20_ABI, unlockedSigner);
-        await USDTContract.transfer(client.address, ethers.utils.parseUnits("20000", 6))
-        await USDCContract.transfer(client.address, ethers.utils.parseUnits("20000", 6))
-        await DAIContract.transfer(client.address, ethers.utils.parseEther("20000"))
-        await USDTContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
-        await USDCContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
-        await DAIContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
+    //     await network.provider.request({method: "hardhat_impersonateAccount",params: [unlockedAddress],});
+    //     const unlockedSigner = await ethers.getSigner(unlockedAddress);
+    //     const USDTContract = new ethers.Contract(USDTAddress, IERC20_ABI, unlockedSigner);
+    //     const USDCContract = new ethers.Contract(USDCAddress, IERC20_ABI, unlockedSigner);
+    //     const DAIContract = new ethers.Contract(DAIAddress, IERC20_ABI, unlockedSigner);
+    //     await USDTContract.transfer(client.address, ethers.utils.parseUnits("20000", 6))
+    //     await USDCContract.transfer(client.address, ethers.utils.parseUnits("20000", 6))
+    //     await DAIContract.transfer(client.address, ethers.utils.parseEther("20000"))
+    //     await USDTContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
+    //     await USDCContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
+    //     await DAIContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
 
-        await earnVault.connect(admin).addPool(13) // usdn
-        await earnVault.connect(admin).switchPool(13)
+    //     await earnVault.connect(admin).addPool(13) // usdn
+    //     await earnVault.connect(admin).switchPool(13)
 
-        await earnVault.connect(client).deposit(ethers.utils.parseUnits("10000", 6), 0)
-        await earnVault.connect(client).deposit(ethers.utils.parseUnits("10000", 6), 1)
-        await earnVault.connect(client).deposit(ethers.utils.parseEther("10000"), 2)
+    //     await earnVault.connect(client).deposit(ethers.utils.parseUnits("10000", 6), 0)
+    //     await earnVault.connect(client).deposit(ethers.utils.parseUnits("10000", 6), 1)
+    //     await earnVault.connect(client).deposit(ethers.utils.parseEther("10000"), 2)
 
-        await earnVault.connect(admin).invest()
-        await earnVault.connect(admin).yield()
+    //     await earnVault.connect(admin).invest()
+    //     await earnVault.connect(admin).yield()
 
-        const withdrawAmt = await earnVault.balanceOf(client.address)
-        await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 2)
-        await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 1)
-        await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 0)
-    })
+    //     const withdrawAmt = await earnVault.balanceOf(client.address)
+    //     await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 2)
+    //     await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 1)
+    //     await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 0)
+    // })
 
-    it("should work for alusd", async () => {
-        const [deployer, client, admin, strategist, biconomy, treasury, community] = await ethers.getSigners()
-        const EarnStrategy = await ethers.getContractFactory("EarnStrategy", deployer)
-        const earnStrategy = await EarnStrategy.deploy()
-        const ZapReward = await ethers.getContractFactory("ZapReward", deployer)
-        const zapReward = await ZapReward.deploy(earnStrategy.address)
-        await earnStrategy.setZapReward(zapReward.address)
-        const EarnVault = await ethers.getContractFactory("EarnVault", deployer)
-        const earnVault = await EarnVault.deploy(earnStrategy.address, treasury.address, community.address, admin.address, strategist.address, biconomy.address)
-        await earnStrategy.setVault(earnVault.address)
+    // it("should work for alusd", async () => {
+    //     const [deployer, client, admin, strategist, biconomy, treasury, community] = await ethers.getSigners()
+    //     const EarnStrategy = await ethers.getContractFactory("EarnStrategy", deployer)
+    //     const earnStrategy = await EarnStrategy.deploy()
+    //     const ZapReward = await ethers.getContractFactory("ZapReward", deployer)
+    //     const zapReward = await ZapReward.deploy(earnStrategy.address)
+    //     await earnStrategy.setZapReward(zapReward.address)
+    //     const EarnVault = await ethers.getContractFactory("EarnVault", deployer)
+    //     const earnVault = await EarnVault.deploy(earnStrategy.address, treasury.address, community.address, admin.address, strategist.address, biconomy.address)
+    //     await earnStrategy.setVault(earnVault.address)
 
-        await network.provider.request({method: "hardhat_impersonateAccount",params: [unlockedAddress],});
-        const unlockedSigner = await ethers.getSigner(unlockedAddress);
-        const USDTContract = new ethers.Contract(USDTAddress, IERC20_ABI, unlockedSigner);
-        const USDCContract = new ethers.Contract(USDCAddress, IERC20_ABI, unlockedSigner);
-        const DAIContract = new ethers.Contract(DAIAddress, IERC20_ABI, unlockedSigner);
-        await USDTContract.transfer(client.address, ethers.utils.parseUnits("20000", 6))
-        await USDCContract.transfer(client.address, ethers.utils.parseUnits("20000", 6))
-        await DAIContract.transfer(client.address, ethers.utils.parseEther("20000"))
-        await USDTContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
-        await USDCContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
-        await DAIContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
+    //     await network.provider.request({method: "hardhat_impersonateAccount",params: [unlockedAddress],});
+    //     const unlockedSigner = await ethers.getSigner(unlockedAddress);
+    //     const USDTContract = new ethers.Contract(USDTAddress, IERC20_ABI, unlockedSigner);
+    //     const USDCContract = new ethers.Contract(USDCAddress, IERC20_ABI, unlockedSigner);
+    //     const DAIContract = new ethers.Contract(DAIAddress, IERC20_ABI, unlockedSigner);
+    //     await USDTContract.transfer(client.address, ethers.utils.parseUnits("20000", 6))
+    //     await USDCContract.transfer(client.address, ethers.utils.parseUnits("20000", 6))
+    //     await DAIContract.transfer(client.address, ethers.utils.parseEther("20000"))
+    //     await USDTContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
+    //     await USDCContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
+    //     await DAIContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
 
-        await earnVault.connect(admin).addPool(36) // alusd
-        await earnVault.connect(admin).switchPool(36)
+    //     await earnVault.connect(admin).addPool(36) // alusd
+    //     await earnVault.connect(admin).switchPool(36)
 
-        await earnVault.connect(client).deposit(ethers.utils.parseUnits("10000", 6), 0)
-        await earnVault.connect(client).deposit(ethers.utils.parseUnits("10000", 6), 1)
-        await earnVault.connect(client).deposit(ethers.utils.parseEther("10000"), 2)
+    //     await earnVault.connect(client).deposit(ethers.utils.parseUnits("10000", 6), 0)
+    //     await earnVault.connect(client).deposit(ethers.utils.parseUnits("10000", 6), 1)
+    //     await earnVault.connect(client).deposit(ethers.utils.parseEther("10000"), 2)
 
-        await earnVault.connect(admin).invest()
-        await earnVault.connect(admin).yield()
+    //     await earnVault.connect(admin).invest()
+    //     await earnVault.connect(admin).yield()
 
-        const withdrawAmt = await earnVault.balanceOf(client.address)
-        await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 2)
-        await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 1)
-        await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 0)
-    })
+    //     const withdrawAmt = await earnVault.balanceOf(client.address)
+    //     await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 2)
+    //     await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 1)
+    //     await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 0)
+    // })
 
-    it("should work for ust", async () => {
-        const [deployer, client, admin, strategist, biconomy, treasury, community] = await ethers.getSigners()
-        const EarnStrategy = await ethers.getContractFactory("EarnStrategy", deployer)
-        const earnStrategy = await EarnStrategy.deploy()
-        const ZapReward = await ethers.getContractFactory("ZapReward", deployer)
-        const zapReward = await ZapReward.deploy(earnStrategy.address)
-        await earnStrategy.setZapReward(zapReward.address)
-        const EarnVault = await ethers.getContractFactory("EarnVault", deployer)
-        const earnVault = await EarnVault.deploy(earnStrategy.address, treasury.address, community.address, admin.address, strategist.address, biconomy.address)
-        await earnStrategy.setVault(earnVault.address)
+    // it("should work for ust", async () => {
+    //     const [deployer, client, admin, strategist, biconomy, treasury, community] = await ethers.getSigners()
+    //     const EarnStrategy = await ethers.getContractFactory("EarnStrategy", deployer)
+    //     const earnStrategy = await EarnStrategy.deploy()
+    //     const ZapReward = await ethers.getContractFactory("ZapReward", deployer)
+    //     const zapReward = await ZapReward.deploy(earnStrategy.address)
+    //     await earnStrategy.setZapReward(zapReward.address)
+    //     const EarnVault = await ethers.getContractFactory("EarnVault", deployer)
+    //     const earnVault = await EarnVault.deploy(earnStrategy.address, treasury.address, community.address, admin.address, strategist.address, biconomy.address)
+    //     await earnStrategy.setVault(earnVault.address)
 
-        await network.provider.request({method: "hardhat_impersonateAccount",params: [unlockedAddress],});
-        const unlockedSigner = await ethers.getSigner(unlockedAddress);
-        const USDTContract = new ethers.Contract(USDTAddress, IERC20_ABI, unlockedSigner);
-        const USDCContract = new ethers.Contract(USDCAddress, IERC20_ABI, unlockedSigner);
-        const DAIContract = new ethers.Contract(DAIAddress, IERC20_ABI, unlockedSigner);
-        await USDTContract.transfer(client.address, ethers.utils.parseUnits("20000", 6))
-        await USDCContract.transfer(client.address, ethers.utils.parseUnits("20000", 6))
-        await DAIContract.transfer(client.address, ethers.utils.parseEther("20000"))
-        await USDTContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
-        await USDCContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
-        await DAIContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
+    //     await network.provider.request({method: "hardhat_impersonateAccount",params: [unlockedAddress],});
+    //     const unlockedSigner = await ethers.getSigner(unlockedAddress);
+    //     const USDTContract = new ethers.Contract(USDTAddress, IERC20_ABI, unlockedSigner);
+    //     const USDCContract = new ethers.Contract(USDCAddress, IERC20_ABI, unlockedSigner);
+    //     const DAIContract = new ethers.Contract(DAIAddress, IERC20_ABI, unlockedSigner);
+    //     await USDTContract.transfer(client.address, ethers.utils.parseUnits("20000", 6))
+    //     await USDCContract.transfer(client.address, ethers.utils.parseUnits("20000", 6))
+    //     await DAIContract.transfer(client.address, ethers.utils.parseEther("20000"))
+    //     await USDTContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
+    //     await USDCContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
+    //     await DAIContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
 
-        await earnVault.connect(admin).addPool(21) // ust
-        await earnVault.connect(admin).switchPool(21)
+    //     await earnVault.connect(admin).addPool(21) // ust
+    //     await earnVault.connect(admin).switchPool(21)
 
-        await earnVault.connect(client).deposit(ethers.utils.parseUnits("10000", 6), 0)
-        await earnVault.connect(client).deposit(ethers.utils.parseUnits("10000", 6), 1)
-        await earnVault.connect(client).deposit(ethers.utils.parseEther("10000"), 2)
+    //     await earnVault.connect(client).deposit(ethers.utils.parseUnits("10000", 6), 0)
+    //     await earnVault.connect(client).deposit(ethers.utils.parseUnits("10000", 6), 1)
+    //     await earnVault.connect(client).deposit(ethers.utils.parseEther("10000"), 2)
 
-        await earnVault.connect(admin).invest()
-        await earnVault.connect(admin).yield()
+    //     await earnVault.connect(admin).invest()
+    //     await earnVault.connect(admin).yield()
 
-        const withdrawAmt = await earnVault.balanceOf(client.address)
-        await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 2)
-        await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 1)
-        await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 0)
-    })
+    //     const withdrawAmt = await earnVault.balanceOf(client.address)
+    //     await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 2)
+    //     await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 1)
+    //     await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 0)
+    // })
 
-    it("should work for aave", async () => {
-        const [deployer, client, admin, strategist, biconomy, treasury, community] = await ethers.getSigners()
-        const EarnStrategy = await ethers.getContractFactory("EarnStrategy", deployer)
-        const earnStrategy = await EarnStrategy.deploy()
-        const ZapReward = await ethers.getContractFactory("ZapReward", deployer)
-        const zapReward = await ZapReward.deploy(earnStrategy.address)
-        await earnStrategy.setZapReward(zapReward.address)
-        const EarnVault = await ethers.getContractFactory("EarnVault", deployer)
-        const earnVault = await EarnVault.deploy(earnStrategy.address, treasury.address, community.address, admin.address, strategist.address, biconomy.address)
-        await earnStrategy.setVault(earnVault.address)
+    // it("should work for aave", async () => {
+    //     const [deployer, client, admin, strategist, biconomy, treasury, community] = await ethers.getSigners()
+    //     const EarnStrategy = await ethers.getContractFactory("EarnStrategy", deployer)
+    //     const earnStrategy = await EarnStrategy.deploy()
+    //     const ZapReward = await ethers.getContractFactory("ZapReward", deployer)
+    //     const zapReward = await ZapReward.deploy(earnStrategy.address)
+    //     await earnStrategy.setZapReward(zapReward.address)
+    //     const EarnVault = await ethers.getContractFactory("EarnVault", deployer)
+    //     const earnVault = await EarnVault.deploy(earnStrategy.address, treasury.address, community.address, admin.address, strategist.address, biconomy.address)
+    //     await earnStrategy.setVault(earnVault.address)
 
-        await network.provider.request({method: "hardhat_impersonateAccount",params: [unlockedAddress],});
-        const unlockedSigner = await ethers.getSigner(unlockedAddress);
-        const USDTContract = new ethers.Contract(USDTAddress, IERC20_ABI, unlockedSigner);
-        const USDCContract = new ethers.Contract(USDCAddress, IERC20_ABI, unlockedSigner);
-        const DAIContract = new ethers.Contract(DAIAddress, IERC20_ABI, unlockedSigner);
-        await USDTContract.transfer(client.address, ethers.utils.parseUnits("20000", 6))
-        await USDCContract.transfer(client.address, ethers.utils.parseUnits("20000", 6))
-        await DAIContract.transfer(client.address, ethers.utils.parseEther("20000"))
-        await USDTContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
-        await USDCContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
-        await DAIContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
+    //     await network.provider.request({method: "hardhat_impersonateAccount",params: [unlockedAddress],});
+    //     const unlockedSigner = await ethers.getSigner(unlockedAddress);
+    //     const USDTContract = new ethers.Contract(USDTAddress, IERC20_ABI, unlockedSigner);
+    //     const USDCContract = new ethers.Contract(USDCAddress, IERC20_ABI, unlockedSigner);
+    //     const DAIContract = new ethers.Contract(DAIAddress, IERC20_ABI, unlockedSigner);
+    //     await USDTContract.transfer(client.address, ethers.utils.parseUnits("20000", 6))
+    //     await USDCContract.transfer(client.address, ethers.utils.parseUnits("20000", 6))
+    //     await DAIContract.transfer(client.address, ethers.utils.parseEther("20000"))
+    //     await USDTContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
+    //     await USDCContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
+    //     await DAIContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
 
-        await earnVault.connect(admin).addPool(24) // aave
-        await earnVault.connect(admin).switchPool(24)
+    //     await earnVault.connect(admin).addPool(24) // aave
+    //     await earnVault.connect(admin).switchPool(24)
 
-        await earnVault.connect(client).deposit(ethers.utils.parseUnits("10000", 6), 0)
-        await earnVault.connect(client).deposit(ethers.utils.parseUnits("10000", 6), 1)
-        await earnVault.connect(client).deposit(ethers.utils.parseEther("10000"), 2)
+    //     await earnVault.connect(client).deposit(ethers.utils.parseUnits("10000", 6), 0)
+    //     await earnVault.connect(client).deposit(ethers.utils.parseUnits("10000", 6), 1)
+    //     await earnVault.connect(client).deposit(ethers.utils.parseEther("10000"), 2)
 
-        await earnVault.connect(admin).invest()
-        await earnVault.connect(admin).yield()
+    //     await earnVault.connect(admin).invest()
+    //     await earnVault.connect(admin).yield()
 
-        const withdrawAmt = await earnVault.balanceOf(client.address)
-        await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 2)
-        await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 1)
-        await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 0)
-    })
+    //     const withdrawAmt = await earnVault.balanceOf(client.address)
+    //     await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 2)
+    //     await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 1)
+    //     await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 0)
+    // })
 
-    it("should work for lusd", async () => {
-        const [deployer, client, admin, strategist, biconomy, treasury, community] = await ethers.getSigners()
-        const EarnStrategy = await ethers.getContractFactory("EarnStrategy", deployer)
-        const earnStrategy = await EarnStrategy.deploy()
-        const ZapReward = await ethers.getContractFactory("ZapReward", deployer)
-        const zapReward = await ZapReward.deploy(earnStrategy.address)
-        await earnStrategy.setZapReward(zapReward.address)
-        const EarnVault = await ethers.getContractFactory("EarnVault", deployer)
-        const earnVault = await EarnVault.deploy(earnStrategy.address, treasury.address, community.address, admin.address, strategist.address, biconomy.address)
-        await earnStrategy.setVault(earnVault.address)
+    // it("should work for lusd", async () => {
+    //     const [deployer, client, admin, strategist, biconomy, treasury, community] = await ethers.getSigners()
+    //     const EarnStrategy = await ethers.getContractFactory("EarnStrategy", deployer)
+    //     const earnStrategy = await EarnStrategy.deploy()
+    //     const ZapReward = await ethers.getContractFactory("ZapReward", deployer)
+    //     const zapReward = await ZapReward.deploy(earnStrategy.address)
+    //     await earnStrategy.setZapReward(zapReward.address)
+    //     const EarnVault = await ethers.getContractFactory("EarnVault", deployer)
+    //     const earnVault = await EarnVault.deploy(earnStrategy.address, treasury.address, community.address, admin.address, strategist.address, biconomy.address)
+    //     await earnStrategy.setVault(earnVault.address)
 
-        await network.provider.request({method: "hardhat_impersonateAccount",params: [unlockedAddress],});
-        const unlockedSigner = await ethers.getSigner(unlockedAddress);
-        const USDTContract = new ethers.Contract(USDTAddress, IERC20_ABI, unlockedSigner);
-        const USDCContract = new ethers.Contract(USDCAddress, IERC20_ABI, unlockedSigner);
-        const DAIContract = new ethers.Contract(DAIAddress, IERC20_ABI, unlockedSigner);
-        await USDTContract.transfer(client.address, ethers.utils.parseUnits("20000", 6))
-        await USDCContract.transfer(client.address, ethers.utils.parseUnits("20000", 6))
-        await DAIContract.transfer(client.address, ethers.utils.parseEther("20000"))
-        await USDTContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
-        await USDCContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
-        await DAIContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
+    //     await network.provider.request({method: "hardhat_impersonateAccount",params: [unlockedAddress],});
+    //     const unlockedSigner = await ethers.getSigner(unlockedAddress);
+    //     const USDTContract = new ethers.Contract(USDTAddress, IERC20_ABI, unlockedSigner);
+    //     const USDCContract = new ethers.Contract(USDCAddress, IERC20_ABI, unlockedSigner);
+    //     const DAIContract = new ethers.Contract(DAIAddress, IERC20_ABI, unlockedSigner);
+    //     await USDTContract.transfer(client.address, ethers.utils.parseUnits("20000", 6))
+    //     await USDCContract.transfer(client.address, ethers.utils.parseUnits("20000", 6))
+    //     await DAIContract.transfer(client.address, ethers.utils.parseEther("20000"))
+    //     await USDTContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
+    //     await USDCContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
+    //     await DAIContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
 
-        await earnVault.connect(admin).addPool(33) // lusd
-        await earnVault.connect(admin).switchPool(33)
+    //     await earnVault.connect(admin).addPool(33) // lusd
+    //     await earnVault.connect(admin).switchPool(33)
 
-        await earnVault.connect(client).deposit(ethers.utils.parseUnits("10000", 6), 0)
-        await earnVault.connect(client).deposit(ethers.utils.parseUnits("10000", 6), 1)
-        await earnVault.connect(client).deposit(ethers.utils.parseEther("10000"), 2)
+    //     await earnVault.connect(client).deposit(ethers.utils.parseUnits("10000", 6), 0)
+    //     await earnVault.connect(client).deposit(ethers.utils.parseUnits("10000", 6), 1)
+    //     await earnVault.connect(client).deposit(ethers.utils.parseEther("10000"), 2)
 
-        await earnVault.connect(admin).invest()
-        await earnVault.connect(admin).yield()
+    //     await earnVault.connect(admin).invest()
+    //     await earnVault.connect(admin).yield()
 
-        const withdrawAmt = await earnVault.balanceOf(client.address)
-        await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 2)
-        await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 1)
-        await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 0)
-    })
+    //     const withdrawAmt = await earnVault.balanceOf(client.address)
+    //     await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 2)
+    //     await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 1)
+    //     await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 0)
+    // })
 
-    it("should work for comp", async () => {
-        const [deployer, client, admin, strategist, biconomy, treasury, community] = await ethers.getSigners()
-        const EarnStrategy = await ethers.getContractFactory("EarnStrategy", deployer)
-        const earnStrategy = await EarnStrategy.deploy()
-        const ZapReward = await ethers.getContractFactory("ZapReward", deployer)
-        const zapReward = await ZapReward.deploy(earnStrategy.address)
-        await earnStrategy.setZapReward(zapReward.address)
-        const EarnVault = await ethers.getContractFactory("EarnVault", deployer)
-        const earnVault = await EarnVault.deploy(earnStrategy.address, treasury.address, community.address, admin.address, strategist.address, biconomy.address)
-        await earnStrategy.setVault(earnVault.address)
+    // it("should work for comp", async () => {
+    //     const [deployer, client, admin, strategist, biconomy, treasury, community] = await ethers.getSigners()
+    //     const EarnStrategy = await ethers.getContractFactory("EarnStrategy", deployer)
+    //     const earnStrategy = await EarnStrategy.deploy()
+    //     const ZapReward = await ethers.getContractFactory("ZapReward", deployer)
+    //     const zapReward = await ZapReward.deploy(earnStrategy.address)
+    //     await earnStrategy.setZapReward(zapReward.address)
+    //     const EarnVault = await ethers.getContractFactory("EarnVault", deployer)
+    //     const earnVault = await EarnVault.deploy(earnStrategy.address, treasury.address, community.address, admin.address, strategist.address, biconomy.address)
+    //     await earnStrategy.setVault(earnVault.address)
 
-        await network.provider.request({method: "hardhat_impersonateAccount",params: [unlockedAddress],});
-        const unlockedSigner = await ethers.getSigner(unlockedAddress);
-        const USDTContract = new ethers.Contract(USDTAddress, IERC20_ABI, unlockedSigner);
-        const USDCContract = new ethers.Contract(USDCAddress, IERC20_ABI, unlockedSigner);
-        const DAIContract = new ethers.Contract(DAIAddress, IERC20_ABI, unlockedSigner);
-        await USDTContract.transfer(client.address, ethers.utils.parseUnits("20000", 6))
-        await USDCContract.transfer(client.address, ethers.utils.parseUnits("20000", 6))
-        await DAIContract.transfer(client.address, ethers.utils.parseEther("20000"))
-        await USDTContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
-        await USDCContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
-        await DAIContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
+    //     await network.provider.request({method: "hardhat_impersonateAccount",params: [unlockedAddress],});
+    //     const unlockedSigner = await ethers.getSigner(unlockedAddress);
+    //     const USDTContract = new ethers.Contract(USDTAddress, IERC20_ABI, unlockedSigner);
+    //     const USDCContract = new ethers.Contract(USDCAddress, IERC20_ABI, unlockedSigner);
+    //     const DAIContract = new ethers.Contract(DAIAddress, IERC20_ABI, unlockedSigner);
+    //     await USDTContract.transfer(client.address, ethers.utils.parseUnits("20000", 6))
+    //     await USDCContract.transfer(client.address, ethers.utils.parseUnits("20000", 6))
+    //     await DAIContract.transfer(client.address, ethers.utils.parseEther("20000"))
+    //     await USDTContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
+    //     await USDCContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
+    //     await DAIContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
 
-        await earnVault.connect(admin).addPool(0) // comp
-        await earnVault.connect(admin).switchPool(0)
+    //     await earnVault.connect(admin).addPool(0) // comp
+    //     await earnVault.connect(admin).switchPool(0)
 
-        await earnVault.connect(client).deposit(ethers.utils.parseUnits("10000", 6), 0)
-        await earnVault.connect(client).deposit(ethers.utils.parseUnits("10000", 6), 1)
-        await earnVault.connect(client).deposit(ethers.utils.parseEther("10000"), 2)
+    //     await earnVault.connect(client).deposit(ethers.utils.parseUnits("10000", 6), 0)
+    //     await earnVault.connect(client).deposit(ethers.utils.parseUnits("10000", 6), 1)
+    //     await earnVault.connect(client).deposit(ethers.utils.parseEther("10000"), 2)
 
-        await earnVault.connect(admin).invest()
-        await earnVault.connect(admin).yield()
+    //     await earnVault.connect(admin).invest()
+    //     await earnVault.connect(admin).yield()
 
-        const withdrawAmt = await earnVault.balanceOf(client.address)
-        await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 2)
-        await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 1)
-        await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 0)
-    })
+    //     const withdrawAmt = await earnVault.balanceOf(client.address)
+    //     await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 2)
+    //     await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 1)
+    //     await earnVault.connect(client).withdraw((withdrawAmt).mul(3).div(10), 0)
+    // })
 })

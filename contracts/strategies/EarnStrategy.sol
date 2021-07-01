@@ -112,7 +112,6 @@ contract EarnStrategy is Ownable {
     uint256 public poolIndex; // Current invest pool
     ICrPool private constant _3Pool = ICrPool(0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7);
     address public vault;
-    bool public isVesting;
 
     // Fees
     uint256 public yieldFeePerc = 1000;
@@ -133,6 +132,7 @@ contract EarnStrategy is Ownable {
     constructor() {
         _CVX.safeApprove(address(_sushiRouter), type(uint256).max);
         _CRV.safeApprove(address(_sushiRouter), type(uint256).max);
+        _DAI.safeApprove(address(_sushiRouter), type(uint256).max);
 
         _USDT.safeApprove(address(_3Pool), type(uint).max);
         _USDC.safeApprove(address(_3Pool), type(uint).max);
@@ -150,8 +150,6 @@ contract EarnStrategy is Ownable {
     /// @param _amtUSDC 6 decimals
     /// @param _amtDAI 18 decimals
     function invest(uint256 _amtUSDT, uint256 _amtUSDC, uint256 _amtDAI) external onlyVault {
-        require(!isVesting, "Strategy in vesting state");
-
         if (_amtUSDT > 0) {
             _USDT.safeTransferFrom(address(vault), address(this), _amtUSDT);
         }
@@ -258,25 +256,27 @@ contract EarnStrategy is Ownable {
         }
     }
 
-    /// @notice Function to harvest rewards from farm and reinvest into farm
+    /// @notice Function to harvest rewards from farm and reinvest
     function yield() external onlyVault {
-        _yield();
-        _invest(0, 0, _DAI.balanceOf(address(this)));
+        uint256 _DAIBalance = _yield();
+        _invest(0, 0, _DAIBalance);
     }
 
     /// @notice Derived function from yield()
-    function _yield() private {
+    /// @notice Rewards will be in form of DAI token because it is the most acceptable token in all Curve USD pools
+    function _yield() private returns (uint256) {
         PoolInfo memory _poolInfo = poolInfos[poolIndex];
         ICvStake _cvStake = _poolInfo.cvStake;
         _cvStake.getReward();
 
         if (_CVX.balanceOf(address(this)) > 0) {
-            _swap3(address(_CVX), address(_DAI), _CVX.balanceOf(address(this)));
+            _swap(address(_CVX), address(_DAI), _CVX.balanceOf(address(this)));
         }
         if (_CRV.balanceOf(address(this)) > 0) {
-            _swap3(address(_CRV), address(_DAI), _CRV.balanceOf(address(this)));
+            _swap(address(_CRV), address(_DAI), _CRV.balanceOf(address(this)));
         }
 
+        // Dealing with extra Reward tokens
         if (_poolInfo.extraRewardTokens.length > 0) {
             IERC20[] memory _extraRewardTokens = _poolInfo.extraRewardTokens;
             for (uint256 _i = 0; _i < _poolInfo.extraRewardTokens.length; _i++) {
@@ -286,6 +286,8 @@ contract EarnStrategy is Ownable {
                     if (_extraRewardToken.allowance(address(this), address(zapReward)) == 0) {
                         _extraRewardToken.safeApprove(address(zapReward), type(uint256).max);
                     }
+                    // zapReward contract is a customized zap contract to swap various kinds of token
+                    // This contract might change time to time if there is any new token that haven't include in
                     zapReward.swapRewardTokenToDAI(address(_extraRewardToken));
                 }
             }
@@ -293,9 +295,13 @@ contract EarnStrategy is Ownable {
 
         // Split yield fees
         uint256 _DAIBalance = _DAI.balanceOf(address(this));
+        uint256 _yieldFee;
         if (_DAIBalance > 0) {
-            uint256 _yieldFee = _DAIBalance - (_DAIBalance * yieldFeePerc / 10000);
-            uint256[] memory _amounts = _swap2(address(_DAI), address(_WETH), _yieldFee);
+            _yieldFee = _DAIBalance - (_DAIBalance * yieldFeePerc / 10000);
+            address[] memory _path = new address[](2);
+            _path[0] = address(_DAI);
+            _path[1] = address(_WETH);
+            uint256[] memory _amounts = _sushiRouter.swapExactTokensForTokens(_yieldFee, 0, _path, address(this), block.timestamp);
             _WETH.withdraw(_amounts[1]);
             uint256 _yieldFeeInETH = address(this).balance * 2 / 5;
             (bool _a,) = admin.call{value: _yieldFeeInETH}(""); // 40%
@@ -305,11 +311,17 @@ contract EarnStrategy is Ownable {
             (bool _s,) = strategist.call{value: (address(this).balance)}(""); // 20%
             require(_s, "Fee transfer failed");
         }
+
+        return _DAIBalance - _yieldFee;
     }
 
-    // To enable receive ETH from WETH in _splitYieldFees()
+    // To enable receive ETH from WETH in _yield()
     receive() external payable {}
 
+    /// @notice Function to withdraw Stablecoins from farm
+    /// @param _amount Amount to withdraw in USD (6 decimals)
+    /// @param _coinIndex Type of Stablecoin to withdraw
+    /// @return Amount of actual withdraw in USD (6 decimals)
     function withdraw(uint256 _amount, uint256 _coinIndex) external onlyVault returns (uint256) {
         IERC20 _token;
         int128 _curveIndex;
@@ -324,16 +336,8 @@ contract EarnStrategy is Ownable {
             _curveIndex = 0;
         }
 
-        uint256 _withdrawAmt;
-        if (!isVesting) {
-            _withdraw(_amount, _curveIndex);
-            _withdrawAmt = _token.balanceOf(address(this));
-        } else {
-            uint256 _withdrawAmtInETH = _amount * _WETH.balanceOf(address(this)) / getTotalPool();
-            uint256[] memory _amounts = _swap2(address(_WETH), address(_token), _withdrawAmtInETH);
-            _withdrawAmt = _amounts[1];
-        }
-
+        _withdraw(_amount, _curveIndex);
+        uint256 _withdrawAmt = _token.balanceOf(address(this));
         _token.safeTransfer(address(vault), _withdrawAmt);
         if (_token == _DAI) { // To make consistency of 6 decimals return
             _withdrawAmt = _withdrawAmt / 1e12;
@@ -390,7 +394,7 @@ contract EarnStrategy is Ownable {
         }
     }
 
-    function _swap3(address _tokenA, address _tokenB, uint256 _amount) private {
+    function _swap(address _tokenA, address _tokenB, uint256 _amount) private {
         address[] memory _path = new address[](3);
         _path[0] = _tokenA;
         _path[1] = address(_WETH);
@@ -398,40 +402,11 @@ contract EarnStrategy is Ownable {
         _sushiRouter.swapExactTokensForTokens(_amount, 0, _path, address(this), block.timestamp);
     }
 
-    function _swap2(address _tokenA, address _tokenB, uint256 _amount) private returns (uint256[] memory) {
-        if (IERC20(_tokenA).allowance(address(this), address(_sushiRouter)) == 0) {
-            IERC20(_tokenA).safeApprove(address(_sushiRouter), type(uint).max);
-        }
-        address[] memory _path = new address[](2);
-        _path[0] = _tokenA;
-        _path[1] = _tokenB;
-        return _sushiRouter.swapExactTokensForTokens(_amount, 0, _path, address(this), block.timestamp);
-    }
-
-    /// @notice Function to withdraw all funds from farm and swap to WETH
+    /// @notice Function to withdraw all funds from farm and transfer to vault
     function emergencyWithdraw() external onlyVault {
         _yield();
-        _withdraw(getTotalPool(), 0);
-        _swap2(address(_DAI), address(_WETH), _DAI.balanceOf(address(this)));
-
-        isVesting = true;
-    }
-
-    /// @notice Function to invest WETH into farm
-    function reinvest() external onlyVault {
-        isVesting = false;
-
-        if (_WETH.allowance(address(this), address(_sushiRouter)) == 0) {
-            _WETH.safeApprove(address(_sushiRouter), type(uint).max);
-        }
-        uint256[] memory _amounts = _swap2(address(_WETH), address(_DAI), _WETH.balanceOf(address(this)));
-        _invest(0, 0, _amounts[1]);
-    }
-
-    /// @notice Function to approve vault to migrate funds from this contract to new strategy contract
-    function approveMigrate() external onlyOwner {
-        require(isVesting, "Strategy not in vesting state");
-        _WETH.safeApprove(vault, type(uint256).max);
+        _withdraw(getTotalPool(), 2);
+        _USDT.safeTransfer(vault, _USDT.balanceOf(address(this)));
     }
 
     function addPool(uint256 _pid) external {
@@ -547,16 +522,11 @@ contract EarnStrategy is Ownable {
     /// @notice Get total pool
     /// @return Total pool in USD (6 decimals)
     function getTotalPool() public view returns (uint256) {
-        if (!isVesting) {
-            PoolInfo memory poolInfo = poolInfos[poolIndex];
-            ICrPool _crPool = poolInfo.crPool;
-            ICvStake _cvStake = poolInfo.cvStake;
-            uint256 _virtualPrice = _crPool.get_virtual_price();
-            uint256 _lpTokenBalance = _cvStake.balanceOf(address(this));
-            return _lpTokenBalance * _virtualPrice / 1e30;
-        } else {
-            uint256 _price = _getCurrentPriceOfETHInUSD();
-            return _WETH.balanceOf(address(this)) * _price / 1e20;
-        }
+        PoolInfo memory poolInfo = poolInfos[poolIndex];
+        ICrPool _crPool = poolInfo.crPool;
+        ICvStake _cvStake = poolInfo.cvStake;
+        uint256 _virtualPrice = _crPool.get_virtual_price();
+        uint256 _lpTokenBalance = _cvStake.balanceOf(address(this));
+        return _lpTokenBalance * _virtualPrice / 1e30;
     }
 }

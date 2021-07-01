@@ -43,6 +43,7 @@ contract EarnVault is ERC20("DAO Earn", "daoERN"), Ownable, ReentrancyGuard, Bas
     ICurveSwap private constant _c3pool = ICurveSwap(0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7);
     uint256 private constant _DENOMINATOR = 10000;
     address public admin;
+    bool public isPaused;
 
     address public pendingStrategy;
     bool public canSetPendingStrategy;
@@ -79,11 +80,16 @@ contract EarnVault is ERC20("DAO Earn", "daoERN"), Ownable, ReentrancyGuard, Bas
     event SetPendingStrategy(address indexed pendingStrategy);
     event SetBiconomy(address indexed biconomy);
     event SetPercTokenKeepInVault(uint256[] percentages);
-    event UnlockMigrateFunds(uint256 unlockTime);
-    event MigrateFunds(address indexed fromStrategy, address indexed toStrategy, uint256 amount);
+    event UnlockInvestNewStrategy(uint256 unlockTime);
+    event InvestNewStrategy(address indexed fromStrategy, address indexed toStrategy);
 
     modifier onlyAdmin {
         require(msg.sender == address(admin), "Only admin");
+        _;
+    }
+
+    modifier whenNotPaused {
+        require(!isPaused, "Contract is paused");
         _;
     }
 
@@ -130,7 +136,7 @@ contract EarnVault is ERC20("DAO Earn", "daoERN"), Ownable, ReentrancyGuard, Bas
     /// @notice Function to deposit Stablecoins
     /// @param _amount Amount to deposit in USD (follow Stablecoins decimals)
     /// @param _coinIndex Type of Stablecoin to deposit (0 for USDT, 1 for USDC, 2 for DAI)
-    function deposit(uint256 _amount, uint256 _coinIndex) external nonReentrant {
+    function deposit(uint256 _amount, uint256 _coinIndex) external nonReentrant whenNotPaused {
         require(msg.sender == tx.origin || isTrustedForwarder(msg.sender), "Only EOA or Biconomy");
         require(_amount > 0, "Amount must > 0");
 
@@ -176,8 +182,13 @@ contract EarnVault is ERC20("DAO Earn", "daoERN"), Ownable, ReentrancyGuard, Bas
             _balanceOfToken = _balanceOfToken / 1e12;
         }
         if (_withdrawAmt > _balanceOfToken) {
-            // Not enough Stablecoin in vault, need to get from strategy
-            _withdrawAmt = strategy.withdraw(_withdrawAmt, _coinIndex);
+            if (!isPaused) {
+                // Not enough Stablecoin in vault, need to get from strategy
+                _withdrawAmt = strategy.withdraw(_withdrawAmt, _coinIndex);
+            } else {
+                // Swap USDT to other Stablecoin
+                _exchange(address(tokens[0].token), address(tokens[_coinIndex].token), _withdrawAmt);
+            }
         }
 
         // Calculate profit sharing fee
@@ -198,7 +209,7 @@ contract EarnVault is ERC20("DAO Earn", "daoERN"), Ownable, ReentrancyGuard, Bas
     }
 
     /// @notice Function to invest funds into strategy
-    function invest() external onlyAdmin {
+    function invest() public onlyAdmin whenNotPaused {
         // Transfer out available fees
         transferOutFees();
 
@@ -236,12 +247,17 @@ contract EarnVault is ERC20("DAO Earn", "daoERN"), Ownable, ReentrancyGuard, Bas
     /// @param _amount Amount to be swapped (follow Stablecoins decimals)
     function swapTokenWithinVault(uint256 _tokenFrom, uint256 _tokenTo, uint256 _amount) external onlyAdmin {
         require(tokens[_tokenFrom].token.balanceOf(address(this)) > _amount, "Insufficient amount to swap");
-        (int128 _from, int128 _to) = ICurveRegistry(0x90E00ACe148ca3b23Ac1bC8C240C2a7Dd9c2d7f5).get_coin_indices(
-            address(_c3pool),
-            address(tokens[_tokenFrom].token),
-            address(tokens[_tokenTo].token)
-        );
-        _c3pool.exchange(_from, _to, _amount, 0);
+        _exchange(address(tokens[_tokenFrom].token), address(tokens[_tokenTo].token), _amount);
+    }
+
+    /// @notice Function to swap Stablecoin with Curve
+    /// @param _fromToken Type of Stablecoin to be swapped
+    /// @param _toToken Type of Stablecoin to be received
+    /// @param _amount Amount to be swapped (follow Stablecoins decimals)
+    function _exchange(address _fromToken, address _toToken, uint256 _amount) private {
+        (int128 _fromIndex, int128 _toIndex) = ICurveRegistry(0x90E00ACe148ca3b23Ac1bC8C240C2a7Dd9c2d7f5)
+            .get_coin_indices(address(_c3pool), _fromToken, _toToken);
+        _c3pool.exchange(_fromIndex, _toIndex, _amount, 0);
     }
 
     /// @notice Function to retrieve Stablecoins from strategy
@@ -251,14 +267,17 @@ contract EarnVault is ERC20("DAO Earn", "daoERN"), Ownable, ReentrancyGuard, Bas
         strategy.withdraw(_amount, _coinIndex);
     }
 
-    /// @notice Function to withdraw all farms and swap to WETH in strategy
+    /// @notice Function to withdraw all farms and transfer back here
     function emergencyWithdraw() external onlyAdmin {
+        isPaused = true;
         strategy.emergencyWithdraw();
     }
 
-    /// @notice Function to reinvest all WETH back to farms in strategy
+    /// @notice Function to reinvest funds into strategy
     function reinvest() external onlyAdmin {
-        strategy.reinvest();
+        require(isPaused, "Contract is not paused");
+        isPaused = false;
+        invest();
     }
 
     /// @notice Function to transfer out available network fees
@@ -288,25 +307,22 @@ contract EarnVault is ERC20("DAO Earn", "daoERN"), Ownable, ReentrancyGuard, Bas
         }
     }
 
-    /// @notice Function to unlock migrateFunds()
-    function unlockMigrateFunds() external onlyOwner {
+    /// @notice Function to unlock investNewStrategy()
+    function unlockInvestNewStrategy() external onlyOwner {
         unlockTime = block.timestamp + LOCKTIME;
         canSetPendingStrategy = false;
+        emit UnlockInvestNewStrategy(unlockTime);
     }
 
-    /// @notice Function to migrate all funds from old strategy contract to new strategy contract
+    /// @notice Function to invest funds into new strategy contract
     /// @notice This function only last for 1 days after success unlocked
-    function migrateFunds() external onlyOwner {
+    function investNewStrategy() external onlyOwner {
         require(unlockTime <= block.timestamp && unlockTime + 1 days >= block.timestamp, "Function locked");
-        IERC20 _WETH = IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
-        uint256 _amount = _WETH.balanceOf(address(strategy));
-        require(_amount > 0, "No balance to migrate");
+        require(isPaused, "Contract is not paused");
         require(pendingStrategy != address(0), "No pendingStrategy");
 
-        _WETH.safeTransferFrom(address(strategy), pendingStrategy, _amount);
-
         // Set new strategy
-        address oldStrategy = address(strategy); // For event purpose
+        address oldStrategy = address(strategy);
         strategy = IStrategy(pendingStrategy);
         pendingStrategy = address(0);
         canSetPendingStrategy = true;
@@ -320,7 +336,7 @@ contract EarnVault is ERC20("DAO Earn", "daoERN"), Ownable, ReentrancyGuard, Bas
         tokens[2].token.safeApprove(oldStrategy, 0);
 
         unlockTime = 0; // Lock back this function
-        emit MigrateFunds(oldStrategy, address(strategy), _amount);
+        emit InvestNewStrategy(oldStrategy, address(strategy));
     }
 
     /// @notice Function to set new network fee for deposit amount tier 2
@@ -455,6 +471,7 @@ contract EarnVault is ERC20("DAO Earn", "daoERN"), Ownable, ReentrancyGuard, Bas
             tokens[1].token.balanceOf(address(this)) +
             (tokens[2].token.balanceOf(address(this)) / 1e12) - // DAI to 6 decimals
             _fees;
-        return strategy.getTotalPool() + _vaultPoolInUSD;
+        uint256 _strategyPoolInUSD = isPaused ? 0 : strategy.getTotalPool();
+        return _vaultPoolInUSD + _strategyPoolInUSD;
     }
 }
