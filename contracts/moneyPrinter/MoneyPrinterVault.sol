@@ -7,6 +7,8 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
+import "../../interfaces/IUniswapV2Router02.sol";
+import "../../libs/BaseRelayRecipient.sol";
 import "hardhat/console.sol";
 
 /**
@@ -39,7 +41,7 @@ interface IStrategy{
 }
 
 /// @title Contract to interact between user and strategy, and distribute daoToken
-contract MoneyPrinterVault is ERC20, Ownable {
+contract MoneyPrinterVault is ERC20, Ownable, BaseRelayRecipient {
     using SafeERC20 for IERC20;
     using Address for address;
     using SafeMath for uint256;
@@ -47,15 +49,18 @@ contract MoneyPrinterVault is ERC20, Ownable {
     IERC20 public DAI = IERC20(0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063); 
     IERC20 public USDC = IERC20(0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174);
     IERC20 public USDT = IERC20(0xc2132D05D31c914a87C6611C10748AEb04B58e8F);
-
+    IERC20 emergencyWithdrawToken; //Tokens are converted to `emergencyWithdrawToken` durin emergency withdraw
+    IUniswapV2Router02 public constant QuickSwapRouter = IUniswapV2Router02(0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff);
     IStrategy public strategy;
     address public pendingStrategy;
     address public admin;
     address public treasuryWallet ; //= 0x986a2fCa9eDa0e06fBf7839B89BfC006eE2a23Dd; //TODO remove address
     address public communityWallet ; //= 0x986a2fCa9eDa0e06fBf7839B89BfC006eE2a23Dd;
     address public strategist ; //= 0x986a2fCa9eDa0e06fBf7839B89BfC006eE2a23Dd;
-
+    
     bool public canSetPendingStrategy = true;
+    bool public isEmergency = false;
+
     uint256 public unlockTime;
     uint256 public constant LOCKTIME = 2 days;
     uint256[] public networkFeeTier2 = [50000*1e18+1, 100000*1e18];
@@ -77,12 +82,13 @@ contract MoneyPrinterVault is ERC20, Ownable {
     event Harvest(uint timestamp);
 
 
-    constructor(address _strategy, address _admin, address _treasuryWallet, address _communityWallet, address _strategist)
+    constructor(address _strategy, address _admin, address _treasuryWallet, address _communityWallet, address _strategist, address _biconomy)
         ERC20("DAO Vault Money Printer", "daoMPT")
     {
         _setupDecimals(18);
         strategy = IStrategy(_strategy);
         admin = _admin; 
+        trustedForwarder = _biconomy;
 
         treasuryWallet = _treasuryWallet;
         communityWallet = _communityWallet;
@@ -93,6 +99,21 @@ contract MoneyPrinterVault is ERC20, Ownable {
         USDT.safeApprove(_strategy, type(uint).max);
     }
 
+    modifier onlyAdmin {
+        require(msg.sender == admin, "Only Admin");
+        _;
+    }
+
+        /// @notice Function that required for inherict BaseRelayRecipient
+    function _msgSender() internal override(Context, BaseRelayRecipient) view returns (address payable) {
+        return BaseRelayRecipient._msgSender();
+    }
+    
+    /// @notice Function that required for inherict BaseRelayRecipient
+    function versionRecipient() external pure override returns (string memory) {
+        return "1";
+    }
+
     /**
      * @notice Deposit into strategy
      * @param _amount amount to deposit
@@ -100,8 +121,12 @@ contract MoneyPrinterVault is ERC20, Ownable {
      * - Only EOA account can call this function
      */
     function deposit(uint256 _amount, IERC20 _token) external {
-        require(msg.sender == tx.origin, "Only EOA");
+        require(msg.sender == tx.origin || isTrustedForwarder(msg.sender), "Only EOA");
+        require(isEmergency == false ,"Cannot deposit during emergency");
         require(_amount > 0, "Invalid amount");
+
+        address _sender = _msgSender();
+
         uint256 shares;
         uint feeAmount;
         uint _amountAfterFee;
@@ -112,8 +137,8 @@ contract MoneyPrinterVault is ERC20, Ownable {
                 ? _amountAfterFee
                 : _amountAfterFee.mul(totalSupply()).div(getValueInPool());
 
-            DAI.safeTransferFrom(msg.sender, address(this), _amount);
-            depositedAmount[msg.sender] = depositedAmount[msg.sender].add(_amountAfterFee);
+            DAI.safeTransferFrom(_sender, address(this), _amount);
+            depositedAmount[_sender] = depositedAmount[_sender].add(_amountAfterFee);
         } else if (_token == USDC) {
             uint _amountMagnified = _amount.mul(1e12);
             (_amountAfterFee, feeAmount) = _calcSharesAfterNetworkFee(_amountMagnified);
@@ -123,9 +148,9 @@ contract MoneyPrinterVault is ERC20, Ownable {
                 : _amountAfterFee.mul(totalSupply()).div(
                     getValueInPool());
 
-            USDC.safeTransferFrom(msg.sender, address(this), _amount);
+            USDC.safeTransferFrom(_sender, address(this), _amount);
             
-            depositedAmount[msg.sender] = depositedAmount[msg.sender].add(_amountAfterFee);
+            depositedAmount[_sender] = depositedAmount[_sender].add(_amountAfterFee);
             feeAmount = feeAmount.div(1e12);
         } else if (_token == USDT) {
             uint _amountMagnified = _amount.mul(1e12);
@@ -134,9 +159,9 @@ contract MoneyPrinterVault is ERC20, Ownable {
             shares = totalSupply() == 0
                 ? _amountAfterFee
                 : _amountAfterFee.mul(totalSupply()).div(getValueInPool());
-            USDT.safeTransferFrom(msg.sender, address(this), _amount);
+            USDT.safeTransferFrom(_sender, address(this), _amount);
 
-            depositedAmount[msg.sender] = depositedAmount[msg.sender].add(_amountAfterFee);
+            depositedAmount[_sender] = depositedAmount[_sender].add(_amountAfterFee);
             feeAmount = feeAmount.div(1e12);
         } else {
             revert("Invalid deposit Token");
@@ -146,8 +171,8 @@ contract MoneyPrinterVault is ERC20, Ownable {
 
         strategy.deposit(_amount.sub(feeAmount), _token);
         
-        _mint(msg.sender, shares);
-        emit Deposit(msg.sender, address(_token), _amount, shares);
+        _mint(_sender, shares);
+        emit Deposit(_sender, address(_token), _amount, shares);
     }
 
     /**
@@ -158,10 +183,12 @@ contract MoneyPrinterVault is ERC20, Ownable {
      */
     function withdraw(uint256 _shares, IERC20 _token) external {
         require(msg.sender == tx.origin, "Only EOA");
+        require(_token == DAI || _token == USDC || _token == USDT, "Invalid token");
         require(_shares > 0, "Invalid amount");
         uint256 _totalShares = balanceOf(msg.sender);
         require(_totalShares >= _shares, "Insuffient funds");
         uint _fee;
+        uint amountToWithdraw;
 
         uint amount = getValueInPool().mul(_shares).div(totalSupply());
         uint _depositedAmount = depositedAmount[msg.sender].mul(_shares).div(_totalShares);
@@ -176,29 +203,72 @@ contract MoneyPrinterVault is ERC20, Ownable {
             _fee = _token == DAI ? _fee : _fee.div(1e12);
         }
 
-        strategy.withdraw(amount, _token);
-        console.log('balanceInContract', _token.balanceOf(address(this)));
+        if(isEmergency) {
+            //conver to user's token
+            if(_token != emergencyWithdrawToken) {
+                address[] memory path = new address[](2);
+                path[0] = address(emergencyWithdrawToken);
+                path[1] = address(_token);
+                uint[] memory amounts = QuickSwapRouter.swapExactTokensForTokens(_token == DAI ? amount : amount.div(1e12), 0, path, address(this), block.timestamp);  
+                amountToWithdraw = amounts[1].sub(_fee);
+            } else {
+                //emergency token and user token are same, subtract the fee(if any) and withdraw.
+                amountToWithdraw = _token == DAI ? amount.sub(_fee) : amount.sub(_fee).div(1e12); //_token.balanceOf(address(this)).sub(_fee);
+            }
+
+        } else {
+            //not emergency - withdraw from strategy
+            strategy.withdraw(amount, _token);
+            amountToWithdraw = _token.balanceOf(address(this)).sub(_fee);
+        }
+        
+        console.log('balanceInContract', _token.balanceOf(address(this)), amount);
 
         if(_fee != 0) {
             _token.safeTransfer(treasuryWallet, _fee);
         }
 
-        uint amountToWithdraw = _token.balanceOf(address(this));
+        console.log('amountToWithdraw', amountToWithdraw, _fee);
         _token.safeTransfer(msg.sender,  amountToWithdraw);
 
         _burn(msg.sender, _shares);
         emit Withdraw(msg.sender, address(_token), amountToWithdraw, _shares);
     }
 
-    function harvest() external {
-        require(msg.sender == admin, "onlyAdmin");
+    function yield() external onlyAdmin{
+        require(isEmergency == false, "Cannot call during emergency");
         strategy.harvest();
 
         emit Harvest(block.timestamp);
     }
 
-    function setPendingStrategy(address _pendingStrategy) external {
-        require(msg.sender == admin, "Only admin");
+    function emergencyWithdraw(IERC20 _token) external onlyAdmin {
+        isEmergency = true;
+        emergencyWithdrawToken = _token;
+        strategy.migrateFunds(_token);
+    }
+
+    function reInvest() external onlyOwner {
+        isEmergency = false; 
+
+        uint daiBalance = DAI.balanceOf(address(this));
+        uint usdcBalance = USDC.balanceOf(address(this));
+        uint usdtBalance = USDT.balanceOf(address(this));
+
+        if(daiBalance > 0) {
+            strategy.deposit(daiBalance, DAI);
+        }
+
+        if(usdcBalance > 0) {
+            strategy.deposit(usdcBalance, USDC);
+        }
+
+        if(usdtBalance > 0) {
+            strategy.deposit(usdtBalance, USDT);
+        }
+    }
+
+    function setPendingStrategy(address _pendingStrategy) external onlyOwner {
         require(canSetPendingStrategy, "Cannot set strategy");
         require(_pendingStrategy != address(0), "Invalid strategy address");
 
@@ -207,15 +277,14 @@ contract MoneyPrinterVault is ERC20, Ownable {
         emit SetPendingStrategy(oldStrategy, _pendingStrategy);
     }
 
-    function unlockMigrateFunds() external {
-        require(msg.sender == admin, "Only Admin");
+    function unlockMigrateFunds() external onlyOwner{
         unlockTime = block.timestamp.add(LOCKTIME);
         canSetPendingStrategy = false;
     }
 
-    function migrateFunds(IERC20 _token) external {
-        require(msg.sender == admin, "Only Admin");
+    function migrateFunds(IERC20 _token) external onlyOwner{
         require(unlockTime <= block.timestamp && unlockTime.add(1 days) >= block.timestamp, "Function locked");
+        require(isEmergency == false, "Cannot call during emergency");
         
         address oldStrategy = address(strategy);
 
@@ -236,8 +305,7 @@ contract MoneyPrinterVault is ERC20, Ownable {
         emit MigrateFunds(oldStrategy, pendingStrategy, amount);
     }
 
-    function setAdmin(address _newAdmin) external {
-        require(msg.sender == admin, "Only Admin");
+    function setAdmin(address _newAdmin) external onlyOwner {
         address oldAdmin = admin;
         admin = _newAdmin;
 
@@ -245,8 +313,7 @@ contract MoneyPrinterVault is ERC20, Ownable {
         emit SetAdmin(oldAdmin, _newAdmin);
     }
 
-    function setTreasuryWallet(address _treasuryWallet) external {
-        require(msg.sender == admin, "Only admin");
+    function setTreasuryWallet(address _treasuryWallet) external onlyOwner {
         address oldTreasuryWallet = treasuryWallet;
         treasuryWallet = _treasuryWallet;
         strategy.setTreasuryWallet(_treasuryWallet);
@@ -254,8 +321,7 @@ contract MoneyPrinterVault is ERC20, Ownable {
         emit SetTreasuryWallet(oldTreasuryWallet, _treasuryWallet);
     }
 
-    function setCommunityWallet(address _communityWallet) external {
-        require(msg.sender == admin, "Only admin");
+    function setCommunityWallet(address _communityWallet) external onlyOwner{
         address oldCommunityWallet = communityWallet;
         communityWallet = _communityWallet;
 
@@ -263,12 +329,16 @@ contract MoneyPrinterVault is ERC20, Ownable {
     }
 
     function setStrategist(address _strategist) external {
-        require(msg.sender == admin, "Only admin");
+        require(msg.sender == owner() || msg.sender == strategist, "Only admin");
         strategist = _strategist;
     }
 
     function getValueInPool() public view returns (uint){
-        return strategy.getValueInPool();
+        //returns balance in vault during emergency
+        //call strategy.getValueInPool(); if not in emergency
+        return isEmergency ? DAI.balanceOf(address(this))
+        .add(USDC.balanceOf(address(this)).mul(1e12))
+        .add(USDT.balanceOf(address(this)).mul(1e12)) : strategy.getValueInPool();
     }
 
     function _calcSharesAfterNetworkFee(uint _amount) internal view returns (uint amountAfterFee, uint fee) {
