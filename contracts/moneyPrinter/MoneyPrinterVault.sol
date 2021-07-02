@@ -9,26 +9,8 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "../../interfaces/IUniswapV2Router02.sol";
 import "../../libs/BaseRelayRecipient.sol";
-import "hardhat/console.sol";
 
-/**
- * New strategy contract must utilize ERC20 and with functions below:
- *
- * In constructor, _setupDecimals(decimals) follow token decimals
- *
- * function deposit(uint256 _amount)
- * -> require msg.sender == Vault
- *
- * function withdraw(uint256 _amount)
- * -> require msg.sender == Vault
- *
- * function refund(uint256 _shares)
- * -> Receive amount of shares (same amount with daoToken) as argument
- * -> require msg.sender == Vault
- *
- * function approveMigrate()
- * -> Approve Vault to migrate all funds to new strategy
- */
+
 interface IStrategy{
     function deposit(uint _amount, IERC20 _token) external ;
     function harvest() external;
@@ -39,7 +21,7 @@ interface IStrategy{
     function setTreasuryWallet(address _newTreasury) external;
 }
 
-/// @title Contract to interact between user and strategy, and distribute daoToken
+
 contract MoneyPrinterVault is ERC20, Ownable, BaseRelayRecipient {
     using SafeERC20 for IERC20;
     using Address for address;
@@ -53,9 +35,9 @@ contract MoneyPrinterVault is ERC20, Ownable, BaseRelayRecipient {
     IStrategy public strategy;
     address public pendingStrategy;
     address public admin;
-    address public treasuryWallet ; //= 0x986a2fCa9eDa0e06fBf7839B89BfC006eE2a23Dd; //TODO remove address
-    address public communityWallet ; //= 0x986a2fCa9eDa0e06fBf7839B89BfC006eE2a23Dd;
-    address public strategist ; //= 0x986a2fCa9eDa0e06fBf7839B89BfC006eE2a23Dd;
+    address public treasuryWallet ; 
+    address public communityWallet ;
+    address public strategist ;
     
     bool public canSetPendingStrategy = true;
     bool public isEmergency = false;
@@ -193,8 +175,7 @@ contract MoneyPrinterVault is ERC20, Ownable, BaseRelayRecipient {
         uint _depositedAmount = depositedAmount[msg.sender].mul(_shares).div(_totalShares);
         depositedAmount[msg.sender] = depositedAmount[msg.sender].sub(_depositedAmount);
 
-        console.log('amount', amount);
-        console.log('_depositedAmount', _depositedAmount);
+        
         if(amount > _depositedAmount) {
             uint256 _profit = amount.sub(_depositedAmount);
             _fee = _profit.mul(profitSharingFeePerc).div(10000);
@@ -221,13 +202,11 @@ contract MoneyPrinterVault is ERC20, Ownable, BaseRelayRecipient {
             amountToWithdraw = _token.balanceOf(address(this)).sub(_fee);
         }
         
-        console.log('balanceInContract', _token.balanceOf(address(this)), amount);
 
         if(_fee != 0) {
             _token.safeTransfer(treasuryWallet, _fee);
         }
 
-        console.log('amountToWithdraw', amountToWithdraw, _fee);
         _token.safeTransfer(msg.sender,  amountToWithdraw);
 
         _burn(msg.sender, _shares);

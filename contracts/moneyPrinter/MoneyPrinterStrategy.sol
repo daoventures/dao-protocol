@@ -13,7 +13,7 @@ import "../../interfaces/ILendingPool.sol";
 import "../../interfaces/IGauge.sol";
 import "../../interfaces/WexPolyMaster.sol";
 
-import "hardhat/console.sol";
+
 
 contract MoneyPrinterStrategy is Ownable{
     using SafeMath for uint;
@@ -98,10 +98,6 @@ contract MoneyPrinterStrategy is Ownable{
         }
         _deposit(_amount, _token);
 
-
-        console.log("usdc-afterDeposit", USDC.balanceOf(address(this)));
-        console.log("dai-afterDeposit", DAI.balanceOf(address(this)));
-        console.log("usdt-afterDeposit", USDT.balanceOf(address(this)));
     }
 
     function _deposit(uint _amount, IERC20 _token) internal {
@@ -110,9 +106,7 @@ contract MoneyPrinterStrategy is Ownable{
         uint daiToDeposit = (DAI.balanceOf(address(this))).div(2); //.mul(3333).div(10000);
         uint usdcToDeposit = (USDC.balanceOf(address(this))).div(2); //.mul(3333).div(10000);
         uint usdtToDeposit = (USDT.balanceOf(address(this))).div(3); //.mul(3333).div(10000);
-        console.log("usdc", USDC.balanceOf(address(this)), usdcToDeposit);
-        console.log("dai", DAI.balanceOf(address(this)),daiToDeposit);
-        console.log("usdt", USDT.balanceOf(address(this)),usdtToDeposit);
+
         _depositToWexPoly(usdtToDeposit, usdcToDeposit);
         _depositToquickSwap(daiToDeposit, usdtToDeposit);
         _depositToCurve(daiToDeposit, usdcToDeposit, usdtToDeposit);
@@ -206,37 +200,33 @@ contract MoneyPrinterStrategy is Ownable{
         uint USDCUSDTLpToken = amountStaked.mul(_amount).div(amountDeposited);
         USDCUSDTLpToken = USDCUSDTLpToken > amountStaked ? amountStaked : USDCUSDTLpToken;
         wexStakingContract.withdraw(usdtusdcWexPID, USDCUSDTLpToken, false);
-        console.log('USDCUSDTLpToken',USDCUSDTLpToken, amountStaked, amountDeposited);
-        console.log('balance-USDCUSDTLpToken', WexUSDT_USDCPair.balanceOf(address(this)));
+
         
         (_withdrawnUSDT, _withdrawnUSDC) = WexPolyRouter.removeLiquidity(address(USDT), address(USDC), USDCUSDTLpToken, 0, 0, address(this), block.timestamp);
         
     }
 
     function _withdrawFromquickSwap(uint _amount) internal returns(uint _withdrawnDAI, uint _withdrawnUSDT){
-        console.log('DAIUSDTQuickswapPool', DAIUSDTQuickswapPool.balanceOf(address(this)), DAIUSDTQuickswapPool.balanceOf(address(this)).mul(_amount).div(getValueInPool()));
+        
         uint lpTokenBalance = DAIUSDTQuickswapPool.balanceOf(address(this));
-        // uint DAIUSDTQuickLpToken = lpTokenBalance.mul(_amount).div(getValueInPool());
-        // uint percentageOfWithdrawl
         uint DAIUSDTQuickLpToken = lpTokenBalance.mul(_amount).div(amountDeposited);
-        console.log('DAIUSDTQuickLpTokenOriginal',DAIUSDTQuickLpToken);
+        
         DAIUSDTQuickLpToken = DAIUSDTQuickLpToken > lpTokenBalance ? lpTokenBalance: DAIUSDTQuickLpToken;
-        console.log('DAIUSDTQuickLpToken',DAIUSDTQuickLpToken);
+        
         DAIUSDTQuickswapPool.withdraw(DAIUSDTQuickLpToken);
         (_withdrawnDAI, _withdrawnUSDT) = quickSwapRouter.removeLiquidity(address(DAI), address(USDT), DAIUSDTQuickLpToken, 0, 0, address(this), block.timestamp);
     }
 
     function _withdrawFromCurve(uint _amount) internal returns (uint _withdrawnDAI, uint _withdrawnUSDC, uint _withdrawnUSDT){
         uint lpTokenBalance = rewardGauge.balanceOf(address(this));
-        // uint lpTokenToWithdraw = lpTokenBalance.mul(_amount).div(getValueInPool());
-        console.log('curve calculations', lpTokenBalance, _amount, amountDeposited);
+        
         uint lpTokenToWithdraw = lpTokenBalance.mul(_amount).div(amountDeposited);
-        console.log('withdrawCurve', lpTokenBalance, lpTokenToWithdraw);
+        
 
         lpTokenToWithdraw = lpTokenToWithdraw > lpTokenBalance ? lpTokenBalance: lpTokenToWithdraw;
 
         rewardGauge.withdraw(lpTokenToWithdraw);
-        uint[3] memory minAMmounts; //
+        uint[3] memory minAMmounts; 
         minAMmounts[0] = 0;
         minAMmounts[1] = 0;
         minAMmounts[2] = 0;
@@ -310,7 +300,7 @@ contract MoneyPrinterStrategy is Ownable{
             uint amountToUSDT = _amount.mul(4444).div(10000);
 
             IERC20 _tokenToGet = _token == DAI ? USDC : DAI; //return USDC if sourceToken is DAI, else return DAI.
-            console.log('usdcBalance', USDC.balanceOf(address(this)), amountToUSDT);
+
             curveFi.exchange_underlying(curveIds[_token], curveIds[USDT], amountToUSDT, 0);
             curveFi.exchange_underlying(curveIds[_token], curveIds[_tokenToGet], _amount.mul(2777).div(10000), 0);
         }
@@ -321,7 +311,7 @@ contract MoneyPrinterStrategy is Ownable{
         usdtInPool = usdtInPool.add(_usdtAmount.mul(1e12));
 
         (,, usdt_usdcpoolToken) = WexPolyRouter.addLiquidity(address(USDC), address(USDT), _usdcAmount, _usdtAmount, 0, 0, address(this), block.timestamp);
-        console.log('usdt_usdcpoolToken',usdt_usdcpoolToken);
+        
         wexStakingContract.deposit(usdtusdcWexPID, usdt_usdcpoolToken, false);
         //deposit to wexPoly
     }
@@ -331,7 +321,7 @@ contract MoneyPrinterStrategy is Ownable{
         usdtInPool = usdtInPool.add(_usdtAmount.mul(1e12));
         
         (,, dai_usdtpoolToken) = quickSwapRouter.addLiquidity(address(DAI), address(USDT), _daiAmount, _usdtAmount, 0, 0, address(this), block.timestamp);
-        console.log('dai_usdtpoolToken',dai_usdtpoolToken);
+        
         DAIUSDTQuickswapPool.stake(dai_usdtpoolToken);
     }
 
@@ -343,9 +333,6 @@ contract MoneyPrinterStrategy is Ownable{
         amounts[0] = _daiAmount;
         amounts[1] = _usdcAmount;
         amounts[2] = _usdtAmount;
-        console.log('Add Liquidity to Curve');
-        console.log(_daiAmount, _usdcAmount, _usdtAmount);
-        console.log(DAI.balanceOf(address(this)), USDC.balanceOf(address(this)), USDT.balanceOf(address(this)));
         
         uint daiBalance = DAI.balanceOf(address(this));
         uint usdcBalance = USDC.balanceOf(address(this));
@@ -356,7 +343,7 @@ contract MoneyPrinterStrategy is Ownable{
         _usdtAmount = _usdtAmount > usdtBalance ? usdtBalance : _usdtAmount;
 
         curveFi.add_liquidity([_daiAmount, _usdcAmount, _usdtAmount], 0, true);
-        console.log('curve lpTokenBalance', curveLpToken.balanceOf(address(this)));
+        
         //deposit to gauge
         lpTokenAmount = curveLpToken.balanceOf(address(this));
         rewardGauge.deposit(lpTokenAmount);
@@ -368,7 +355,6 @@ contract MoneyPrinterStrategy is Ownable{
     }
 
     function setVault(address _vault) external onlyOwner{
-        console.log('vault', vault);
         require(vault == address(0), "Cannot set vault");
         vault = _vault;
     }
