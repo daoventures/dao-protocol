@@ -52,4 +52,7 @@ interface ICurveFi {
     uint256[2] calldata amounts,
     uint256 deadline
   ) external;
+
+  function add_liquidity(uint[3] memory _amounts, uint _min_mint_amount, bool _use_underlying) external returns (uint);
+  function remove_liquidity(uint _amount, uint[3] memory _min_amounts, bool _use_underlying) external returns (uint[3] memory);
 }
