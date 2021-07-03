@@ -146,7 +146,7 @@ contract MoneyPrinterStrategy is Ownable{
         _harvestFromQuick();
         _harvestFromCurve();
 
-        DAI.transfer(treasury, DAI.balanceOf(address(this)).mul(10).div(100));//10% to treasury
+        DAI.transfer(treasury, DAI.balanceOf(address(this)).div(10));//10% to treasury
         _deposit(DAI.balanceOf(address(this)), DAI);
     }
 
@@ -154,16 +154,19 @@ contract MoneyPrinterStrategy is Ownable{
 
         //withdraw from wexPoly
         (uint amountStaked,,) = wexStakingContract.userInfo(usdtusdcWexPID, address(this));
+        _harvestFromWexPoly();
         wexStakingContract.withdraw(usdtusdcWexPID, amountStaked, false);
         WexPolyRouter.removeLiquidity(address(USDT), address(USDC), amountStaked, 0, 0, address(this), block.timestamp);
 
         //withdraw from quickSwap
         uint lpTokenBalanceQSwap = DAIUSDTQuickswapPool.balanceOf(address(this));
+        _harvestFromQuick();
         DAIUSDTQuickswapPool.withdraw(lpTokenBalanceQSwap);
         quickSwapRouter.removeLiquidity(address(DAI), address(USDT), lpTokenBalanceQSwap, 0, 0, address(this), block.timestamp);
 
         //withdraw from curve
         uint lpTokenBalanceCurve = rewardGauge.balanceOf(address(this));
+        _harvestFromCurve();
         rewardGauge.withdraw(lpTokenBalanceCurve);
         uint[3] memory minAMmounts; //
         minAMmounts[0] = 0;
