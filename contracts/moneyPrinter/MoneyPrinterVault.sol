@@ -60,8 +60,9 @@ contract MoneyPrinterVault is ERC20, Ownable, BaseRelayRecipient {
     event SetCommunityWallet(address oldCommunityWallet, address newCommunityWallet);
     event SetTreasuryWallet(address oldTreasury, address newTreasury);
     event SetPendingStrategy(address oldStrategy, address newStrategy);
-    event Harvest(uint timestamp);
-
+    event Yield(uint timestamp);
+    event UnlockMigrateFunds(uint unlockTime);
+    event SetStrategistWallet(address oldStrategist, address newStrategist);
 
     constructor(address _strategy, address _admin, address _treasuryWallet, address _communityWallet, address _strategist, address _biconomy)
         ERC20("DAO Vault Money Printer", "daoMPT")
@@ -217,7 +218,7 @@ contract MoneyPrinterVault is ERC20, Ownable, BaseRelayRecipient {
         require(isEmergency == false, "Cannot call during emergency");
         strategy.harvest();
 
-        emit Harvest(block.timestamp);
+        emit Yield(block.timestamp);
     }
 
     function emergencyWithdraw(IERC20 _token) external onlyAdmin {
@@ -258,6 +259,7 @@ contract MoneyPrinterVault is ERC20, Ownable, BaseRelayRecipient {
     function unlockMigrateFunds() external onlyOwner{
         unlockTime = block.timestamp.add(LOCKTIME);
         canSetPendingStrategy = false;
+        emit UnlockMigrateFunds(unlockTime);
     }
 
     function migrateFunds(IERC20 _token) external onlyOwner{
@@ -310,7 +312,9 @@ contract MoneyPrinterVault is ERC20, Ownable, BaseRelayRecipient {
     function setStrategist(address _strategist) external {
         require(_strategist != address(0), "Invalid Address");
         require(msg.sender == owner() || msg.sender == strategist, "Only admin");
+        address oldStrategist = strategist;
         strategist = _strategist;
+        emit SetStrategistWallet(oldStrategist, _strategist);
     }
 
     function getValueInPool() public view returns (uint){

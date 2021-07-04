@@ -148,8 +148,11 @@ describe("EmergencyWithdraw", async() => {
     })
 
     it('Should remove emergency on reInvest', async() => {
-        const {moneyPrinterVault, moneyPrinterStrategy, admin, USDC, unlockedUser, deployer} = await setup()
+        const {moneyPrinterVault, moneyPrinterStrategy, admin, USDC, unlockedUser, unlockedUser2, deployer} = await setup()
         await moneyPrinterVault.connect(unlockedUser).deposit(ethers.utils.parseUnits("100", 6), USDC.address)
+        await moneyPrinterVault.connect(unlockedUser2).deposit(ethers.utils.parseUnits("50", 6), USDC.address)
+        await increaseTime(3600000)
+        await moneyPrinterVault.connect(admin).yield()
         await moneyPrinterVault.connect(admin).emergencyWithdraw(USDC.address)
         await moneyPrinterVault.connect(deployer).reInvest()
         await moneyPrinterVault.connect(unlockedUser).deposit(ethers.utils.parseUnits("100", 6), USDC.address)
