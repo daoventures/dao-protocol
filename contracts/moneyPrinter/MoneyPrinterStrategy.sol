@@ -12,7 +12,7 @@ import "../../interfaces/ILPPool.sol";
 import "../../interfaces/ILendingPool.sol";
 import "../../interfaces/IGauge.sol";
 import "../../interfaces/WexPolyMaster.sol";
-
+import "hardhat/console.sol";
 
 
 contract MoneyPrinterStrategy is Ownable{
@@ -114,11 +114,12 @@ contract MoneyPrinterStrategy is Ownable{
         (uint daiFromCurve, uint usdcFromCurve, uint usdtFromCurve) = _withdrawFromCurve(_amount);
 
         uint daiBalance =  daiFromQSwap.add(daiFromCurve); 
-        uint usdcBalance = (usdcFromwSwap.add(usdcFromCurve)).mul(1e12);
-        uint usdtBalance = (usdtFromQSwap.add(usdtFromCurve).add(usdtFromwSwap)).mul(1e12);
-
-        usdtInPool = usdtBalance < usdtInPool ? usdtInPool.sub(usdtBalance): 0;
-        usdcInPool = usdcBalance < usdcInPool ? usdcInPool.sub(usdcBalance): 0;
+        uint usdcBalance = usdcFromwSwap.add(usdcFromCurve);
+        uint usdtBalance = usdtFromQSwap.add(usdtFromCurve).add(usdtFromwSwap);
+    
+    
+        usdtInPool = usdtBalance.mul(1e12) < usdtInPool ? usdtInPool.sub(usdtBalance.mul(1e12)): 0;
+        usdcInPool = usdcBalance.mul(1e12) < usdcInPool ? usdcInPool.sub(usdcBalance.mul(1e12)): 0;
         daiInPool = daiBalance < daiInPool ? daiInPool.sub(daiBalance): 0;
 
         //convert to _token 
