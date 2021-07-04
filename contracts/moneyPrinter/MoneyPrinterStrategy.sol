@@ -114,8 +114,8 @@ contract MoneyPrinterStrategy is Ownable{
         (uint daiFromCurve, uint usdcFromCurve, uint usdtFromCurve) = _withdrawFromCurve(_amount);
 
         uint daiBalance =  daiFromQSwap.add(daiFromCurve); 
-        uint usdcBalance = usdcFromwSwap.add(usdcFromCurve);
-        uint usdtBalance = usdtFromQSwap.add(usdtFromCurve).add(usdtFromwSwap);
+        uint usdcBalance = (usdcFromwSwap.add(usdcFromCurve)).mul(1e12);
+        uint usdtBalance = (usdtFromQSwap.add(usdtFromCurve).add(usdtFromwSwap)).mul(1e12);
 
         usdtInPool = usdtBalance < usdtInPool ? usdtInPool.sub(usdtBalance): 0;
         usdcInPool = usdcBalance < usdcInPool ? usdcInPool.sub(usdcBalance): 0;
