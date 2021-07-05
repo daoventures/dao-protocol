@@ -132,7 +132,7 @@ describe("EmergencyWithdraw", async() => {
     it('Should work correctly', async () => {
         const {moneyPrinterVault, moneyPrinterStrategy, admin, USDC, unlockedUser} = await setup()
         await moneyPrinterVault.connect(unlockedUser).deposit(ethers.utils.parseUnits("100", 6), USDC.address)
-        await moneyPrinterVault.connect(admin).emergencyWithdraw(USDC.address)
+        await moneyPrinterVault.connect(admin).emergencyWithdraw(DAI.address)
         const balanceBefore = await USDC.balanceOf(unlockedUser.address)
         await moneyPrinterVault.connect(unlockedUser).withdraw(moneyPrinterVault.balanceOf(unlockedUser.address), USDC.address)
         const balanceAfter = await USDC.balanceOf(unlockedUser.address)
@@ -142,6 +142,8 @@ describe("EmergencyWithdraw", async() => {
 
     it('Should not allow other functions during emergency', async() => {
         const {moneyPrinterVault, moneyPrinterStrategy, admin, USDC, unlockedUser, deployer} = await setup()
+        await moneyPrinterVault.connect(unlockedUser).deposit(ethers.utils.parseUnits("100", 6), USDC.address)
+        await moneyPrinterVault.connect(admin).emergencyWithdraw(USDC.address)
         await expect( moneyPrinterVault.connect(unlockedUser).deposit(ethers.utils.parseUnits("100", 6), USDC.address)).to.be.revertedWith("Cannot deposit during emergency")
         await expect( moneyPrinterVault.connect(admin).yield()).to.be.revertedWith("Cannot call during emergency")
         await expect( moneyPrinterVault.connect(deployer).migrateFunds(USDC.address)).to.be.revertedWith("Cannot call during emergency")
@@ -157,14 +159,23 @@ describe("EmergencyWithdraw", async() => {
         await moneyPrinterVault.connect(deployer).reInvest()
         await moneyPrinterVault.connect(unlockedUser).deposit(ethers.utils.parseUnits("100", 6), USDC.address)
     })
-})
+}) 
 
 describe("Normal flow", async() => {
     it('Should deposit, yield, withdraw correctly', async() => {
-        const {moneyPrinterVault, moneyPrinterStrategy, admin, USDC, unlockedUser, deployer} = await setup()
+        const {moneyPrinterVault, moneyPrinterStrategy, admin, USDC, unlockedUser, unlockedUser2, deployer} = await setup()
         await moneyPrinterVault.connect(unlockedUser).deposit(ethers.utils.parseUnits("100", 6), USDC.address)
+        await moneyPrinterVault.connect(unlockedUser2).deposit(ethers.utils.parseUnits("50", 6), USDC.address)
         await increaseTime(3600000)
         await moneyPrinterVault.connect(admin).yield()
+        let user1balanceBefore = await USDC.balanceOf(unlockedUser.address)
+        let user2balanceBefore = await USDC.balanceOf(unlockedUser2.address)
         await moneyPrinterVault.connect(unlockedUser).withdraw(moneyPrinterVault.balanceOf(unlockedUser.address), USDC.address)
+        await moneyPrinterVault.connect(unlockedUser2).withdraw(moneyPrinterVault.balanceOf(unlockedUser2.address), USDC.address)
+        let user1balanceAfter = await USDC.balanceOf(unlockedUser.address)
+        let user2balanceAfter = await USDC.balanceOf(unlockedUser2.address)
+
+        console.log('amountWithdrawn-1', (user1balanceAfter.sub(user1balanceBefore)).toString())
+        console.log('amountWithdrawn-2', (user2balanceAfter.sub(user2balanceBefore)).toString())
     })
-})
+}) 

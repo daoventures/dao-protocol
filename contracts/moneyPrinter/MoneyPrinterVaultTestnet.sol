@@ -22,14 +22,14 @@ interface IStrategy{
 }
 
 
-contract MoneyPrinterVault is ERC20, Ownable, BaseRelayRecipient {
+contract MoneyPrinterVaultTestnet is ERC20, Ownable, BaseRelayRecipient {
     using SafeERC20 for IERC20;
     using Address for address;
     using SafeMath for uint256;
 
-    IERC20 public DAI = IERC20(0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063); 
-    IERC20 public USDC = IERC20(0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174);
-    IERC20 public USDT = IERC20(0xc2132D05D31c914a87C6611C10748AEb04B58e8F);
+    IERC20 public DAI = IERC20(0x001B3B4d0F3714Ca98ba10F6042DaEbF0B1B7b6F); 
+    IERC20 public USDC = IERC20(0x2058A9D7613eEE744279e3856Ef0eAda5FCbaA7e);
+    IERC20 public USDT = IERC20(0xBD21A10F619BE90d6066c941b04e340841F1F989);
     IERC20 emergencyWithdrawToken; //Tokens are converted to `emergencyWithdrawToken` durin emergency withdraw
     IUniswapV2Router02 public constant QuickSwapRouter = IUniswapV2Router02(0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff);
     IStrategy public strategy;
@@ -80,9 +80,9 @@ contract MoneyPrinterVault is ERC20, Ownable, BaseRelayRecipient {
         USDC.safeApprove(_strategy, type(uint).max);
         USDT.safeApprove(_strategy, type(uint).max);
 
-        DAI.safeApprove(address(QuickSwapRouter), type(uint).max);
+/*         DAI.safeApprove(address(QuickSwapRouter), type(uint).max);
         USDC.safeApprove(address(QuickSwapRouter), type(uint).max);
-        USDT.safeApprove(address(QuickSwapRouter), type(uint).max);
+        USDT.safeApprove(address(QuickSwapRouter), type(uint).max); */
     }
 
     modifier onlyAdmin {
@@ -155,7 +155,7 @@ contract MoneyPrinterVault is ERC20, Ownable, BaseRelayRecipient {
 
         transferNetworkFee(feeAmount, _token);
 
-        strategy.deposit(_amount.sub(feeAmount), _token);
+        // strategy.deposit(_amount.sub(feeAmount), _token);
         
         _mint(_sender, shares);
         emit Deposit(_sender, address(_token), _amount, shares);
@@ -203,7 +203,7 @@ contract MoneyPrinterVault is ERC20, Ownable, BaseRelayRecipient {
 
         } else {
             //not emergency - withdraw from strategy
-            strategy.withdraw(amount, _token);
+            // strategy.withdraw(amount, _token);
             amountToWithdraw = _token.balanceOf(address(this)).sub(_fee);
         }
         
@@ -324,9 +324,11 @@ contract MoneyPrinterVault is ERC20, Ownable, BaseRelayRecipient {
     function getValueInPool() public view returns (uint){
         //returns balance in vault during emergency
         //call strategy.getValueInPool(); if not in emergency
-        return isEmergency ? DAI.balanceOf(address(this))
+
+        //commented following for testnet
+        return /* isEmergency ? */ DAI.balanceOf(address(this))
         .add(USDC.balanceOf(address(this)).mul(1e12))
-        .add(USDT.balanceOf(address(this)).mul(1e12)) : strategy.getValueInPool();
+        .add(USDT.balanceOf(address(this)).mul(1e12)) /* : strategy.getValueInPool() */;
     }
 
     function _calcSharesAfterNetworkFee(uint _amount) internal view returns (uint amountAfterFee, uint fee) {
