@@ -12,7 +12,6 @@ import "../../interfaces/ILPPool.sol";
 import "../../interfaces/ILendingPool.sol";
 import "../../interfaces/IGauge.sol";
 import "../../interfaces/WexPolyMaster.sol";
-import "hardhat/console.sol";
 
 
 contract MoneyPrinterStrategy is Ownable{
@@ -48,9 +47,7 @@ contract MoneyPrinterStrategy is Ownable{
     uint private daiInPool;
     uint private usdcInPool;
     uint private usdtInPool;
-    // uint private quickInPool;
-    // uint private sushiInPool;
-    // uint private maticInPool;
+
     uint usdtusdcWexPID = 9;
 
     mapping(IERC20 => int128) curveIds;
@@ -108,7 +105,7 @@ contract MoneyPrinterStrategy is Ownable{
 
 
     function withdraw(uint _amount, IERC20 _token) external onlyVault{
-        
+        require(_amount <= getValueInPool(), "Invalid amount");
         (uint usdtFromwSwap, uint usdcFromwSwap) = _withdrawFromWexPoly(_amount);
         (uint daiFromQSwap, uint usdtFromQSwap) = _withdrawFromquickSwap(_amount);
         (uint daiFromCurve, uint usdcFromCurve, uint usdtFromCurve) = _withdrawFromCurve(_amount);
@@ -189,9 +186,7 @@ contract MoneyPrinterStrategy is Ownable{
     function _withdrawFromWexPoly(uint _amount) internal returns (uint _withdrawnUSDT, uint _withdrawnUSDC){
         (uint amountStaked,,) = wexStakingContract.userInfo(usdtusdcWexPID, address(this));
         
-        // uint USDCUSDTLpToken = amountStaked.mul(_amount).div(getValueInPool());
         uint USDCUSDTLpToken = amountStaked.mul(_amount).div(getValueInPool());
-        USDCUSDTLpToken = USDCUSDTLpToken > amountStaked ? amountStaked : USDCUSDTLpToken;
         wexStakingContract.withdraw(usdtusdcWexPID, USDCUSDTLpToken, false);
 
         
@@ -204,7 +199,6 @@ contract MoneyPrinterStrategy is Ownable{
         uint lpTokenBalance = DAIUSDTQuickswapPool.balanceOf(address(this));
         uint DAIUSDTQuickLpToken = lpTokenBalance.mul(_amount).div(getValueInPool());
         
-        DAIUSDTQuickLpToken = DAIUSDTQuickLpToken > lpTokenBalance ? lpTokenBalance: DAIUSDTQuickLpToken;
         
         DAIUSDTQuickswapPool.withdraw(DAIUSDTQuickLpToken);
         (_withdrawnDAI, _withdrawnUSDT) = quickSwapRouter.removeLiquidity(address(DAI), address(USDT), DAIUSDTQuickLpToken, 0, 0, address(this), block.timestamp);
@@ -216,7 +210,6 @@ contract MoneyPrinterStrategy is Ownable{
         uint lpTokenToWithdraw = lpTokenBalance.mul(_amount).div(getValueInPool());
         
 
-        lpTokenToWithdraw = lpTokenToWithdraw > lpTokenBalance ? lpTokenBalance: lpTokenToWithdraw;
 
         rewardGauge.withdraw(lpTokenToWithdraw);
         uint[3] memory minAMmounts; 
@@ -252,7 +245,6 @@ contract MoneyPrinterStrategy is Ownable{
         DAIUSDTQuickswapPool.getReward();
 
         uint quickBalance = QUICK.balanceOf(address(this));
-        // quickInPool = quickInPool.add(quickBalance); //check decimals
         if(quickBalance > 0) {
             address[] memory path = new address[](2);
             path[0] = address(QUICK);
