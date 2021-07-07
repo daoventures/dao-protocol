@@ -14,6 +14,7 @@ contract strategy is Ownable { //TODO rename contract
     using SafeMath for uint;
 
     address vault;
+    address treasury;
     
     IERC20 public DAI;
     IERC20 public USDC;
@@ -37,20 +38,105 @@ contract strategy is Ownable { //TODO rename contract
 
     Mode public mode;
 
-    constructor() {
-        DAI.approve(address(SushiRouter), type(uint).max);
-        USDC.approve(address(SushiRouter), type(uint).max);
-        USDT.approve(address(SushiRouter), type(uint).max);
-        SUSHI.approve(address(SushiRouter), type(uint).max);
-        WETH.approve(address(SushiRouter), type(uint).max);
-        WBTC.approve(address(SushiRouter), type(uint).max);
+    constructor(address _treasury) {
+        DAI.safeApprove(address(SushiRouter), type(uint).max);
+        USDC.safeApprove(address(SushiRouter), type(uint).max);
+        USDT.safeApprove(address(SushiRouter), type(uint).max);
+        SUSHI.safeApprove(address(SushiRouter), type(uint).max);
+        WETH.safeApprove(address(SushiRouter), type(uint).max);
+        WBTC.safeApprove(address(SushiRouter), type(uint).max);
 
-        //approve lp tokens on masterchef, router
+        WETHWBTCPair.approve(address(MasterChef), type(uint).max);
+        WETHUSDCPair.approve(address(MasterChef), type(uint).max);
+
+        treasury = _treasury;
     }
 
     modifier onlyVault {
         require(msg.sender == vault, "Only Vault");
         _;
+    }
+
+    function invest(uint _amount, IERC20 _token) external onlyVault {
+        require(_amount > 0, "Invalid Amount");
+        require(_token == USDC || _token == USDT || _token == DAI, "Invalid Token");
+        
+        _token.safeTransferFrom(vault, address(this), _amount);
+        _invest(_amount, _token);
+    }
+
+    function withdraw(uint _amount, IERC20 _token) external onlyVault {
+        require(_amount > 0, "Invalid Amount");
+        require(_token == USDC || _token == USDT || _token == DAI, "Invalid Token");
+
+        _withdraw(_amount, _token);
+
+        _token.safeTransfer(address(vault), _token.balanceOf(address(this)));
+
+    }
+
+    function emergencyWithdraw(IERC20 _token) external onlyVault {
+        address[] memory path = new address[](2);
+        uint[] memory amounts;
+
+        if(mode == Mode.attack) {
+            MasterChef.withdraw(0, lpTokenBalance);
+            path[0] = address(WBTC);
+            path[1] = address(WETH);
+            
+
+            (uint ethAmount, uint wBTCAmount) = SushiRouter.removeLiquidity(address(WETH), address(WBTC), lpTokenBalance, 0, 0, address(this), block.timestamp);
+            
+            //convert second to eth
+            //convert eth to require token
+
+            amounts = SushiRouter.swapExactTokensForTokens(wBTCAmount, 0, path, address(this), block.timestamp);
+
+            path[0] = address(WETH);
+            path[1] = address(_token);
+            SushiRouter.swapExactTokensForTokens(amounts[1].add(ethAmount), 0, path, address(this), block.timestamp);
+            
+            lpTokenBalance = 0;
+
+        }
+        
+        if(mode == Mode.defend) {
+            MasterChef.withdraw(0, lpTokenBalance);
+            path[0] = address(USDC);
+            path[1] = address(WETH);
+
+            (uint ethAmount, uint usdcAmount) = SushiRouter.removeLiquidity(address(WETH), address(USDC), lpTokenBalance, 0, 0, address(this), block.timestamp);
+
+            if(_token != USDC) {
+                // convert usdc to eth
+                // convert eth to _token
+                amounts = SushiRouter.swapExactTokensForTokens(usdcAmount, 0, path, address(this), block.timestamp);
+
+                path[0] = address(WETH);
+                path[1] = address(_token);
+
+                SushiRouter.swapExactTokensForTokens(amounts[1].add(ethAmount), 0, path, address(this), block.timestamp);
+            } else { //_token == sudc
+                //convert eth to usdc
+                path[0] = address(WETH);
+                path[1] = address(USDC);
+                amounts = SushiRouter.swapExactTokensForTokens(ethAmount, 0, path, address(this), block.timestamp);
+            }
+
+            lpTokenBalance = 0;
+
+        }
+
+        _token.safeTransfer(vault, _token.balanceOf(address(this)));
+    }
+
+    function migrateFunds(IERC20 _token) external onlyVault {
+        _yield();
+        (, uint _valueInPool) = getValueInPool();
+
+        _withdraw(_valueInPool, _token);
+
+        _token.safeTransfer(vault, _token.balanceOf(address(this)));
     }
 
     function _invest(uint _amount, IERC20 _token) internal {
@@ -88,7 +174,7 @@ contract strategy is Ownable { //TODO rename contract
         }
     }
 
-    function switchMode(Mode _newMode) internal{
+    function switchMode(Mode _newMode) external onlyVault{
         require(_newMode != mode, "Cannot switch to same mode");
 
         address[] memory path = new address[](2);
@@ -124,17 +210,27 @@ contract strategy is Ownable { //TODO rename contract
         }
     }
 
-    function yield() external onlyVault{
+    function yield() external onlyVault {
+        _yield();
+    }
+
+    function _yield() internal {
         //withdraw lpTokens from masterChef
         //deposit to masterChef
         //if SUHSI balance > 0 , swap and _invest base on MODE
         uint pid = mode == Mode.attack ? 0 : 0;
 
-        MasterChef.withdraw(pid, lpTokenBalance);
-        uint sushiBalance = SUSHI.balanceOf(address(this));
-        MasterChef.deposit(pid, lpTokenBalance);
-        if(sushiBalance > 0) {
-            _invest(sushiBalance, SUSHI);
+        (,uint rewardDebt) = MasterChef.userInfo(0, address(this));
+
+        if(rewardDebt > 0) {
+            MasterChef.withdraw(pid, lpTokenBalance);
+            uint sushiBalance = SUSHI.balanceOf(address(this));
+            MasterChef.deposit(pid, lpTokenBalance);
+            if(sushiBalance > 0) {
+                uint fee = sushiBalance.div(10); //10 %
+                SUSHI.safeTransfer(treasury, fee);
+                _invest(sushiBalance.sub(fee), SUSHI);
+            }
         }
 
     }
@@ -178,7 +274,7 @@ contract strategy is Ownable { //TODO rename contract
                 amounts = SushiRouter.swapExactTokensForTokens(usdcAmount, 0, path, address(this), block.timestamp);
 
                 path[0] = address(WETH);
-                path[1] = address(USDC);
+                path[1] = address(_token);
 
                 SushiRouter.swapExactTokensForTokens(amounts[1].add(ethAmount), 0, path, address(this), block.timestamp);
             } else { //_token == sudc
