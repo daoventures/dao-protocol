@@ -1,7 +1,7 @@
 const { run } = require('hardhat')
 
-const vaultAddress = "" // copy from deployKovan.js output
-const strategyAddress = "" // copy from deployKovan.js output
+const vaultAddress = "0xb188767Bcc0bd2e5Baa9D76a82b733e1Fb5aCa2A" // copy from deployKovan.js output
+const strategyAddress = "0x614e08044d53436116B778EB79242526C31F86dF" // copy from deployKovan.js output
 
 async function main() {
   // Verify vault contract
@@ -21,7 +21,7 @@ async function main() {
   // Verify strategy contract
   await run('verify:verify', {
     address: strategyAddress,
-    constructorArguments: [[3333, 3333, 3333]],
+    constructorArguments: [[1500, 1500, 1400, 1400, 1400, 1400, 1400]],
     contract:
       'contracts/strategies/CubanApeStrategyKovan.sol:CubanApeStrategyKovan',
   })

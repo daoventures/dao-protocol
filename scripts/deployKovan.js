@@ -4,7 +4,7 @@ async function main() {
     'CubanApeStrategyKovan',
     deployer,
   )
-  const cubanApeStrategy = await CubanApeStrategy.deploy([3333, 3333, 3333])
+  const cubanApeStrategy = await CubanApeStrategy.deploy([1500, 1500, 1400, 1400, 1400, 1400, 1400])
   const CubanApeVault = await ethers.getContractFactory(
     'CubanApeVaultKovan',
     deployer,
@@ -19,8 +19,8 @@ async function main() {
   )
   await cubanApeStrategy.setVault(cubanApeVault.address)
 
-  console.log('ElonApe vault address:', cubanApeVault.address)
-  console.log('ElonApe strategy address:', cubanApeStrategy.address)
+  console.log('CubanApe vault address:', cubanApeVault.address)
+  console.log('CubanApe strategy address:', cubanApeStrategy.address)
 }
 
 main()

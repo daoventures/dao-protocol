@@ -9,7 +9,7 @@ async function main() {
     'CubanApeStrategy',
     deployer,
   )
-  const cubanApeStrategy = await CubanApeStrategy.deploy([3333, 3333, 3333])
+  const cubanApeStrategy = await CubanApeStrategy.deploy([1500, 1500, 1400, 1400, 1400, 1400, 1400])
   receipt = await cubanApeStrategy.deployTransaction.wait()
   totalGasUsed = new ethers.BigNumber.from(receipt.gasUsed.toString())
 

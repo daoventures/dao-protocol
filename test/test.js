@@ -36,9 +36,9 @@ describe("DAO Cuban's Ape Strategy", () => {
             "function balanceOf(address) external view returns (uint)"
         ]
         const WETHContract = new ethers.Contract(WETHAddress, WETH_ABI, deployer);
-        await USDTContract.connect(unlockedSigner).transfer(client.address, ethers.utils.parseUnits("2000", 6))
-        await USDCContract.connect(unlockedSigner).transfer(client.address, ethers.utils.parseUnits("2000", 6))
-        await DAIContract.connect(unlockedSigner).transfer(client.address, ethers.utils.parseUnits("2000", 18))
+        await USDTContract.connect(unlockedSigner).transfer(client.address, ethers.utils.parseUnits("3000", 6))
+        await USDCContract.connect(unlockedSigner).transfer(client.address, ethers.utils.parseUnits("3000", 6))
+        await DAIContract.connect(unlockedSigner).transfer(client.address, ethers.utils.parseUnits("3000", 18))
         await USDTContract.connect(client).approve(cubanApeVault.address, ethers.constants.MaxUint256)
         await USDCContract.connect(client).approve(cubanApeVault.address, ethers.constants.MaxUint256)
         await DAIContract.connect(client).approve(cubanApeVault.address, ethers.constants.MaxUint256)
@@ -62,10 +62,13 @@ describe("DAO Cuban's Ape Strategy", () => {
         // console.log(receipt.gasUsed.toString())
 
         // Adjust farm composition
-        // await cubanApeVault.connect(admin).setWeights([0, 5000, 5000]) // 17653.304222 591.395586 17644.360807
-        // await cubanApeVault.connect(admin).setWeights([5000, 0, 5000]) // 17860.447166 594.659875 17721.860743
-        // await cubanApeVault.connect(admin).setWeights([5000, 5000, 0]) // 17653.304222 591.395586 17644.360807
-        // await cubanApeVault.connect(admin).setWeights([3333, 3333, 3334]) // 17750.838935 593.037147 17671.770961
+        // await cubanApeVault.connect(admin).setWeights([10000, 0, 0, 0, 0, 0, 0])
+        // await cubanApeVault.connect(admin).setWeights([0, 10000, 0, 0, 0, 0, 0])
+        // await cubanApeVault.connect(admin).setWeights([0, 0, 10000, 0, 0, 0, 0])
+        // await cubanApeVault.connect(admin).setWeights([0, 0, 0, 10000, 0, 0, 0])
+        // await cubanApeVault.connect(admin).setWeights([0, 0, 0, 0, 10000, 0, 0])
+        // await cubanApeVault.connect(admin).setWeights([0, 0, 0, 0, 0, 10000, 0])
+        // await cubanApeVault.connect(admin).setWeights([0, 0, 0, 0, 0, 0, 10000])
 
         // Second deposit and invest
         await cubanApeVault.connect(client).deposit(ethers.utils.parseUnits("1000", 6), 0)
@@ -73,56 +76,40 @@ describe("DAO Cuban's Ape Strategy", () => {
         await cubanApeVault.connect(client).deposit(ethers.utils.parseUnits("1000", 18), 2)
         await cubanApeVault.connect(admin).invest()
 
-        // // Fees
+        // Fees
         // console.log((await USDTContract.balanceOf(treasury.address)).toString()) // 240.000000
         // console.log((await USDTContract.balanceOf(community.address)).toString()) // 240.000000
         // console.log((await USDTContract.balanceOf(strategist.address)).toString()) // 120.000000
 
         // // Balance keep in vault
-        // console.log((await USDTContract.balanceOf(cubanApeVault.address)).toString()) // 1200.000000
-        // console.log((await USDCContract.balanceOf(cubanApeVault.address)).toString()) // 1200.000000
-        // console.log((await DAIContract.balanceOf(cubanApeVault.address)).toString()) // 1200.000000
+        // console.log(ethers.utils.formatUnits(await USDTContract.balanceOf(cubanApeVault.address), 6))
+        // console.log(ethers.utils.formatUnits(await USDCContract.balanceOf(cubanApeVault.address), 6))
+        // console.log(ethers.utils.formatEther(await DAIContract.balanceOf(cubanApeVault.address)))
         
-        // // Swap token within vault
-        // await cubanApeVault.connect(admin).swapTokenWithinVault(0, 2, ethers.utils.parseUnits("1000", 6))
-        // console.log((await USDTContract.balanceOf(cubanApeVault.address)).toString())
-        // console.log((await USDCContract.balanceOf(cubanApeVault.address)).toString())
-        // console.log((await DAIContract.balanceOf(cubanApeVault.address)).toString())
+        // Swap token within vault
+        // await cubanApeVault.connect(admin).swapTokenWithinVault(2, 1, ethers.utils.parseUnits("100", 18))
+        // console.log(ethers.utils.formatUnits(await USDTContract.balanceOf(cubanApeVault.address), 6))
+        // console.log(ethers.utils.formatUnits(await USDCContract.balanceOf(cubanApeVault.address), 6))
+        // console.log(ethers.utils.formatEther(await DAIContract.balanceOf(cubanApeVault.address)))
 
         // // Reimburse from strategy
-        // await cubanApeVault.connect(admin).retrieveStablecoinsFromStrategy(0, 0, ethers.utils.parseUnits("1000", 6))
-        // await cubanApeVault.connect(admin).retrieveStablecoinsFromStrategy(1, 1, ethers.utils.parseUnits("1000", 6))
-        // await cubanApeVault.connect(admin).retrieveStablecoinsFromStrategy(2, 2, ethers.utils.parseUnits("1000", 18))
-        // await cubanApeVault.connect(admin).retrieveStablecoinsFromStrategy(0, 3, ethers.utils.parseUnits("1000", 6))
-        // await cubanApeVault.connect(admin).retrieveStablecoinsFromStrategy(1, 4, ethers.utils.parseUnits("1000", 6))
-        // await cubanApeVault.connect(admin).retrieveStablecoinsFromStrategy(2, 5, ethers.utils.parseUnits("1000", 18))
-        // await cubanApeVault.connect(admin).retrieveStablecoinsFromStrategy(0, 6, ethers.utils.parseUnits("1000", 6))
-        // console.log((await USDTContract.balanceOf(cubanApeVault.address)).toString()) // 4168.983336
-        // console.log((await USDCContract.balanceOf(cubanApeVault.address)).toString()) // 3174.996881
-        // console.log((await DAIContract.balanceOf(cubanApeVault.address)).toString()) // 3174.981319645054260269
+        // await cubanApeVault.connect(admin).retrieveStablecoinsFromStrategy(2, 0, ethers.utils.parseUnits("100", 18))
+        // await cubanApeVault.connect(admin).retrieveStablecoinsFromStrategy(2, 1, ethers.utils.parseUnits("100", 18))
+        // await cubanApeVault.connect(admin).retrieveStablecoinsFromStrategy(2, 2, ethers.utils.parseUnits("100", 18))
+        // await cubanApeVault.connect(admin).retrieveStablecoinsFromStrategy(2, 3, ethers.utils.parseUnits("100", 18))
+        // await cubanApeVault.connect(admin).retrieveStablecoinsFromStrategy(2, 4, ethers.utils.parseUnits("100", 18))
+        // await cubanApeVault.connect(admin).retrieveStablecoinsFromStrategy(2, 5, ethers.utils.parseUnits("100", 18))
+        // await cubanApeVault.connect(admin).retrieveStablecoinsFromStrategy(2, 6, ethers.utils.parseUnits("100", 18))
+        // console.log(ethers.utils.formatUnits(await USDTContract.balanceOf(cubanApeVault.address), 6))
+        // console.log(ethers.utils.formatUnits(await USDCContract.balanceOf(cubanApeVault.address), 6))
+        // console.log(ethers.utils.formatUnits(await DAIContract.balanceOf(cubanApeVault.address), 18))
 
-        // // Emergency withdraw
-        // const sTSLAContract = new ethers.Contract(sTSLAAddress, IERC20_ABI, deployer);
-        // const WBTCContract = new ethers.Contract(WBTCAddress, IERC20_ABI, deployer);
-        // const renDOGEContract = new ethers.Contract(renDOGEAddress, IERC20_ABI, deployer);
-        // console.log((await sTSLAContract.balanceOf(cubanApeStrategy.address)).toString()) // 31.532144491556754685
-        // console.log((await WBTCContract.balanceOf(cubanApeStrategy.address)).toString()) // 0.49574763
-        // console.log((await renDOGEContract.balanceOf(cubanApeStrategy.address)).toString()) // 47628.68050231
-        // console.log((await WETHContract.balanceOf(cubanApeStrategy.address)).toString()) // 0
-        // await cubanApeVault.connect(admin).emergencyWithdraw()
-        // console.log((await sTSLAContract.balanceOf(cubanApeStrategy.address)).toString()) // 0
-        // console.log((await WBTCContract.balanceOf(cubanApeStrategy.address)).toString()) // 0
-        // console.log((await renDOGEContract.balanceOf(cubanApeStrategy.address)).toString()) // 0
-        // console.log((await WETHContract.balanceOf(cubanApeStrategy.address)).toString()) // 20.386927355945763094
-        // await cubanApeVault.connect(admin).reinvest()
-        // console.log((await sTSLAContract.balanceOf(cubanApeStrategy.address)).toString()) // 31.220995478658847410
-        // console.log((await WBTCContract.balanceOf(cubanApeStrategy.address)).toString()) // 0.49210180
-        // console.log((await renDOGEContract.balanceOf(cubanApeStrategy.address)).toString()) // 47468.34963855
-        // console.log((await WETHContract.balanceOf(cubanApeStrategy.address)).toString()) // 0
-
-        // // Assume profit for strategy
-        // await WETHContract.deposit({value: ethers.utils.parseEther("1")})
-        // await WETHContract.transfer(cubanApeStrategy.address, ethers.utils.parseEther("1"))
+        // Emergency withdraw
+        // console.log(ethers.utils.formatEther(await WETHContract.balanceOf(cubanApeStrategy.address)))
+        await cubanApeVault.connect(admin).emergencyWithdraw()
+        // console.log(ethers.utils.formatEther(await WETHContract.balanceOf(cubanApeStrategy.address)))
+        await cubanApeVault.connect(admin).reinvest()
+        // console.log(ethers.utils.formatEther(await WETHContract.balanceOf(cubanApeStrategy.address)))
 
         // Withdraw
         const withdrawSharesSmall = (await cubanApeVault.balanceOf(client.address)).mul(1).div(100)
@@ -140,47 +127,40 @@ describe("DAO Cuban's Ape Strategy", () => {
         // console.log("Deposit gas used:", receipt.gasUsed.toString())
         // tx = await cubanApeVault.connect(client).withdraw(withdrawShares, 2);
         // tx = await cubanApeVault.connect(client).withdraw(withdrawShares, 0);
-        console.log("Withdraw amount for USDT", ethers.utils.formatUnits(await USDTContract.balanceOf(client.address), 6)) // 1762.426931
-        console.log("Withdraw amount for USDC", ethers.utils.formatUnits(await USDCContract.balanceOf(client.address), 6)) // 59.067676
-        console.log("Withdraw amount for DAI", ethers.utils.formatUnits(await DAIContract.balanceOf(client.address), 18)) // 1760.912359708617692581
+        // console.log("Withdraw amount for USDT", ethers.utils.formatUnits(await USDTContract.balanceOf(client.address), 6)) // 1762.426931
+        // console.log("Withdraw amount for USDC", ethers.utils.formatUnits(await USDCContract.balanceOf(client.address), 6)) // 59.067676
+        // console.log("Withdraw amount for DAI", ethers.utils.formatUnits(await DAIContract.balanceOf(client.address), 18)) // 1760.912359708617692581
 
-        // // Withdraw after emergency withdraw
-        // const withdrawShares = (await cubanApeVault.balanceOf(client.address)).mul(30).div(100)
-        // await cubanApeVault.connect(admin).emergencyWithdraw()
-        // // console.log("After emergency witdraw");
-        // tx = await cubanApeVault.connect(client).withdraw(withdrawShares, 0);
-        // tx = await cubanApeVault.connect(client).withdraw(withdrawShares, 1);
-        // tx = await cubanApeVault.connect(client).withdraw(withdrawShares, 2);
-        // console.log("Withdraw amount for USDT", ethers.utils.formatUnits(await USDTContract.balanceOf(client.address), 6))
-        // console.log("Withdraw amount for USDC", ethers.utils.formatUnits(await USDCContract.balanceOf(client.address), 6))
-        // console.log("Withdraw amount for DAI", ethers.utils.formatUnits(await DAIContract.balanceOf(client.address), 18))
+        // Migrate funds
+        const CubanApeStrategy2 = await ethers.getContractFactory("CubanApeStrategy", deployer)
+        const cubanApeStrategy2 = await CubanApeStrategy2.deploy([1500, 1500, 1400, 1400, 1400, 1400, 1400])
+        await cubanApeStrategy2.setVault(cubanApeVault.address)
+        await cubanApeVault.setPendingStrategy(cubanApeStrategy2.address)
+        await cubanApeVault.connect(admin).emergencyWithdraw()
+        await cubanApeVault.unlockMigrateFunds()
+        network.provider.send("evm_increaseTime", [86400*2])
+        await cubanApeStrategy.approveMigrate()
+        // console.log((await WETHContract.balanceOf(cubanApeStrategy.address)).toString())
+        await cubanApeVault.migrateFunds()
+        expect(await WETHContract.balanceOf(cubanApeStrategy.address)).to.equal(0)
+        // console.log((await WETHContract.balanceOf(cubanApeStrategy2.address)).toString())
+        await cubanApeVault.connect(admin).reinvest()
+        expect(await WETHContract.balanceOf(cubanApeStrategy.address)).to.equal(0)
+        await cubanApeVault.connect(client).deposit(ethers.utils.parseUnits("1000", 6), 0)
+        await cubanApeVault.connect(client).deposit(ethers.utils.parseUnits("1000", 6), 1)
+        await cubanApeVault.connect(client).deposit(ethers.utils.parseUnits("1000", 18), 2)
+        await cubanApeVault.connect(admin).invest()
+        expect(await cubanApeVault.strategy()).to.equal(cubanApeStrategy2.address)
 
-        // // Migrate funds
-        // const CubanApeStrategy2 = await ethers.getContractFactory("CubanApeStrategy", deployer)
-        // const cubanApeStrategy2 = await CubanApeStrategy2.deploy([1500, 1500, 1400, 1400, 1400, 1400, 1400])
-        // await cubanApeStrategy2.setVault(cubanApeVault.address)
-        // await cubanApeVault.setPendingStrategy(cubanApeStrategy2.address)
-        // await cubanApeVault.connect(admin).emergencyWithdraw()
-        // await cubanApeVault.unlockMigrateFunds()
-        // network.provider.send("evm_increaseTime", [86400*2])
-        // await cubanApeStrategy.approveMigrate()
-        // // console.log((await WETHContract.balanceOf(cubanApeStrategy.address)).toString())
-        // await cubanApeVault.migrateFunds()
-        // expect(await WETHContract.balanceOf(cubanApeStrategy.address)).to.equal(0)
-        // // console.log((await WETHContract.balanceOf(cubanApeStrategy2.address)).toString())
-        // await cubanApeVault.connect(admin).reinvest()
-        // expect(await WETHContract.balanceOf(cubanApeStrategy.address)).to.equal(0)
-        // await cubanApeVault.connect(client).deposit(ethers.utils.parseUnits("10000", 6), 0)
-        // await cubanApeVault.connect(client).deposit(ethers.utils.parseUnits("10000", 6), 1)
-        // await cubanApeVault.connect(client).deposit(ethers.utils.parseUnits("10000", 18), 2)
-        // await cubanApeVault.connect(admin).invest()
-        // expect(await cubanApeVault.strategy()).to.equal(cubanApeStrategy2.address)
-
-        // // Admin functions
-        // await cubanApeVault.connect(admin).setWeights([1000, 1000, 8000])
-        // console.log((await cubanApeStrategy.weights(0)).toString())
-        // console.log((await cubanApeStrategy.weights(1)).toString())
-        // console.log((await cubanApeStrategy.weights(2)).toString())
+        // Admin functions
+        // await cubanApeVault.connect(admin).setWeights([4000, 1000, 1000, 1000, 1000, 1000, 1000])
+        // console.log((await cubanApeStrategy2.weights(0)).toString())
+        // console.log((await cubanApeStrategy2.weights(1)).toString())
+        // console.log((await cubanApeStrategy2.weights(2)).toString())
+        // console.log((await cubanApeStrategy2.weights(3)).toString())
+        // console.log((await cubanApeStrategy2.weights(4)).toString())
+        // console.log((await cubanApeStrategy2.weights(5)).toString())
+        // console.log((await cubanApeStrategy2.weights(6)).toString())
         // await cubanApeVault.connect(admin).setPercTokenKeepInVault([300, 300, 300])
         // console.log(((await cubanApeVault.tokens(0))[2]).toString())
         // console.log(((await cubanApeVault.tokens(1))[2]).toString())

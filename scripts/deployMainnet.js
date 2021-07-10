@@ -4,11 +4,7 @@ async function main() {
     'CubanApeStrategy',
     deployer,
   )
-  const cubanApeStrategy = await CubanApeStrategy.deploy(
-    '0xdd6c35aFF646B2fB7d8A8955Ccbe0994409348d0', // Community wallet
-    '0x54D003d451c973AD7693F825D5b78Adfc0efe934', // Strategist
-    '0x3f68A3c1023d736D8Be867CA49Cb18c543373B99', // Admin
-  )
+  const cubanApeStrategy = await CubanApeStrategy.deploy([1500, 1500, 1400, 1400, 1400, 1400, 1400])
   const CubanApeVault = await ethers.getContractFactory('CubanApeVault', deployer)
   const cubanApeVault = await CubanApeVault.deploy(
     cubanApeStrategy.address,
@@ -20,8 +16,8 @@ async function main() {
   )
   await cubanApeStrategy.setVault(cubanApeVault.address)
 
-  console.log('ElonApe vault address:', cubanApeVault.address)
-  console.log('ElonApe strategy address:', cubanApeStrategy.address)
+  console.log('CubanApe vault address:', cubanApeVault.address)
+  console.log('CubanApe strategy address:', cubanApeStrategy.address)
 }
 
 main()

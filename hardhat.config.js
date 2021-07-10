@@ -9,10 +9,10 @@ module.exports = {
   networks: {
     hardhat: {
       forking: {
-        // url: process.env.ALCHEMY_URL_MAINNET,
-        // blockNumber: 12613000,
-        url: process.env.ALCHEMY_URL_KOVAN,
-        blockNumber: 25412550, // Kovan
+        url: process.env.ALCHEMY_URL_MAINNET,
+        blockNumber: 12799000,
+        // url: process.env.ALCHEMY_URL_KOVAN,
+        // blockNumber: 25537000, // Kovan
       },
     },
     mainnet: {
