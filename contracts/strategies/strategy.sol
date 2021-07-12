@@ -9,12 +9,20 @@ import "../../interfaces/IUniswapV2Router02.sol";
 import "../../interfaces/IMasterChef.sol";
 import "../../interfaces/IUniswapV2Pair.sol";
 
+interface Vault {
+    function getReimburseTokenAmount(uint) external view returns (uint);
+}
+
 contract strategy is Ownable { //TODO rename contract
     using SafeERC20 for IERC20;
     using SafeMath for uint;
 
-    address vault;
-    address treasury;
+    Vault public vault;
+    
+    address public treasury;
+    address public communityWallet;
+    address public strategist;
+    
     
     IERC20 public DAI;
     IERC20 public USDC;
@@ -30,6 +38,8 @@ contract strategy is Ownable { //TODO rename contract
     IUniswapV2Pair public constant WETHUSDCPair = IUniswapV2Pair(0x397FF1542f962076d0BFE58eA045FfA2d347ACa0);
 
     uint private lpTokenBalance;
+    bool public isEmergency = false;
+    uint valueInETH;
 
     enum Mode {
         attack,
@@ -53,29 +63,35 @@ contract strategy is Ownable { //TODO rename contract
     }
 
     modifier onlyVault {
-        require(msg.sender == vault, "Only Vault");
+        require(msg.sender == address(vault), "Only Vault");
         _;
     }
 
-    function invest(uint _amount, IERC20 _token) external onlyVault {
+    function invest(uint _amount) external onlyVault {
         require(_amount > 0, "Invalid Amount");
-        require(_token == USDC || _token == USDT || _token == DAI, "Invalid Token");
         
-        _token.safeTransferFrom(vault, address(this), _amount);
-        _invest(_amount, _token);
+        WETH.safeTransferFrom(address(vault), address(this), _amount);
+        _invest(_amount);
     }
 
-    function withdraw(uint _amount, IERC20 _token) external onlyVault {
+    function withdraw(uint _amount) external onlyVault {
         require(_amount > 0, "Invalid Amount");
-        require(_token == USDC || _token == USDT || _token == DAI, "Invalid Token");
 
-        _withdraw(_amount, _token);
-
-        _token.safeTransfer(address(vault), _token.balanceOf(address(this)));
+        if(isEmergency == false ) {
+            _withdraw(_amount);
+            WETH.safeTransfer(address(vault), WETH.balanceOf(address(this)));
+        } else {
+            valueInETH = valueInETH.sub(_amount);
+            WETH.safeTransfer(address(vault), valueInETH);
+        }
+        
+        
 
     }
 
-    function emergencyWithdraw(IERC20 _token) external onlyVault {
+    function emergencyWithdraw() external onlyVault {
+        isEmergency = true;
+
         address[] memory path = new address[](2);
         uint[] memory amounts;
 
@@ -85,18 +101,11 @@ contract strategy is Ownable { //TODO rename contract
             path[1] = address(WETH);
             
 
-            (uint ethAmount, uint wBTCAmount) = SushiRouter.removeLiquidity(address(WETH), address(WBTC), lpTokenBalance, 0, 0, address(this), block.timestamp);
+            (uint ethRemoved, uint wBTCAmount) = SushiRouter.removeLiquidity(address(WETH), address(WBTC), lpTokenBalance, 0, 0, address(this), block.timestamp);
             
-            //convert second to eth
-            //convert eth to require token
-
-            amounts = SushiRouter.swapExactTokensForTokens(wBTCAmount, 0, path, address(this), block.timestamp);
-
-            path[0] = address(WETH);
-            path[1] = address(_token);
-            SushiRouter.swapExactTokensForTokens(amounts[1].add(ethAmount), 0, path, address(this), block.timestamp);
-            
+            amounts = SushiRouter.swapExactTokensForTokens(wBTCAmount, 0, path, address(this), block.timestamp);           
             lpTokenBalance = 0;
+            valueInETH = ethRemoved.add(amounts[1]);
 
         }
         
@@ -105,70 +114,89 @@ contract strategy is Ownable { //TODO rename contract
             path[0] = address(USDC);
             path[1] = address(WETH);
 
-            (uint ethAmount, uint usdcAmount) = SushiRouter.removeLiquidity(address(WETH), address(USDC), lpTokenBalance, 0, 0, address(this), block.timestamp);
-
-            if(_token != USDC) {
-                // convert usdc to eth
-                // convert eth to _token
-                amounts = SushiRouter.swapExactTokensForTokens(usdcAmount, 0, path, address(this), block.timestamp);
-
-                path[0] = address(WETH);
-                path[1] = address(_token);
-
-                SushiRouter.swapExactTokensForTokens(amounts[1].add(ethAmount), 0, path, address(this), block.timestamp);
-            } else { //_token == sudc
-                //convert eth to usdc
-                path[0] = address(WETH);
-                path[1] = address(USDC);
-                amounts = SushiRouter.swapExactTokensForTokens(ethAmount, 0, path, address(this), block.timestamp);
-            }
-
+            (uint ethRemoved,uint usdcAmount) = SushiRouter.removeLiquidity(address(WETH), address(USDC), lpTokenBalance, 0, 0, address(this), block.timestamp);
+            
+            amounts = SushiRouter.swapExactTokensForTokens(usdcAmount, 0, path, address(this), block.timestamp);
             lpTokenBalance = 0;
+            valueInETH = ethRemoved.add(amounts[1]);
 
         }
 
-        _token.safeTransfer(vault, _token.balanceOf(address(this)));
+        // WETH.safeTransfer(vault, WETH.balanceOf(address(this)));
     }
 
-    function migrateFunds(IERC20 _token) external onlyVault {
+    function reInvest() external onlyVault {
+        isEmergency = false;        
+        
+        _invest(valueInETH);
+        valueInETH = 0;
+    }
+
+    function migrateFunds() external onlyVault {
         _yield();
         (, uint _valueInPool) = getValueInPool();
 
-        _withdraw(_valueInPool, _token);
+        _withdraw(_valueInPool);
 
-        _token.safeTransfer(vault, _token.balanceOf(address(this)));
+        WETH.safeTransfer(address(vault), WETH.balanceOf(address(this)));
     }
 
-    function _invest(uint _amount, IERC20 _token) internal {
-        uint _amountDivided = _token == DAI || _token == SUSHI ? _amount.div(2) : _amount.div(2).div(1e12); //50%
+    function reimburse() external onlyVault {
+        uint256 _reimburseUSDT = vault.getReimburseTokenAmount(0);
+        uint256 _reimburseUSDC = vault.getReimburseTokenAmount(1);
+        uint256 _reimburseDAI = vault.getReimburseTokenAmount(2);
+        uint256 _totalReimburse = _reimburseUSDT.add(_reimburseUSDC).add(_reimburseDAI.div(1e12));
 
         address[] memory path = new address[](2);
-        path[0] = address(_token);
-
-        if(mode == Mode.attack) {
-            path[1] = address(WETH);
-            uint[] memory amountsEth = SushiRouter.swapExactTokensForTokens(_amountDivided, 0, path, address(this), block.timestamp);
+        path[0] = address(USDT);
+        path[1] = address(WETH);
+        uint256[] memory _amounts = SushiRouter.getAmountsOut(_totalReimburse, path);
+        if (WETH.balanceOf(address(this)) < _amounts[1]) { 
             
+            uint256 _thirtyPercOfAmtWithdraw = _amounts[1].mul(3000).div(10000);
+            _withdraw(_thirtyPercOfAmtWithdraw);                   
+        }
+
+        // Swap WETH to token and transfer back to vault
+        uint256 _WETHBalance = WETH.balanceOf(address(this));
+        _reimburse(_WETHBalance.mul(_reimburseUSDT).div(_totalReimburse), USDT);
+        _reimburse(_WETHBalance.mul(_reimburseUSDC).div(_totalReimburse), USDC);
+        _reimburse((WETH.balanceOf(address(this))), DAI);
+    }
+
+
+
+    function _reimburse(uint256 _reimburseAmt, IERC20 _token) private {
+        if (_reimburseAmt > 0) {
+            address[] memory path = new address[](2);
+            path[0] = address(WETH);
+            path[1] = address(_token);
+            uint256[] memory _amounts = SushiRouter.swapExactTokensForTokens(_reimburseAmt, 0, path, address(this), block.timestamp);
+            _token.safeTransfer(address(vault), _amounts[1]);
+        }
+    }
+
+    function _invest(uint _amount) internal {
+        uint _amountDivided = _amount.div(2) ; //50%
+
+        address[] memory path = new address[](2);
+        path[0] = address(WETH);
+
+        if(mode == Mode.attack) {           
             path[1] = address(WBTC);
             uint[] memory amountsBtc = SushiRouter.swapExactTokensForTokens(_amountDivided, 0, path, address(this), block.timestamp);
 
-            (,,uint liquidity) = SushiRouter.addLiquidity(address(WETH), address(WBTC), amountsEth[1], amountsBtc[1], 0, 0, address(this), block.timestamp);
+            (,,uint liquidity) = SushiRouter.addLiquidity(address(WETH), address(WBTC), _amountDivided, amountsBtc[1], 0, 0, address(this), block.timestamp);
             MasterChef.deposit(0, liquidity);
             lpTokenBalance = lpTokenBalance.add(liquidity);
         }
 
         if(mode == Mode.defend) {
-            path[1] = address(WETH);
+            path[1] = address(USDC);
 
-            uint[] memory amountsUSDC;
-            uint[] memory amountsEth = SushiRouter.swapExactTokensForTokens(_amountDivided, 0, path, address(this), block.timestamp);
+            uint[] memory amountsUSDC = SushiRouter.swapExactTokensForTokens(_amountDivided, 0, path, address(this), block.timestamp);       
             
-            if(_token != USDC) {
-                path[1] = address(USDC);
-                amountsUSDC = SushiRouter.swapExactTokensForTokens(_amountDivided, 0, path, address(this), block.timestamp);    
-            }
-
-            (,,uint liquidity) = SushiRouter.addLiquidity(address(WETH), address(USDC), amountsEth[1], _token == USDC ? _amountDivided : amountsUSDC[1], 0, 0, address(this), block.timestamp);
+            (,,uint liquidity) = SushiRouter.addLiquidity(address(WETH), address(USDC), _amountDivided, amountsUSDC[1], 0, 0, address(this), block.timestamp);
             MasterChef.deposit(0, liquidity);
             lpTokenBalance = lpTokenBalance.add(liquidity);
         }
@@ -214,6 +242,18 @@ contract strategy is Ownable { //TODO rename contract
         _yield();
     }
 
+    function setStrategist(address _strategist) external onlyVault {
+        strategist = _strategist;
+    }
+
+    function setCommunityWallet(address _communityWallet) external onlyVault {
+        communityWallet = _communityWallet;
+    }
+
+    function setTreasuryWallet(address _treasuryWallet) external onlyVault {
+        treasury = _treasuryWallet;
+    }
+
     function _yield() internal {
         //withdraw lpTokens from masterChef
         //deposit to masterChef
@@ -226,18 +266,25 @@ contract strategy is Ownable { //TODO rename contract
             MasterChef.withdraw(pid, lpTokenBalance);
             uint sushiBalance = SUSHI.balanceOf(address(this));
             MasterChef.deposit(pid, lpTokenBalance);
+
             if(sushiBalance > 0) {
                 uint fee = sushiBalance.div(10); //10 %
-                SUSHI.safeTransfer(treasury, fee);
-                _invest(sushiBalance.sub(fee), SUSHI);
+                uint _treasuryFee = fee.mul(2).div(5); //40%
+                SUSHI.safeTransfer(treasury, _treasuryFee);
+                SUSHI.safeTransfer(communityWallet, _treasuryFee);
+                SUSHI.safeTransfer(strategist, fee.sub(_treasuryFee).sub(_treasuryFee));
+
+                address[] memory path = new address[](2);
+                SushiRouter.swapExactTokensForTokens(sushiBalance.sub(fee), 0, path, address(this), block.timestamp);
+                _invest(WETH.balanceOf(address(this)));
             }
         }
 
     }
 
-    function _withdraw(uint _amount, IERC20 _token) internal {
-        (,uint valueInPool) = getValueInPool();
-        uint amountToRemove = lpTokenBalance.mul(_amount).div(valueInPool);
+    function _withdraw(uint _amount) internal {
+        (uint valueInPoolInETH, ) = getValueInPool();
+        uint amountToRemove = lpTokenBalance.mul(_amount).div(valueInPoolInETH);
         
         address[] memory path = new address[](2);
         uint[] memory amounts;
@@ -248,17 +295,17 @@ contract strategy is Ownable { //TODO rename contract
             path[1] = address(WETH);
             
 
-            (uint ethAmount, uint wBTCAmount) = SushiRouter.removeLiquidity(address(WETH), address(WBTC), amountToRemove, 0, 0, address(this), block.timestamp);
+            (, uint wBTCAmount) = SushiRouter.removeLiquidity(address(WETH), address(WBTC), amountToRemove, 0, 0, address(this), block.timestamp);
             
             //convert second to eth
             //convert eth to require token
 
             amounts = SushiRouter.swapExactTokensForTokens(wBTCAmount, 0, path, address(this), block.timestamp);
 
-            path[0] = address(WETH);
+            /* path[0] = address(WETH);
             path[1] = address(_token);
             SushiRouter.swapExactTokensForTokens(amounts[1].add(ethAmount), 0, path, address(this), block.timestamp);
-
+ */
         }
         
         if(mode == Mode.defend) {
@@ -266,9 +313,9 @@ contract strategy is Ownable { //TODO rename contract
             path[0] = address(USDC);
             path[1] = address(WETH);
 
-            (uint ethAmount, uint usdcAmount) = SushiRouter.removeLiquidity(address(WETH), address(USDC), amountToRemove, 0, 0, address(this), block.timestamp);
-
-            if(_token != USDC) {
+            (, uint usdcAmount) = SushiRouter.removeLiquidity(address(WETH), address(USDC), amountToRemove, 0, 0, address(this), block.timestamp);
+            amounts = SushiRouter.swapExactTokensForTokens(usdcAmount, 0, path, address(this), block.timestamp);
+/*             if(_token != USDC) {
                 // convert usdc to eth
                 // convert eth to _token
                 amounts = SushiRouter.swapExactTokensForTokens(usdcAmount, 0, path, address(this), block.timestamp);
@@ -282,7 +329,7 @@ contract strategy is Ownable { //TODO rename contract
                 path[0] = address(WETH);
                 path[1] = address(USDC);
                 amounts = SushiRouter.swapExactTokensForTokens(ethAmount, 0, path, address(this), block.timestamp);
-            }
+            } */
 
         }
 
@@ -290,33 +337,46 @@ contract strategy is Ownable { //TODO rename contract
     }
 
     function setVault(address _vault) external onlyOwner {
-        require(vault == address(0), "Cannot set vault");
-        vault = _vault;
+        require(address(vault) == address(0), "Cannot set vault");
+        vault = Vault(_vault);
     }
 
    
-    function getValueInPool() public view returns (uint valueInETH, uint valueInUSDC) {
-        IUniswapV2Pair pair = mode == Mode.attack ? WETHWBTCPair: WETHUSDCPair;
+    function getValueInPool() public view returns (uint _valueInETH, uint _valueInUSDC) {
 
-        (uint reserve0, uint reserve1,) = pair.getReserves();
-        uint totalLpTokenSupply = pair.totalSupply();
-        
-        uint amountA = lpTokenBalance.mul(reserve0).div(totalLpTokenSupply); //reserve0 is either WBTC or USDC
-        uint amountETH = lpTokenBalance.mul(reserve1).div(totalLpTokenSupply);
+        if(isEmergency == false ) {
+            IUniswapV2Pair pair = mode == Mode.attack ? WETHWBTCPair: WETHUSDCPair;
 
-        address[] memory path = new address[](2);
-        path[0] = pair.token0();
-        path[1] = address(WETH);
+            (uint reserve0, uint reserve1,) = pair.getReserves();
+            uint totalLpTokenSupply = pair.totalSupply();
 
-        uint[] memory amounts = SushiRouter.getAmountsOut(amountA, path);
+            uint amountA = lpTokenBalance.mul(reserve0).div(totalLpTokenSupply); //reserve0 is either WBTC or USDC
+            uint amountETH = lpTokenBalance.mul(reserve1).div(totalLpTokenSupply);
 
-        valueInETH = amounts[1].add(amountETH);
-        
-        path[0] = address(WETH);
-        path[1] = address(USDC);
-        amounts = SushiRouter.getAmountsOut(amountA, path);
+            address[] memory path = new address[](2);
+            path[0] = pair.token0();
+            path[1] = address(WETH);
 
-        valueInUSDC = amounts[1];
+            uint[] memory amounts = SushiRouter.getAmountsOut(amountA, path);
+
+            _valueInETH = amounts[1].add(amountETH);
+
+            path[0] = address(WETH);
+            path[1] = address(USDC);
+            amounts = SushiRouter.getAmountsOut(amountA, path);
+
+            _valueInUSDC = amounts[1];
+        } else {
+            _valueInETH = valueInETH;
+
+            address[] memory path = new address[](2);
+            path[0] = address(WETH);
+            path[1] = address(USDC);
+            uint[] memory amounts = SushiRouter.getAmountsOut(valueInETH, path);
+
+            _valueInUSDC = amounts[1];
+        }
+
     }
 
 
