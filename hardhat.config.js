@@ -10,8 +10,12 @@ module.exports = {
     hardhat: {
       forking: {
         url: process.env.ALCHEMY_URL_MAINNET,
-        // blockNumber: 11960000,
+        blockNumber: 12817212,
       },
+/*       mining: {
+        auto: false,
+        interval: 5000
+      } */
     },
     // mainnet: {
     //   url: process.env.ALCHEMY_URL_MAINNET,
@@ -38,4 +42,7 @@ module.exports = {
       },
     },
   },
+  mocha: {
+    timeout: 7000000
+  }
 };
