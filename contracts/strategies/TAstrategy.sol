@@ -13,7 +13,7 @@ interface Vault {
     function getReimburseTokenAmount(uint) external view returns (uint);
 }
 
-contract strategy is Ownable { //TODO rename contract
+contract TAstrategy is Ownable { 
     using SafeERC20 for IERC20;
     using SafeMath for uint;
 
@@ -24,11 +24,11 @@ contract strategy is Ownable { //TODO rename contract
     address public strategist;
     
     
-    IERC20 public DAI;
-    IERC20 public USDC;
-    IERC20 public USDT;
+    IERC20 public constant DAI = IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
+    IERC20 public constant USDC = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
+    IERC20 public constant USDT = IERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7);
     IERC20 public constant WETH = IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
-    IERC20 public SUSHI;
+    IERC20 public constant SUSHI = IERC20(0x6B3595068778DD592e39A122f4f5a5cF09C90fE2);
     IERC20 public constant WBTC = IERC20(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
 
     IUniswapV2Router02 public constant SushiRouter = IUniswapV2Router02(0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F);
@@ -38,6 +38,8 @@ contract strategy is Ownable { //TODO rename contract
     IUniswapV2Pair public constant WETHUSDCPair = IUniswapV2Pair(0x397FF1542f962076d0BFE58eA045FfA2d347ACa0);
 
     uint private lpTokenBalance;
+    uint private WETHWBTCPoolId = 21;
+    uint private WETHUSDCPoolId = 1;
     bool public isEmergency = false;
     uint valueInETH;
 
@@ -48,7 +50,7 @@ contract strategy is Ownable { //TODO rename contract
 
     Mode public mode;
 
-    constructor(address _treasury) {
+    constructor(address _treasury, address _communityWallet, address _strategist, Mode _mode) {
         DAI.safeApprove(address(SushiRouter), type(uint).max);
         USDC.safeApprove(address(SushiRouter), type(uint).max);
         USDT.safeApprove(address(SushiRouter), type(uint).max);
@@ -59,7 +61,13 @@ contract strategy is Ownable { //TODO rename contract
         WETHWBTCPair.approve(address(MasterChef), type(uint).max);
         WETHUSDCPair.approve(address(MasterChef), type(uint).max);
 
+        WETHWBTCPair.approve(address(SushiRouter), type(uint).max);
+        WETHUSDCPair.approve(address(SushiRouter), type(uint).max);
+
         treasury = _treasury;
+        communityWallet = _communityWallet;
+        strategist = _strategist;
+        mode = _mode;
     }
 
     modifier onlyVault {
@@ -82,63 +90,55 @@ contract strategy is Ownable { //TODO rename contract
             WETH.safeTransfer(address(vault), WETH.balanceOf(address(this)));
         } else {
             valueInETH = valueInETH.sub(_amount);
-            WETH.safeTransfer(address(vault), valueInETH);
+            WETH.safeTransfer(address(vault), _amount);
         }
-        
-        
 
     }
 
     function emergencyWithdraw() external onlyVault {
         isEmergency = true;
 
-        address[] memory path = new address[](2);
-        uint[] memory amounts;
+        if(lpTokenBalance > 0) {
+            address[] memory path = new address[](2);
+            uint[] memory amounts;
 
-        if(mode == Mode.attack) {
-            MasterChef.withdraw(0, lpTokenBalance);
-            path[0] = address(WBTC);
-            path[1] = address(WETH);
-            
+            if(mode == Mode.attack) {
+                MasterChef.withdraw(WETHWBTCPoolId, lpTokenBalance);
+                path[0] = address(WBTC);
+                path[1] = address(WETH);
 
-            (uint ethRemoved, uint wBTCAmount) = SushiRouter.removeLiquidity(address(WETH), address(WBTC), lpTokenBalance, 0, 0, address(this), block.timestamp);
-            
-            amounts = SushiRouter.swapExactTokensForTokens(wBTCAmount, 0, path, address(this), block.timestamp);           
-            lpTokenBalance = 0;
-            valueInETH = ethRemoved.add(amounts[1]);
+                (uint ethRemoved, uint wBTCAmount) = SushiRouter.removeLiquidity(address(WETH), address(WBTC), lpTokenBalance, 0, 0, address(this), block.timestamp);
 
+                amounts = SushiRouter.swapExactTokensForTokens(wBTCAmount, 0, path, address(this), block.timestamp);           
+                lpTokenBalance = 0;
+                valueInETH = ethRemoved.add(amounts[1]);
+
+            }
+
+            if(mode == Mode.defend) {
+                MasterChef.withdraw(WETHUSDCPoolId, lpTokenBalance);
+                path[0] = address(USDC);
+                path[1] = address(WETH);
+
+                (uint ethRemoved,uint usdcAmount) = SushiRouter.removeLiquidity(address(WETH), address(USDC), lpTokenBalance, 0, 0, address(this), block.timestamp);
+
+                amounts = SushiRouter.swapExactTokensForTokens(usdcAmount, 0, path, address(this), block.timestamp);
+                lpTokenBalance = 0;
+                valueInETH = ethRemoved.add(amounts[1]);
+
+            }
         }
+
+
         
-        if(mode == Mode.defend) {
-            MasterChef.withdraw(0, lpTokenBalance);
-            path[0] = address(USDC);
-            path[1] = address(WETH);
-
-            (uint ethRemoved,uint usdcAmount) = SushiRouter.removeLiquidity(address(WETH), address(USDC), lpTokenBalance, 0, 0, address(this), block.timestamp);
-            
-            amounts = SushiRouter.swapExactTokensForTokens(usdcAmount, 0, path, address(this), block.timestamp);
-            lpTokenBalance = 0;
-            valueInETH = ethRemoved.add(amounts[1]);
-
-        }
-
-        // WETH.safeTransfer(vault, WETH.balanceOf(address(this)));
     }
 
-    function reInvest() external onlyVault {
+    function reinvest() external onlyVault {
         isEmergency = false;        
-        
-        _invest(valueInETH);
-        valueInETH = 0;
-    }
-
-    function migrateFunds() external onlyVault {
-        _yield();
-        (, uint _valueInPool) = getValueInPool();
-
-        _withdraw(_valueInPool);
-
-        WETH.safeTransfer(address(vault), WETH.balanceOf(address(this)));
+        if(valueInETH > 0) {
+            _invest(valueInETH);
+            valueInETH = 0;
+        }
     }
 
     function reimburse() external onlyVault {
@@ -187,7 +187,7 @@ contract strategy is Ownable { //TODO rename contract
             uint[] memory amountsBtc = SushiRouter.swapExactTokensForTokens(_amountDivided, 0, path, address(this), block.timestamp);
 
             (,,uint liquidity) = SushiRouter.addLiquidity(address(WETH), address(WBTC), _amountDivided, amountsBtc[1], 0, 0, address(this), block.timestamp);
-            MasterChef.deposit(0, liquidity);
+            MasterChef.deposit(WETHWBTCPoolId, liquidity);
             lpTokenBalance = lpTokenBalance.add(liquidity);
         }
 
@@ -197,7 +197,7 @@ contract strategy is Ownable { //TODO rename contract
             uint[] memory amountsUSDC = SushiRouter.swapExactTokensForTokens(_amountDivided, 0, path, address(this), block.timestamp);       
             
             (,,uint liquidity) = SushiRouter.addLiquidity(address(WETH), address(USDC), _amountDivided, amountsUSDC[1], 0, 0, address(this), block.timestamp);
-            MasterChef.deposit(0, liquidity);
+            MasterChef.deposit(WETHUSDCPoolId, liquidity);
             lpTokenBalance = lpTokenBalance.add(liquidity);
         }
     }
@@ -205,37 +205,43 @@ contract strategy is Ownable { //TODO rename contract
     function switchMode(Mode _newMode) external onlyVault{
         require(_newMode != mode, "Cannot switch to same mode");
 
-        address[] memory path = new address[](2);
+        address[] memory path = new address[](3);
         
         if(_newMode == Mode.attack) {
             path[0] = address(USDC);
-            path[1] = address(WBTC);
+            path[1] = address(WETH);
+            path[2] = address(WBTC);
             // remove from lp pool
-            MasterChef.withdraw(0, lpTokenBalance);
+            MasterChef.withdraw(WETHUSDCPoolId, lpTokenBalance);
 
             (uint ethAmount, uint usdcAmount) = SushiRouter.removeLiquidity(address(WETH), address(USDC), lpTokenBalance, 0, 0, address(this), block.timestamp);
             
             uint[] memory amounts = SushiRouter.swapExactTokensForTokens(usdcAmount, 0, path, address(this), block.timestamp);
 
-            (,,uint liquidity) = SushiRouter.addLiquidity(address(WETH), address(WBTC), ethAmount, amounts[1], 0, 0, address(this), block.timestamp);
+            (,,uint liquidity) = SushiRouter.addLiquidity(address(WETH), address(WBTC), ethAmount, amounts[2], 0, 0, address(this), block.timestamp);
             //add to masterchef
-            MasterChef.deposit(0, liquidity);
+            MasterChef.deposit(WETHWBTCPoolId, liquidity);
             lpTokenBalance = liquidity;
 
         } else if(_newMode == Mode.defend){
+            
             path[0] = address(WBTC);
-            path[1] = address(USDC);
+            path[1] = address(WETH);
+            path[2] = address(USDC);
             // remove from lp pool
-            MasterChef.withdraw(0, lpTokenBalance);
+            MasterChef.withdraw(WETHWBTCPoolId, lpTokenBalance);
 
             (uint ethAmount, uint wbtcAmount) = SushiRouter.removeLiquidity(address(WETH), address(WBTC), lpTokenBalance, 0, 0, address(this), block.timestamp);
+            
             uint[] memory amounts = SushiRouter.swapExactTokensForTokens(wbtcAmount, 0, path, address(this), block.timestamp);
-
-            (,,uint liquidity) = SushiRouter.addLiquidity(address(WETH), address(USDC), ethAmount, amounts[1], 0, 0, address(this), block.timestamp);
+            
+            (,,uint liquidity) = SushiRouter.addLiquidity(address(WETH), address(USDC), ethAmount, amounts[2], 0, 0, address(this), block.timestamp);
             //add to pool
-            MasterChef.deposit(0, liquidity);
+            MasterChef.deposit(WETHUSDCPoolId, liquidity);
             lpTokenBalance = liquidity;
         }
+
+        mode = _newMode;
     }
 
     function yield() external onlyVault {
@@ -255,17 +261,14 @@ contract strategy is Ownable { //TODO rename contract
     }
 
     function _yield() internal {
-        //withdraw lpTokens from masterChef
-        //deposit to masterChef
-        //if SUHSI balance > 0 , swap and _invest base on MODE
-        uint pid = mode == Mode.attack ? 0 : 0;
+        uint pid = mode == Mode.attack ? WETHWBTCPoolId : WETHUSDCPoolId;
 
-        (,uint rewardDebt) = MasterChef.userInfo(0, address(this));
+        (uint _amountDeposited, ) = MasterChef.userInfo(pid, address(this));
 
-        if(rewardDebt > 0) {
-            MasterChef.withdraw(pid, lpTokenBalance);
+        if(_amountDeposited > 0) {
+    
             uint sushiBalance = SUSHI.balanceOf(address(this));
-            MasterChef.deposit(pid, lpTokenBalance);
+            
 
             if(sushiBalance > 0) {
                 uint fee = sushiBalance.div(10); //10 %
@@ -275,7 +278,10 @@ contract strategy is Ownable { //TODO rename contract
                 SUSHI.safeTransfer(strategist, fee.sub(_treasuryFee).sub(_treasuryFee));
 
                 address[] memory path = new address[](2);
+                path[0] = address(SUSHI);
+                path[1] = address(WETH);
                 SushiRouter.swapExactTokensForTokens(sushiBalance.sub(fee), 0, path, address(this), block.timestamp);
+                
                 _invest(WETH.balanceOf(address(this)));
             }
         }
@@ -290,46 +296,26 @@ contract strategy is Ownable { //TODO rename contract
         uint[] memory amounts;
 
         if(mode == Mode.attack) {
-            MasterChef.withdraw(0, amountToRemove);
+            MasterChef.withdraw(WETHWBTCPoolId, amountToRemove);
             path[0] = address(WBTC);
             path[1] = address(WETH);
             
 
             (, uint wBTCAmount) = SushiRouter.removeLiquidity(address(WETH), address(WBTC), amountToRemove, 0, 0, address(this), block.timestamp);
             
-            //convert second to eth
-            //convert eth to require token
 
             amounts = SushiRouter.swapExactTokensForTokens(wBTCAmount, 0, path, address(this), block.timestamp);
 
-            /* path[0] = address(WETH);
-            path[1] = address(_token);
-            SushiRouter.swapExactTokensForTokens(amounts[1].add(ethAmount), 0, path, address(this), block.timestamp);
- */
         }
         
         if(mode == Mode.defend) {
-            MasterChef.withdraw(0, amountToRemove);
+            MasterChef.withdraw(WETHUSDCPoolId, amountToRemove);
             path[0] = address(USDC);
             path[1] = address(WETH);
 
             (, uint usdcAmount) = SushiRouter.removeLiquidity(address(WETH), address(USDC), amountToRemove, 0, 0, address(this), block.timestamp);
             amounts = SushiRouter.swapExactTokensForTokens(usdcAmount, 0, path, address(this), block.timestamp);
-/*             if(_token != USDC) {
-                // convert usdc to eth
-                // convert eth to _token
-                amounts = SushiRouter.swapExactTokensForTokens(usdcAmount, 0, path, address(this), block.timestamp);
 
-                path[0] = address(WETH);
-                path[1] = address(_token);
-
-                SushiRouter.swapExactTokensForTokens(amounts[1].add(ethAmount), 0, path, address(this), block.timestamp);
-            } else { //_token == sudc
-                //convert eth to usdc
-                path[0] = address(WETH);
-                path[1] = address(USDC);
-                amounts = SushiRouter.swapExactTokensForTokens(ethAmount, 0, path, address(this), block.timestamp);
-            } */
 
         }
 
@@ -345,6 +331,10 @@ contract strategy is Ownable { //TODO rename contract
     function getValueInPool() public view returns (uint _valueInETH, uint _valueInUSDC) {
 
         if(isEmergency == false ) {
+            if(lpTokenBalance == 0) {
+                return (0,0);
+            }
+
             IUniswapV2Pair pair = mode == Mode.attack ? WETHWBTCPair: WETHUSDCPair;
 
             (uint reserve0, uint reserve1,) = pair.getReserves();

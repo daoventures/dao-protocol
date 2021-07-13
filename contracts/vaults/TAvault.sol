@@ -8,7 +8,11 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "../../libs/BaseRelayRecipient.sol";
 
-interface IStrategy {
+interface IStrategy {    
+    enum Mode {
+        attack,
+        defend
+    }
     function invest(uint256 _amount) external;
     function yield() external;
     function withdraw(uint256 _amount) external;
@@ -20,6 +24,7 @@ interface IStrategy {
     function setStrategist(address _strategist) external;
     function setCommunityWallet(address _communityWallet) external;
     function setTreasuryWallet(address _treasuryWallet) external;
+    function switchMode(Mode _newMode) external ;
 }
 
 interface IRouter {
@@ -42,7 +47,7 @@ interface IChainlink {
     function latestAnswer() external view returns (int256);
 }
 
-contract vault is ERC20("DAO", "dao"), Ownable, BaseRelayRecipient { //TODO change symbol, name
+contract TAvault is ERC20("DAO Vault TA", "daoTA"), Ownable, BaseRelayRecipient { 
     using SafeERC20 for IERC20;
     using SafeMath for uint256;
 
@@ -157,7 +162,7 @@ contract vault is ERC20("DAO", "dao"), Ownable, BaseRelayRecipient { //TODO chan
         require(_amount > 0, "Amount must > 0");
 
         uint256 _ETHPrice = _determineETHPrice(_tokenIndex);
-        uint256 _pool = getAllPoolInETH(_ETHPrice).mul(_ETHPrice);
+        uint256 _pool = getAllPoolInETH(_ETHPrice);
         address _sender = _msgSender();
         Tokens[_tokenIndex].token.safeTransferFrom(_sender, address(this), _amount);
         uint256 _amtDeposit = _amount; // For event purpose
@@ -181,16 +186,18 @@ contract vault is ERC20("DAO", "dao"), Ownable, BaseRelayRecipient { //TODO chan
             _networkFeePerc = customNetworkFeePerc;
         }
         uint256 _fee = _amount.mul(_networkFeePerc).div(DENOMINATOR);
+
+        _amount = _amount.sub(_fee);
+
+        _balanceOfDeposit[_sender] = _balanceOfDeposit[_sender].add(_amount);
+
+        _fee = Tokens[_tokenIndex].decimals == 6 ? _fee.div(1e12) : _fee;
         uint _feeFourtyPerc = _fee.mul(2).div(5);
         //transfer fee
         Token memory token = Tokens[_tokenIndex];
         token.token.safeTransfer(treasuryWallet, _feeFourtyPerc);
         token.token.safeTransfer(communityWallet, _feeFourtyPerc);
         token.token.safeTransfer(strategist, _fee.sub(_feeFourtyPerc).sub(_feeFourtyPerc));
-
-        _amount = _amount.sub(_fee);
-
-        _balanceOfDeposit[_sender] = _balanceOfDeposit[_sender].add(_amount);
         
         uint256 _amountInETH = _amount.mul(_ETHPrice).div(1e18);
         uint256 _shares = totalSupply() == 0 ? _amountInETH : _amountInETH.mul(totalSupply()).div(_pool);
@@ -226,8 +233,8 @@ contract vault is ERC20("DAO", "dao"), Ownable, BaseRelayRecipient { //TODO chan
         }
         
         if (_withdrawAmtInUSD > _balanceOfToken) {
-
-            strategy.withdraw(_withdrawAmt);
+            uint _balanceOfTokenInETH = _balanceOfToken.mul(_ETHPrice).div(1e18);
+            strategy.withdraw(_withdrawAmt.sub(_balanceOfTokenInETH));
             uint256[] memory _amounts = _swapExactTokensForTokens(WETH.balanceOf(address(this)), address(WETH), address(_token.token));
             // Change withdraw amount to 18 decimals if not DAI (for calculate profit sharing fee)
             _withdrawAmtInUSD = _token.decimals == 6 ? _amounts[1].mul(1e12) : _amounts[1];
@@ -299,6 +306,11 @@ contract vault is ERC20("DAO", "dao"), Ownable, BaseRelayRecipient { //TODO chan
         strategy.yield();
     }
 
+    function switchMode(IStrategy.Mode _mode) external onlyAdmin {
+        require(isEmergency == false, "Cannot call during emergency");
+        strategy.switchMode(_mode);
+    }
+
     /// @notice Function to swap stablecoin within vault with Curve
     /// @notice Amount to swap == amount to keep in vault of _tokenTo stablecoin
     /// @param _tokenFrom Type of stablecoin to be swapped
@@ -339,7 +351,7 @@ contract vault is ERC20("DAO", "dao"), Ownable, BaseRelayRecipient { //TODO chan
 
     /// @notice Function to reinvest all WETH back to farms in strategy
     function reinvest() external onlyAdmin {
-        isEmergency == false;
+        isEmergency = false;
         strategy.reinvest();
     }
 
@@ -465,6 +477,7 @@ contract vault is ERC20("DAO", "dao"), Ownable, BaseRelayRecipient { //TODO chan
     /// @param _pendingStrategy Address of pending strategy
     function setPendingStrategy(address _pendingStrategy) external onlyOwner {
         require(canSetPendingStrategy, "Cannot set pending strategy now");
+        require(_pendingStrategy != address(0), "Invalid Address");
         pendingStrategy = _pendingStrategy;
         emit SetPendingStrategy(_pendingStrategy);
     }
@@ -499,7 +512,7 @@ contract vault is ERC20("DAO", "dao"), Ownable, BaseRelayRecipient { //TODO chan
         require(pendingStrategy != address(0), "No pendingStrategy");
 
         uint256 _amount = WETH.balanceOf(address(strategy));
-        WETH.safeTransferFrom(address(strategy), pendingStrategy, _amount);
+        WETH.safeTransferFrom(address(strategy), address(this), _amount);
 
         // Set new strategy
         address oldStrategy = address(strategy);
@@ -510,6 +523,8 @@ contract vault is ERC20("DAO", "dao"), Ownable, BaseRelayRecipient { //TODO chan
         // Approve new strategy
         WETH.safeApprove(address(strategy), type(uint256).max);
         WETH.safeApprove(oldStrategy, 0);
+
+        strategy.invest(_amount);
 
         unlockTime = 0; // Lock back this function
         emit MigrateFunds(oldStrategy, address(strategy), _amount);
