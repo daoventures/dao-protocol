@@ -226,15 +226,20 @@ contract CurveMetaPoolZap is Ownable, BaseRelayRecipient {
 		emit Compound(_amount, _vault, _lpTokenBal);
     }
 
+	/// @notice Function to swap WETH and add liquidity into Curve pool
 	/// @param _amount Amount of WETH to swap and add into Curve pool
+	/// @param _vault Address of vault contract to determine pool
+	/// @return _lpTokenBal LP token amount received after add liquidity into Curve pool (18 decimals)
 	function _addLiquidity(uint256 _amount, address _vault) private returns (uint256 _lpTokenBal) {
 		PoolInfo memory _poolInfo = poolInfos[_vault];
 		_WETH.safeTransferFrom(address(_poolInfo.strategy), address(this), _amount);
+		// Swap WETH to coin which can provide highest LP token return
 		address _best = _findCurrentBest(_amount, _vault, address(0));
 		address[] memory _path = new address[](2);
 		_path[0] = address(_WETH);
 		_path[1] = _best;
 		uint256[] memory _amountsOut = _sushiRouter.swapExactTokensForTokens(_amount, 0, _path, address(this), block.timestamp);
+		// Add coin into Curve pool
 		uint256[4] memory _amounts;
 		_amounts[0] = _best == address(_poolInfo.baseCoin) ? _amountsOut[1] : 0;
 		_amounts[1] = _best == address(_DAI) ? _amountsOut[1] : 0;
@@ -244,6 +249,9 @@ contract CurveMetaPoolZap is Ownable, BaseRelayRecipient {
 		emit AddLiquidity(_amount, _vault, _best, _lpTokenBal);
 	}
 
+	/// @notice Same function as compound() but transfer received LP token to vault instead of strategy contract
+	/// @param _amount Amount to emergency withdraw in WETH
+	/// @param _vault Address of vault contract
 	function emergencyWithdraw(uint256 _amount, address _vault) external {
 		require(msg.sender == address(poolInfos[_vault].strategy), "Only authorized strategy");
 		uint256 _lpTokenBal = _addLiquidity(_amount, _vault);
@@ -251,18 +259,20 @@ contract CurveMetaPoolZap is Ownable, BaseRelayRecipient {
 		emit EmergencyWithdraw(_amount, _vault, _lpTokenBal);
 	}
 
+	/// @notice Function to find coin that provide highest LP token return
+	/// @param _amount Amount of WETH to be calculate
+	/// @param _vault Address of vault contract
+	/// @param _token Input token address to be calculate
+	/// @return Coin address that provide highest LP token return
 	function _findCurrentBest(uint256 _amount, address _vault, address _token) private returns (address) {
-		IERC20 _baseCoin = poolInfos[_vault].baseCoin;
-
+		address _baseCoin = address(poolInfos[_vault].baseCoin);
+		// Get estimated amount out of LP token for each input token
+		uint256 _amountOut = _calcAmountOut(_amount, _token, address(_DAI), _vault);
+		uint256 _amountOutUSDC = _calcAmountOut(_amount, _token, address(_USDC), _vault);
+		uint256 _amountOutUSDT = _calcAmountOut(_amount, _token, address(_USDT), _vault);
+		uint256 _amountOutBase = _calcAmountOut(_amount, _token, _baseCoin, _vault);
+		// Compare for highest LP token out among coin address
 		address _best = address(_DAI);
-		uint256 _amountOut = _token == address(0) ?
-			_calcAmountOut(_amount, address(_DAI), _vault) : _calcAmountOut(_amount, _token, address(_DAI), _vault);
-		uint256 _amountOutUSDC = _token == address(0) ?
-			_calcAmountOut(_amount, address(_USDC), _vault) : _calcAmountOut(_amount, _token, address(_USDC), _vault);
-		uint256 _amountOutUSDT = _token == address(0) ?
-			_calcAmountOut(_amount, address(_USDT), _vault) : _calcAmountOut(_amount, _token, address(_USDT), _vault);
-		uint256 _amountOutBase = _token == address(0) ?
-			_calcAmountOut(_amount, address(_baseCoin), _vault) : _calcAmountOut(_amount, _token, address(_baseCoin), _vault);
 		if (_amountOutUSDC > _amountOut) {
 			_best = address(_USDC);
 			_amountOut = _amountOutUSDC;
@@ -272,47 +282,52 @@ contract CurveMetaPoolZap is Ownable, BaseRelayRecipient {
 			_amountOut = _amountOutUSDT;
 		}
 		if (_amountOutBase > _amountOut) {
-			_best = address(_baseCoin);
+			_best = _baseCoin;
 		}
 		return _best;
 	}
 
-	function _calcAmountOut(uint256 _amount, address _coin, address _vault) private returns (uint256) {
-		address[] memory _path = new address[](2);
-		_path[0] = address(_WETH);
-		_path[1] = _coin;
-		uint256[] memory _amountsOut = _sushiRouter.getAmountsOut(_amount, _path);
-
-		PoolInfo memory _poolInfo = poolInfos[_vault];
-		uint256[4] memory _amounts;
-		_amounts[0] = _coin == address(_poolInfo.baseCoin) ? _amountsOut[1] : 0;
-		_amounts[1] = _coin == address(_DAI) ? _amountsOut[1] : 0;
-		_amounts[2] = _coin == address(_USDC) ? _amountsOut[1] : 0;
-		_amounts[3] = _coin == address(_USDT) ? _amountsOut[1] : 0;
-		return _poolInfo.curveZap.calc_token_amount(address(_poolInfo.curvePool), _amounts, true);
-	}
-
+	/// @notice Function to calculate amount out of LP token
+	/// @param _amount Amount of WETH to be calculate
+	/// @param _vault Address of vault contract to retrieve pool
+	/// @param _token Input token address to be calculate (for depositZap(), otherwise address(0))
+	/// @return Amount out of LP token
 	function _calcAmountOut(uint256 _amount, address _token, address _coin, address _vault) private returns (uint256) {
-		address[] memory _path = new address[](3);
-		_path[0] = _token;
-		_path[1] = address(_WETH);
-		_path[2] = _coin;
-		uint256[] memory _amountsOut = _sushiRouter.getAmountsOut(_amount, _path);
+		uint256[] memory _amountsOut;
+		uint256 _amountOut;
+		if (_token == address(0)) { // From _addLiquidity()
+			address[] memory _path = new address[](2);
+			_path[0] = address(_WETH);
+			_path[1] = _coin;
+			_amountsOut = _sushiRouter.getAmountsOut(_amount, _path);
+			_amountOut = _amountsOut[1];
+		} else { // From depositZap()
+			address[] memory _path = new address[](3);
+			_path[0] = _token;
+			_path[1] = address(_WETH);
+			_path[2] = _coin;
+			_amountsOut = _sushiRouter.getAmountsOut(_amount, _path);
+			_amountOut = _amountsOut[2];
+		}
 
 		PoolInfo memory _poolInfo = poolInfos[_vault];
 		uint256[4] memory _amounts;
-		_amounts[0] = _coin == address(_poolInfo.baseCoin) ? _amountsOut[2] : 0;
-		_amounts[1] = _coin == address(_DAI) ? _amountsOut[2] : 0;
-		_amounts[2] = _coin == address(_USDC) ? _amountsOut[2] : 0;
-		_amounts[3] = _coin == address(_USDT) ? _amountsOut[2] : 0;
+		_amounts[0] = _coin == address(_poolInfo.baseCoin) ? _amountOut : 0;
+		_amounts[1] = _coin == address(_DAI) ? _amountOut : 0;
+		_amounts[2] = _coin == address(_USDC) ? _amountOut : 0;
+		_amounts[3] = _coin == address(_USDT) ? _amountOut : 0;
 		return _poolInfo.curveZap.calc_token_amount(address(_poolInfo.curvePool), _amounts, true);
 	}
 
+	/// @notice Function to add new Curve pool (for Curve metapool with factory deposit zap only)
+	/// @param vault_ Address of corresponding vault contract
+	/// @param curvePool_ Address of Curve metapool contract
+	/// @param curveZap_ Address of Curve metapool factory deposit zap contract
 	function addPool(address vault_, address curvePool_, address curveZap_) external onlyOwner {
 		IEarnVault _vault = IEarnVault(vault_);
 		IERC20 _lpToken = IERC20(_vault.lpToken());
 		ICurvePool _curvePool = ICurvePool(curvePool_);
-		IERC20 _baseCoin = IERC20(_curvePool.coins(0));
+		IERC20 _baseCoin = IERC20(_curvePool.coins(0)); // Base coin is the coin other than USDT/USDC/DAI in Curve metapool
 		address _strategy = _vault.strategy();
 
 		_lpToken.safeApprove(vault_, type(uint).max);
@@ -334,19 +349,23 @@ contract CurveMetaPoolZap is Ownable, BaseRelayRecipient {
 		emit AddPool(vault_, curvePool_, curveZap_);
 	}
     
+	/// @notice Function to set new strategy contract
+	/// @param _strategy Address of new strategy contract
 	function setStrategy(address _strategy) external {
 		require(address(poolInfos[msg.sender].strategy) != address(0), "Only authorized vault");
 		poolInfos[msg.sender].strategy = IEarnStrategy(_strategy);
 		emit SetStrategy(_strategy);
 	}
 
-	/// @notice Function to set new trusted forwarder address (Biconomy)
-    /// @param _biconomy Address of new trusted forwarder
+	/// @notice Function to set new trusted forwarder contract (Biconomy)
+    /// @param _biconomy Address of new trusted forwarder contract
     function setBiconomy(address _biconomy) external onlyOwner {
         trustedForwarder = _biconomy;
         emit SetBiconomy(_biconomy);
     }
 
+	/// @notice Function to get LP token price
+	/// @return LP token price of corresponding Curve pool (18 decimals)
 	function getVirtualPrice() external view returns (uint256) {
 		return poolInfos[msg.sender].curvePool.get_virtual_price();
 	}
