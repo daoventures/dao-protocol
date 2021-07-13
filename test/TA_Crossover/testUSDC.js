@@ -175,6 +175,7 @@ describe("TA - USDC", () => {
     it("should work correctly - migrateFunds", async() => {
         const {vault, strategy, USDC, USDT, DAI, unlockedUser, unlockedUser2, adminSigner, deployer} = await setup()
         await vault.connect(unlockedUser).deposit(ethers.utils.parseUnits("100", 6), 1)
+        let shares = await vault.balanceOf(unlockedUser.address)
         let beforeBalance = await USDC.balanceOf(unlockedUser.address)
         await vault.connect(adminSigner).invest()
 // 
@@ -185,7 +186,7 @@ describe("TA - USDC", () => {
 // 
         await vault.connect(deployer).unlockMigrateFunds()
         await vault.connect(deployer).migrateFunds()
-// 
+        await vault.connect(unlockedUser).withdraw(shares, 1)
         let afterBalance = await USDC.balanceOf(unlockedUser.address)
 // 
         // console.log("Withdrawn", (afterBalance.sub(beforeBalance)).toString())

@@ -95,6 +95,38 @@ contract TAstrategy is Ownable {
 
     }
 
+    function migrateFunds() external onlyVault {
+        _yield();
+        if(lpTokenBalance > 0) {
+            address[] memory path = new address[](2);
+            uint[] memory amounts;
+
+            if(mode == Mode.attack) {
+                MasterChef.withdraw(WETHWBTCPoolId, lpTokenBalance);
+                path[0] = address(WBTC);
+                path[1] = address(WETH);
+
+                (, uint wBTCAmount) = SushiRouter.removeLiquidity(address(WETH), address(WBTC), lpTokenBalance, 0, 0, address(this), block.timestamp);
+
+                amounts = SushiRouter.swapExactTokensForTokens(wBTCAmount, 0, path, address(this), block.timestamp);           
+                lpTokenBalance = 0;
+
+            }
+
+            if(mode == Mode.defend) {
+                MasterChef.withdraw(WETHUSDCPoolId, lpTokenBalance);
+                path[0] = address(USDC);
+                path[1] = address(WETH);
+
+                (,uint usdcAmount) = SushiRouter.removeLiquidity(address(WETH), address(USDC), lpTokenBalance, 0, 0, address(this), block.timestamp);
+
+                amounts = SushiRouter.swapExactTokensForTokens(usdcAmount, 0, path, address(this), block.timestamp);
+                lpTokenBalance = 0;
+
+            }
+        }
+    }
+
     function emergencyWithdraw() external onlyVault {
         isEmergency = true;
         //withdraw from masterchef
@@ -337,6 +369,7 @@ contract TAstrategy is Ownable {
     function setVault(address _vault) external onlyOwner {
         require(address(vault) == address(0), "Cannot set vault");
         vault = Vault(_vault);
+        WETH.safeApprove(_vault, type(uint).max);
     }
 
     /// @notice Returns the value in pool in terms of ETH and USDC

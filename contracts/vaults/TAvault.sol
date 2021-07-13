@@ -19,6 +19,7 @@ interface IStrategy {
     function reimburse() external;
     function setAdmin(address _admin) external;
     function emergencyWithdraw() external;
+    function migrateFunds() external;
     function reinvest() external;
     function getValueInPool() external view returns (uint _valueInETH, uint _valueInUsdc);
     function setStrategist(address _strategist) external;
@@ -511,6 +512,8 @@ contract TAvault is ERC20("DAO Vault TA", "daoTA"), Ownable, BaseRelayRecipient 
         require(WETH.balanceOf(address(strategy)) > 0, "No balance to migrate");
         require(pendingStrategy != address(0), "No pendingStrategy");
 
+        strategy.migrateFunds();
+
         uint256 _amount = WETH.balanceOf(address(strategy));
         WETH.safeTransferFrom(address(strategy), address(this), _amount);
 
@@ -521,8 +524,9 @@ contract TAvault is ERC20("DAO Vault TA", "daoTA"), Ownable, BaseRelayRecipient 
         canSetPendingStrategy = true;
 
         // Approve new strategy
-        WETH.safeApprove(address(strategy), type(uint256).max);
         WETH.safeApprove(oldStrategy, 0);
+        WETH.safeApprove(address(strategy), type(uint256).max);
+        
 
         strategy.invest(_amount);
 
