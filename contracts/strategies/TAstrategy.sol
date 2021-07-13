@@ -32,7 +32,7 @@ contract TAstrategy is Ownable {
     IERC20 public constant WBTC = IERC20(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
 
     IUniswapV2Router02 public constant SushiRouter = IUniswapV2Router02(0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F);
-    IMasterChef public constant MasterChef = IMasterChef(0xc2EdaD668740f1aA35E4D8f227fB8E17dcA888Cd); //TODO update PID
+    IMasterChef public constant MasterChef = IMasterChef(0xc2EdaD668740f1aA35E4D8f227fB8E17dcA888Cd); 
 
     IUniswapV2Pair public constant WETHWBTCPair = IUniswapV2Pair(0xCEfF51756c56CeFFCA006cD410B03FFC46dd3a58);
     IUniswapV2Pair public constant WETHUSDCPair = IUniswapV2Pair(0x397FF1542f962076d0BFE58eA045FfA2d347ACa0);
@@ -74,7 +74,7 @@ contract TAstrategy is Ownable {
         require(msg.sender == address(vault), "Only Vault");
         _;
     }
-
+    ///@param _amount amount in WETH
     function invest(uint _amount) external onlyVault {
         require(_amount > 0, "Invalid Amount");
         
@@ -97,7 +97,9 @@ contract TAstrategy is Ownable {
 
     function emergencyWithdraw() external onlyVault {
         isEmergency = true;
-
+        //withdraw from masterchef
+        //remove liquidity from sushiswap
+        //convert to ETH and set value in ValueInETH variable
         if(lpTokenBalance > 0) {
             address[] memory path = new address[](2);
             uint[] memory amounts;
@@ -133,6 +135,9 @@ contract TAstrategy is Ownable {
         
     }
 
+    /**
+        @notice Called after emergencyWithdraw. This function reinvests the amounts back to the same strategy
+     */
     function reinvest() external onlyVault {
         isEmergency = false;        
         if(valueInETH > 0) {
@@ -178,7 +183,9 @@ contract TAstrategy is Ownable {
 
     function _invest(uint _amount) internal {
         uint _amountDivided = _amount.div(2) ; //50%
-
+        //convert 50% to USDC/WBTC based on the current mode
+        //Deposit to WETH/WBTC during attack mode
+        //Deposit to WETH/USDC during defend mode
         address[] memory path = new address[](2);
         path[0] = address(WETH);
 
@@ -205,6 +212,8 @@ contract TAstrategy is Ownable {
     function switchMode(Mode _newMode) external onlyVault{
         require(_newMode != mode, "Cannot switch to same mode");
 
+        //withdraw from current pools
+        //Deposit to new pools based on the mode
         address[] memory path = new address[](3);
         
         if(_newMode == Mode.attack) {
@@ -288,12 +297,15 @@ contract TAstrategy is Ownable {
 
     }
 
+    ///@param _amount amount in WETH
     function _withdraw(uint _amount) internal {
         (uint valueInPoolInETH, ) = getValueInPool();
         uint amountToRemove = lpTokenBalance.mul(_amount).div(valueInPoolInETH);
         
         address[] memory path = new address[](2);
         uint[] memory amounts;
+
+        //convert WBTC or USDC to WETH and withdraw to vault
 
         if(mode == Mode.attack) {
             MasterChef.withdraw(WETHWBTCPoolId, amountToRemove);
@@ -327,7 +339,8 @@ contract TAstrategy is Ownable {
         vault = Vault(_vault);
     }
 
-   
+    /// @notice Returns the value in pool in terms of ETH and USDC
+    /// @dev Calculates the amount of ETH and `token`(USDC or WBTC) for the lpToken. Get price of `token` in ETH
     function getValueInPool() public view returns (uint _valueInETH, uint _valueInUSDC) {
 
         if(isEmergency == false ) {
@@ -344,7 +357,7 @@ contract TAstrategy is Ownable {
             uint amountETH = lpTokenBalance.mul(reserve1).div(totalLpTokenSupply);
 
             address[] memory path = new address[](2);
-            path[0] = pair.token0();
+            path[0] = pair.token0();//WBTC or USDC
             path[1] = address(WETH);
 
             uint[] memory amounts = SushiRouter.getAmountsOut(amountA, path);
@@ -353,7 +366,7 @@ contract TAstrategy is Ownable {
 
             path[0] = address(WETH);
             path[1] = address(USDC);
-            amounts = SushiRouter.getAmountsOut(amountA, path);
+            amounts = SushiRouter.getAmountsOut(_valueInETH, path);
 
             _valueInUSDC = amounts[1];
         } else {
