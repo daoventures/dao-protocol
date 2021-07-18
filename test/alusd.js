@@ -201,6 +201,7 @@ describe("DAO Earn", () => {
         await curveZap2.connect(client).deposit(earnVault.address, ethers.utils.parseEther("10000"), baseCoinAddr)
         await curveZap2.connect(client).deposit(earnVault.address, ethers.utils.parseEther("10000"), _3crvAddr)
         await curveZap2.connect(client).depositZap(earnVault.address, ethers.utils.parseEther("750"), AXSAddr)
+        await curveZap2.connect(client).depositZap(earnVault.address, ethers.utils.parseEther("5"), ethers.constants.AddressZero, {from: client.address, value: ethers.utils.parseEther("5")})
         await earnVault.connect(admin).invest()
         expect(await earnVault.strategy()).to.equal(earnStrategy2.address)
         expect((await curveZap2.poolInfos(earnVault.address))[2]).to.equal(earnStrategy2.address)

@@ -6,8 +6,6 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "../../libs/BaseRelayRecipient.sol";
 
-import "hardhat/console.sol";
-
 interface ICurvePool {
     function coins(int128 _index) external returns (address);
     function add_liquidity(uint256[2] memory _amounts, uint256 _amountOutMin) external returns (uint256);
@@ -112,9 +110,7 @@ contract CurvePlainPoolZap is Ownable, BaseRelayRecipient {
 			"Only authorized coin"
 		);
 		require(_amount > 0, "Amount must > 0");
-		// console.log(poolInfos[_vault].baseCoin.balanceOf(address(this)));
 		IERC20(_coin).safeTransferFrom(_msgSender(), address(this), _amount);
-		// console.log(_amount);
 		_lpTokenBal = _deposit(_vault, _amount, _coin);
     }
 
@@ -292,7 +288,7 @@ contract CurvePlainPoolZap is Ownable, BaseRelayRecipient {
 	function _calcAmountOut(uint256 _amount, address _token, address _coin, address _vault) private returns (uint256) {
 		uint256[] memory _amountsOut;
 		uint256 _amountOut;
-		if (_token == address(0)) { // From _addLiquidity()
+		if (_token == address(0)) { // From _addLiquidity() & depositZap with _tokenAddr == address(0)
 			address[] memory _path = new address[](2);
 			_path[0] = address(_WETH);
 			_path[1] = _coin;
@@ -305,9 +301,6 @@ contract CurvePlainPoolZap is Ownable, BaseRelayRecipient {
 			_path[2] = _coin;
 			_amountsOut = _sushiRouter.getAmountsOut(_amount, _path);
 			_amountOut = _amountsOut[2];
-			// console.log(_token); // 0xbb0e17ef65f82ab018d8edd776e8dd940327b28b
-			// console.log(_coin); // 0x57ab1ec28d129707052df4df418d58a2d46d5f51
-			// console.log(_amountsOut[2]); // 9858711987908515714426
 		}
 
 		PoolInfo memory _poolInfo = poolInfos[_vault];
@@ -316,15 +309,6 @@ contract CurvePlainPoolZap is Ownable, BaseRelayRecipient {
 		_amounts[1] = _coin == address(_USDC) ? _amountOut : 0;
 		_amounts[2] = _coin == address(_USDT) ? _amountOut : 0;
 		_amounts[3] = _coin == address(_poolInfo.baseCoin) ? _amountOut : 0;
-		// console.log(_amounts[0]);
-		// console.log(_amounts[1]);
-		// console.log(_amounts[2]);
-		// console.log(_amounts[3]); // 9858.711987908515714426
-		// console.log("------");
-		// console.log(_DAI.balanceOf(address(this)));
-		// console.log(_USDC.balanceOf(address(this)));
-		// console.log(_USDT.balanceOf(address(this)));
-		// console.log(_poolInfo.baseCoin.balanceOf(address(this))); // 401.659169181602192079
 		return _poolInfo.curvePool.calc_token_amount(_amounts, true);
 	}
 
@@ -377,5 +361,22 @@ contract CurvePlainPoolZap is Ownable, BaseRelayRecipient {
 	/// @return LP token price of corresponding Curve pool (18 decimals)
 	function getVirtualPrice() external view returns (uint256) {
 		return poolInfos[msg.sender].curvePool.get_virtual_price();
+	}
+
+	/// @notice Function to check token availability to depositZap()
+	/// @param _amount Amount to be swapped
+	/// @param _tokenIn Address to be swapped
+	/// @param _tokenOut Address to be received (Stablecoin)
+	/// @return Amount out in USD. Token not available if return 0.
+	function checkTokenSwapAvailability(uint256 _amount, address _tokenIn, address _tokenOut) external view returns (uint256) {
+		address[] memory _path = new address[](3);
+		_path[0] = _tokenIn;
+		_path[1] = address(_WETH);
+		_path[2] = _tokenOut;
+		try _sushiRouter.getAmountsOut(_amount, _path) returns (uint256[] memory _amountsOut){
+			return _amountsOut[2];
+		} catch {
+			return 0;
+		}
 	}
 }

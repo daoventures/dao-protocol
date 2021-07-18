@@ -369,4 +369,21 @@ contract CurveMetaPoolZap is Ownable, BaseRelayRecipient {
 	function getVirtualPrice() external view returns (uint256) {
 		return poolInfos[msg.sender].curvePool.get_virtual_price();
 	}
+
+	/// @notice Function to check token availability to depositZap()
+	/// @param _amount Amount to be swapped
+	/// @param _tokenIn Address to be swapped
+	/// @param _tokenOut Address to be received (Stablecoin)
+	/// @return Amount out in USD. Token not available if return 0.
+	function checkTokenSwapAvailability(uint256 _amount, address _tokenIn, address _tokenOut) external view returns (uint256) {
+		address[] memory _path = new address[](3);
+		_path[0] = _tokenIn;
+		_path[1] = address(_WETH);
+		_path[2] = _tokenOut;
+		try _sushiRouter.getAmountsOut(_amount, _path) returns (uint256[] memory _amountsOut){
+			return _amountsOut[2];
+		} catch {
+			return 0;
+		}
+	}
 }
