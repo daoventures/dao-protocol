@@ -5,10 +5,11 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
 
 interface IEarnStrategy {
-    function init(
+    function initialize(
         uint256 _pid, address _curveZap,
-        address _admin, address _communityWallet, address _strategist, address _owner
+        address _admin, address _communityWallet, address _strategist
     ) external;
+    function transferOwnership(address _owner) external;
 }
 
 /// @title Contract to create Earn strategy
@@ -28,11 +29,11 @@ contract EarnStrategyFactory is Ownable {
         address _admin, address _communityWallet, address _strategist
     ) external onlyOwner returns (address) {
         IEarnStrategy strategy = IEarnStrategy(Clones.clone(_strategyTemplate));
-        strategy.init(
+        strategy.initialize(
             _pid, _curveZap,
-            _admin, _communityWallet, _strategist,
-            msg.sender
+            _admin, _communityWallet, _strategist
         );
+        strategy.transferOwnership(msg.sender);
         strategies.push(address(strategy));
 
         return address(strategy);

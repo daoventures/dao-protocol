@@ -13,9 +13,11 @@ interface ICurvePool {
 }
 
 interface ICurveZap {
-    function add_liquidity(uint256[4] memory _amounts, uint256 _amountOutMin) external returns (uint256);
-	function remove_liquidity_one_coin(uint256 _amount, int128 _index, uint256 _amountOutMin) external returns (uint256);
-    function calc_token_amount(uint256[4] memory _amounts, bool _isDeposit) external returns (uint256);
+    function add_liquidity(address _pool, uint256[4] memory _amounts, uint256 _amountOutMin) external returns (uint256);
+	function remove_liquidity_one_coin(
+		address _pool, uint256 _amount, int128 _index, uint256 _amountOutMin, address _receiver
+	) external returns (uint256);
+    function calc_token_amount(address _pool, uint256[4] memory _amounts, bool _isDeposit) external returns (uint256);
 }
 
 interface IEarnVault {
@@ -48,7 +50,7 @@ interface ISushiRouter {
 	function getAmountsOut(uint amountIn, address[] memory path) external view returns (uint[] memory amounts);
 }
 
-contract CurveMetaPoolZap is Ownable, BaseRelayRecipient {
+contract CurveMetaPoolFacZap is Ownable, BaseRelayRecipient {
     using SafeERC20 for IERC20;
 
 	struct PoolInfo {
@@ -161,7 +163,7 @@ contract CurveMetaPoolZap is Ownable, BaseRelayRecipient {
 			_amounts[1] = _coin == address(_DAI) ? _amount : 0;
 			_amounts[2] = _coin == address(_USDC) ? _amount : 0;
 			_amounts[3] = _coin == address(_USDT) ? _amount : 0;
-			_lpTokenBal = _poolInfo.curveZap.add_liquidity(_amounts, 0);
+			_lpTokenBal = _poolInfo.curveZap.add_liquidity(address(_curvePool), _amounts, 0);
 		}
 		if (_coin == address(_poolInfo.baseCoin) || _coin == address(_3Crv)) {
 			uint256[2] memory _amounts;
@@ -195,8 +197,7 @@ contract CurveMetaPoolZap is Ownable, BaseRelayRecipient {
 		if (_coin == _baseCoin) {_index = 0;}
 		else if (_coin == address(_DAI)) {_index = 1;}
 		else if (_coin == address(_USDC)) {_index = 2;}
-		_coinAmount = _poolInfo.curveZap.remove_liquidity_one_coin(_lpTokenBal, _index, 0);
-		IERC20(_coin).safeTransfer(msg.sender, _coinAmount);
+		_coinAmount = _poolInfo.curveZap.remove_liquidity_one_coin(address(_poolInfo.curvePool), _lpTokenBal, _index, 0, msg.sender);
 		emit Withdraw(_vault, _shares, _coin, _lpTokenBal, _coinAmount);
 	}
 
@@ -208,8 +209,7 @@ contract CurveMetaPoolZap is Ownable, BaseRelayRecipient {
 		address _curvePoolAddr = address(_poolInfo.curvePool);
 		require(_curvePoolAddr != address(0), "Only authorized vault");
 		IERC20(IEarnVault(msg.sender).lpToken()).safeTransferFrom(msg.sender, address(this), _amount);
-		uint256 _coinAmount = _poolInfo.curveZap.remove_liquidity_one_coin(_amount, 3, 0);
-		_USDT.safeTransfer(msg.sender, _coinAmount);
+		uint256 _coinAmount = _poolInfo.curveZap.remove_liquidity_one_coin(_curvePoolAddr, _amount, 3, 0, msg.sender);
 		emit SwapFees(_amount, _coinAmount, address(_USDT));
 		return (_coinAmount, address(_USDT));
 	}
@@ -245,7 +245,7 @@ contract CurveMetaPoolZap is Ownable, BaseRelayRecipient {
 		_amounts[1] = _best == address(_DAI) ? _amountsOut[1] : 0;
 		_amounts[2] = _best == address(_USDC) ? _amountsOut[1] : 0;
 		_amounts[3] = _best == address(_USDT) ? _amountsOut[1] : 0;
-		_lpTokenBal = _poolInfo.curveZap.add_liquidity(_amounts, 0);
+		_lpTokenBal = _poolInfo.curveZap.add_liquidity(address(_poolInfo.curvePool), _amounts, 0);
 		emit AddLiquidity(_amount, _vault, _best, _lpTokenBal);
 	}
 
@@ -316,7 +316,7 @@ contract CurveMetaPoolZap is Ownable, BaseRelayRecipient {
 		_amounts[1] = _coin == address(_DAI) ? _amountOut : 0;
 		_amounts[2] = _coin == address(_USDC) ? _amountOut : 0;
 		_amounts[3] = _coin == address(_USDT) ? _amountOut : 0;
-		return _poolInfo.curveZap.calc_token_amount(_amounts, true);
+		return _poolInfo.curveZap.calc_token_amount(address(_poolInfo.curvePool), _amounts, true);
 	}
 
 	/// @notice Function to add new Curve pool (for Curve metapool with factory deposit zap only)

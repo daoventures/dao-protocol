@@ -24,28 +24,18 @@ describe("DAO Earn", () => {
         const earnStrategyAddr = await earnStrategyFactory.strategies((await earnStrategyFactory.getTotalStrategies()).sub(1))
         const earnStrategy = await ethers.getContractAt("EarnStrategy", earnStrategyAddr, deployer)
         expect(await earnStrategy.owner()).to.equal(deployer.address)
-        const EarnVaultTemplate = await ethers.getContractFactory("EarnVault", deployer)
-        const earnVaultTemplate = await EarnVaultTemplate.deploy()
-        const EarnVaultFactory = await ethers.getContractFactory("EarnVaultFactory", deployer)
-        const earnVaultFactory = await EarnVaultFactory.deploy()
-        await earnVaultFactory.createVault(
-            earnVaultTemplate.address,
-            earnStrategy.lpToken(), earnStrategyAddr, curveZap.address,
+        const EarnVault = await ethers.getContractFactory("EarnVault", deployer)
+        const earnVault = await upgrades.deployProxy(EarnVault, [
+            await earnStrategy.lpToken(), earnStrategyAddr, curveZap.address,
             treasury.address, community.address,
             admin.address, strategist.address, biconomy.address
-        )
-        const earnVaultAddr = await earnVaultFactory.vaults((await earnVaultFactory.getTotalVaults()).sub(1))
-        await earnStrategy.setVault(earnVaultAddr)
-        await curveZap.addPool(earnVaultAddr, curvePoolAddr, curvePoolZap)
-        const earnVault = await ethers.getContractAt("EarnVault", earnVaultAddr, deployer)
-
-        // EarnVaultFactory
-        await expect(earnVaultFactory.connect(admin).createVault(
-            earnVaultTemplate.address,
-            earnStrategy.lpToken(), earnStrategyAddr, curveZap.address,
-            treasury.address, community.address,
-            admin.address, strategist.address, biconomy.address
-        )).to.be.revertedWith("Ownable: caller is not the owner")
+        ])
+        await earnVault.deployed()
+        expect(await earnVault.owner()).to.equal(deployer.address)
+        await earnStrategy.setVault(earnVault.address)
+        expect(await earnStrategy.owner()).to.equal(deployer.address)
+        await curveZap.addPool(earnVault.address, curvePoolAddr, curvePoolZap)
+        expect(await curveZap.owner()).to.equal(deployer.address)
 
         // EarnStrategyFactory
         await expect(earnStrategyFactory.connect(admin).createStrategy(
@@ -55,10 +45,10 @@ describe("DAO Earn", () => {
         )).to.be.revertedWith("Ownable: caller is not the owner")
         
         // EarnVaut
-        await expect(earnVault.init(
+        await expect(earnVault.initialize(
             earnStrategy.lpToken(), earnStrategyAddr, curveZap.address,
             treasury.address, community.address,
-            admin.address, strategist.address, biconomy.address, deployer.address
+            admin.address, strategist.address, biconomy.address
         )).to.be.revertedWith("Initializable: contract is already initialized")
         await expect(earnVault.connect(client).depositZap(ethers.utils.parseEther("10000"), client.address)).to.be.revertedWith("Only CurveZap")
         await expect(earnVault.connect(client).withdrawZap(ethers.utils.parseEther("10000"), client.address)).to.be.revertedWith("Only CurveZap")
@@ -88,13 +78,13 @@ describe("DAO Earn", () => {
         // EarnStrategy
         await expect(earnStrategy.init(
             poolIndex, curveZap.address,
-            admin.address, community.address, strategist.address, deployer.address
+            admin.address, community.address, strategist.address
         )).to.be.revertedWith("Initializable: contract is already initialized")
         await expect(earnStrategy.invest(ethers.utils.parseEther("100"))).to.be.revertedWith("Only authorized caller")
         await expect(earnStrategy.yield()).to.be.revertedWith("Only vault")
         await expect(earnStrategy.withdraw(ethers.utils.parseEther("100"))).to.be.revertedWith("Only vault")
         await expect(earnStrategy.emergencyWithdraw()).to.be.revertedWith("Only vault")
-        await expect(earnStrategy.setVault(earnVaultAddr)).to.be.revertedWith("Vault set")
+        await expect(earnStrategy.setVault(earnVault.address)).to.be.revertedWith("Vault set")
         await expect(earnStrategy.setCurveZap(curveZap.address)).to.be.revertedWith("Only vault")
         await expect(earnStrategy.setYieldFeePerc(1000)).to.be.revertedWith("Only vault")
         await expect(earnStrategy.setCommunityWallet(deployer.address)).to.be.revertedWith("Only vault")
@@ -103,14 +93,14 @@ describe("DAO Earn", () => {
 
         // CurveMetaPoolZap
         const Sample = await ethers.getContractFactory("Sample", deployer)
-        const sample = await Sample.deploy(lpTokenAddr, earnVaultAddr, curveZap.address)
+        const sample = await Sample.deploy(lpTokenAddr, earnVault.address, curveZap.address)
         await expect(sample.depositZap1()).to.be.revertedWith("Only EOA or Biconomy")
         await expect(sample.depositZap2()).to.be.revertedWith("Only EOA or Biconomy")
         await expect(sample.withdrawZap()).to.be.revertedWith("Only EOA")
         await expect(curveZap.swapFees(ethers.utils.parseEther("100"))).to.be.revertedWith("Only authorized vault")
-        await expect(curveZap.compound(ethers.utils.parseEther("100"), earnVaultAddr)).to.be.revertedWith("Only authorized strategy")
-        await expect(curveZap.emergencyWithdraw(ethers.utils.parseEther("100"), earnVaultAddr)).to.be.revertedWith("Only authorized strategy")
-        await expect(curveZap.connect(admin).addPool(earnVaultAddr, curvePoolAddr, curvePoolZap)).to.be.revertedWith("Ownable: caller is not the owner")
+        await expect(curveZap.compound(ethers.utils.parseEther("100"), earnVault.address)).to.be.revertedWith("Only authorized strategy")
+        await expect(curveZap.emergencyWithdraw(ethers.utils.parseEther("100"), earnVault.address)).to.be.revertedWith("Only authorized strategy")
+        await expect(curveZap.connect(admin).addPool(earnVault.address, curvePoolAddr, curvePoolZap)).to.be.revertedWith("Ownable: caller is not the owner")
         await expect(curveZap.setStrategy(earnStrategyAddr)).to.be.revertedWith("Only authorized vault")
         await expect(curveZap.connect(client).setBiconomy(client.address)).to.be.revertedWith("Ownable: caller is not the owner")
     })

@@ -1,24 +1,24 @@
-const { ethers, upgrades, network } = require("hardhat")
+const { ethers, network } = require("hardhat")
 const { expect } = require("chai")
 const IERC20_ABI = require("../abis/IERC20_ABI.json")
 
 const USDTAddr = "0xdAC17F958D2ee523a2206206994597C13D831ec7"
 const USDCAddr = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
 const DAIAddr = "0x6B175474E89094C44Da98b954EedeAC495271d0F"
-const baseCoinAddr = "0xBC6DA0FE9aD5f3b0d58160288917AA56653660E9" // *variable
+const baseCoinAddr = "0x674C6Ad92Fd080e4004b2312b45f796a192D27a0" // *variable
 const AXSAddr = "0xBB0E17EF65F82Ab018d8EDd776e8DD940327B28b"
-const lpTokenAddr = "0x43b4FdFD4Ff969587185cDB6f0BD875c5Fc83f8c" // *variable
+const lpTokenAddr = "0x4f3E8F405CF5aFC05D68142F3783bDfE13811522" // *variable
 const _3crvAddr = "0x6c3F90f043a72FA612cbac8115EE7e52BDe6E490"
 const unlockedAddr = "0x28C6c06298d514Db089934071355E5743bf21d60"
-const unlockedLpTokenAddr = "0xd44A4999DF99FB92Db7CdfE7Dea352a28bceDb63" // *variable
-const unlockedBaseCoinAddr = "0xF9A0106251467FFF1Ff03e8609aa74fc55A2a45E" // *variable
+const unlockedLpTokenAddr = "0x3073244Fc68ED2CB8bF4Eea14a3DAC0e32Bd7b2a" // *variable
+const unlockedBaseCoinAddr = "0xdFae3CA7Ae99dd5439Df55766E646FcDfF69d8B0" // *variable
 const unlocked3CrvAddr = "0xa7888F85BD76deeF3Bd03d4DbCF57765a49883b3"
 
-const curvePoolAddr = "0x43b4FdFD4Ff969587185cDB6f0BD875c5Fc83f8c" // *variable
-const curvePoolZap = "0xA79828DF1850E8a3A3064576f380D90aECDD3359" // *variable
+const curvePoolAddr = "0x0f9cb53Ebe405d49A0bbdBD291A65Ff571bC83e1" // *variable
+const curvePoolZap = "0x094d12e5b541784701FD8d65F11fc0598FBC6332" // *variable
 
-const poolIndex = 36 // *variable
-const curveZapType = "CurveMetaPoolFacZap" // *variable
+const poolIndex = 13 // *variable
+const curveZapType = "CurveMetaPoolZap" // *variable
 
 describe("DAO Earn", () => {
     it("should work", async () => {
@@ -81,6 +81,8 @@ describe("DAO Earn", () => {
         await _3CrvContract.connect(client).approve(curveZap.address, ethers.constants.MaxUint256)
 
         // Deposit
+        // console.log(ethers.utils.formatEther(await lpTokenContract.balanceOf(client.address)))
+        // console.log(ethers.utils.formatEther(await lpTokenContract.allowance(client.address, earnVault.address)))
         await earnVault.connect(client).deposit(ethers.utils.parseEther("10000"))
         // console.log(ethers.utils.formatEther(await earnVault.getAmtToInvest()))
         // console.log("Client share in USD:", ethers.utils.formatUnits((await earnVault.balanceOf(client.address)).mul(await earnVault.getPricePerFullShare(true)), 24))

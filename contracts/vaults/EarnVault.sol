@@ -2,11 +2,10 @@
 pragma solidity 0.8.4;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
-import "../../libs/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "../../libs/BaseRelayRecipient.sol";
 
 interface IStrategy {
@@ -99,14 +98,13 @@ contract EarnVault is Initializable, ERC20Upgradeable, OwnableUpgradeable,
     /// @param _admin Address of admin
     /// @param _strategist Address of strategist
     /// @param _biconomy Address of Biconomy contract
-    /// @param _owner Address of deployer of this contract
-    function init(
+    function initialize(
         address _lpToken, address _strategy, address _curveZap,
         address _treasuryWallet, address _communityWallet,
-        address _admin, address _strategist, address _biconomy, address _owner
+        address _admin, address _strategist, address _biconomy
     ) external initializer {
         __ERC20_init("DAO Earn", "daoERN");
-        __Ownable_init(_owner);
+        __Ownable_init();
 
         networkFeeTier2 = [50000*1e18+1, 100000*1e18];
         customNetworkFeeTier = 1000000*1e18;

@@ -6,16 +6,18 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "../../libs/BaseRelayRecipient.sol";
 
+import "hardhat/console.sol";
+
 interface ICurvePool {
-    function coins(uint256 _index) external returns (address);
+    function coins(int128 _index) external returns (address);
     function add_liquidity(uint256[2] memory _amounts, uint256 _amountOutMin) external returns (uint256);
 	function get_virtual_price() external view returns (uint256);
+    function calc_token_amount(uint256[4] memory _amounts, bool _isDeposit) external returns (uint256);
 }
 
 interface ICurveZap {
-    function add_liquidity(uint256[4] memory _amounts, uint256 _amountOutMin) external returns (uint256);
-	function remove_liquidity_one_coin(uint256 _amount, int128 _index, uint256 _amountOutMin) external returns (uint256);
-    function calc_token_amount(uint256[4] memory _amounts, bool _isDeposit) external returns (uint256);
+    function add_liquidity(uint256[4] memory _amounts, uint256 _amountOutMin) external;
+	function remove_liquidity_one_coin(uint256 _amount, int128 _index, uint256 _amountOutMin) external;
 }
 
 interface IEarnVault {
@@ -48,7 +50,7 @@ interface ISushiRouter {
 	function getAmountsOut(uint amountIn, address[] memory path) external view returns (uint[] memory amounts);
 }
 
-contract CurveMetaPoolZap is Ownable, BaseRelayRecipient {
+contract CurvePlainPoolZap is Ownable, BaseRelayRecipient {
     using SafeERC20 for IERC20;
 
 	struct PoolInfo {
@@ -56,13 +58,13 @@ contract CurveMetaPoolZap is Ownable, BaseRelayRecipient {
 		ICurveZap curveZap;
 		IEarnStrategy strategy;
     	IERC20 baseCoin;
+		IERC20 lpToken;
 	}
 	mapping(address => PoolInfo) public poolInfos;
 
     ISushiRouter private constant _sushiRouter = ISushiRouter(0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F);
 
     IERC20 private constant _WETH = IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
-    IERC20 private constant _3Crv = IERC20(0x6c3F90f043a72FA612cbac8115EE7e52BDe6E490);
     IERC20 private constant _USDT = IERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7);
     IERC20 private constant _USDC = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
     IERC20 private constant _DAI = IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
@@ -106,12 +108,13 @@ contract CurveMetaPoolZap is Ownable, BaseRelayRecipient {
 			_coin == address(_DAI) ||
 			_coin == address(_USDC) ||
 			_coin == address(_USDT) ||
-			_coin == address(poolInfos[_vault].baseCoin) ||
-			_coin == address(_3Crv),
+			_coin == address(poolInfos[_vault].baseCoin),
 			"Only authorized coin"
 		);
 		require(_amount > 0, "Amount must > 0");
+		// console.log(poolInfos[_vault].baseCoin.balanceOf(address(this)));
 		IERC20(_coin).safeTransferFrom(_msgSender(), address(this), _amount);
+		// console.log(_amount);
 		_lpTokenBal = _deposit(_vault, _amount, _coin);
     }
 
@@ -153,22 +156,13 @@ contract CurveMetaPoolZap is Ownable, BaseRelayRecipient {
 	/// @return _lpTokenBal LP token amount to deposit after add liquidity to Curve pool (18 decimals)
 	function _deposit(address _vault, uint256 _amount, address _coin) private returns (uint256) {
 		PoolInfo memory _poolInfo = poolInfos[_vault];
-		ICurvePool _curvePool = _poolInfo.curvePool;
-		uint256 _lpTokenBal;
-		if (_coin == address(_DAI) || _coin == address(_USDC) || _coin == address(_USDT)) {
-			uint256[4] memory _amounts;
-			_amounts[0] = 0; // Base coin
-			_amounts[1] = _coin == address(_DAI) ? _amount : 0;
-			_amounts[2] = _coin == address(_USDC) ? _amount : 0;
-			_amounts[3] = _coin == address(_USDT) ? _amount : 0;
-			_lpTokenBal = _poolInfo.curveZap.add_liquidity(_amounts, 0);
-		}
-		if (_coin == address(_poolInfo.baseCoin) || _coin == address(_3Crv)) {
-			uint256[2] memory _amounts;
-			_amounts[0] = _coin == address(_poolInfo.baseCoin) ? _amount : 0;
-			_amounts[1] = _coin == address(_3Crv) ? _amount : 0;
-			_lpTokenBal = _curvePool.add_liquidity(_amounts, 0);
-		}
+		uint256[4] memory _amounts;
+		_amounts[0] = _coin == address(_DAI) ? _amount : 0;
+		_amounts[1] = _coin == address(_USDC) ? _amount : 0;
+		_amounts[2] = _coin == address(_USDT) ? _amount : 0;
+		_amounts[3] = _coin == address(_poolInfo.baseCoin) ? _amount : 0;
+		_poolInfo.curveZap.add_liquidity(_amounts, 0);
+		uint256 _lpTokenBal = _poolInfo.lpToken.balanceOf(address(this));
 		IEarnVault(_vault).depositZap(_lpTokenBal, _msgSender());
 		emit Deposit(_vault, _amount, _coin, _lpTokenBal);
 		return _lpTokenBal;
@@ -191,11 +185,12 @@ contract CurveMetaPoolZap is Ownable, BaseRelayRecipient {
 			"Only authorized coin"
 		);
 		uint256 _lpTokenBal = IEarnVault(_vault).withdrawZap(_shares, msg.sender);
-		int128 _index = 3; // USDT
-		if (_coin == _baseCoin) {_index = 0;}
-		else if (_coin == address(_DAI)) {_index = 1;}
-		else if (_coin == address(_USDC)) {_index = 2;}
-		_coinAmount = _poolInfo.curveZap.remove_liquidity_one_coin(_lpTokenBal, _index, 0);
+		int128 _index = 2; // USDT
+		if (_coin == _baseCoin) {_index = 3;}
+		else if (_coin == address(_DAI)) {_index = 0;}
+		else if (_coin == address(_USDC)) {_index = 1;}
+		_poolInfo.curveZap.remove_liquidity_one_coin(_lpTokenBal, _index, 0);
+		_coinAmount = IERC20(_coin).balanceOf(address(this));
 		IERC20(_coin).safeTransfer(msg.sender, _coinAmount);
 		emit Withdraw(_vault, _shares, _coin, _lpTokenBal, _coinAmount);
 	}
@@ -205,10 +200,10 @@ contract CurveMetaPoolZap is Ownable, BaseRelayRecipient {
 	/// @return Amount and address of coin to receive (amount follow decimal of coin)
 	function swapFees(uint256 _amount) external returns (uint256, address) {
 		PoolInfo memory _poolInfo = poolInfos[msg.sender];
-		address _curvePoolAddr = address(_poolInfo.curvePool);
-		require(_curvePoolAddr != address(0), "Only authorized vault");
-		IERC20(IEarnVault(msg.sender).lpToken()).safeTransferFrom(msg.sender, address(this), _amount);
-		uint256 _coinAmount = _poolInfo.curveZap.remove_liquidity_one_coin(_amount, 3, 0);
+		require(address(_poolInfo.curvePool) != address(0), "Only authorized vault");
+		_poolInfo.lpToken.safeTransferFrom(msg.sender, address(this), _amount);
+		_poolInfo.curveZap.remove_liquidity_one_coin(_amount, 2, 0);
+		uint256 _coinAmount = _USDT.balanceOf(address(this));
 		_USDT.safeTransfer(msg.sender, _coinAmount);
 		emit SwapFees(_amount, _coinAmount, address(_USDT));
 		return (_coinAmount, address(_USDT));
@@ -241,11 +236,12 @@ contract CurveMetaPoolZap is Ownable, BaseRelayRecipient {
 		uint256[] memory _amountsOut = _sushiRouter.swapExactTokensForTokens(_amount, 0, _path, address(this), block.timestamp);
 		// Add coin into Curve pool
 		uint256[4] memory _amounts;
-		_amounts[0] = _best == address(_poolInfo.baseCoin) ? _amountsOut[1] : 0;
-		_amounts[1] = _best == address(_DAI) ? _amountsOut[1] : 0;
-		_amounts[2] = _best == address(_USDC) ? _amountsOut[1] : 0;
-		_amounts[3] = _best == address(_USDT) ? _amountsOut[1] : 0;
-		_lpTokenBal = _poolInfo.curveZap.add_liquidity(_amounts, 0);
+		_amounts[0] = _best == address(_DAI) ? _amountsOut[1] : 0;
+		_amounts[1] = _best == address(_USDC) ? _amountsOut[1] : 0;
+		_amounts[2] = _best == address(_USDT) ? _amountsOut[1] : 0;
+		_amounts[3] = _best == address(_poolInfo.baseCoin) ? _amountsOut[1] : 0;
+		_poolInfo.curveZap.add_liquidity(_amounts, 0);
+		_lpTokenBal = _poolInfo.lpToken.balanceOf(address(this));
 		emit AddLiquidity(_amount, _vault, _best, _lpTokenBal);
 	}
 
@@ -253,9 +249,10 @@ contract CurveMetaPoolZap is Ownable, BaseRelayRecipient {
 	/// @param _amount Amount to emergency withdraw in WETH
 	/// @param _vault Address of vault contract
 	function emergencyWithdraw(uint256 _amount, address _vault) external {
-		require(msg.sender == address(poolInfos[_vault].strategy), "Only authorized strategy");
+		PoolInfo memory _poolInfo = poolInfos[_vault];
+		require(msg.sender == address(_poolInfo.strategy), "Only authorized strategy");
 		uint256 _lpTokenBal = _addLiquidity(_amount, _vault);
-		IERC20(IEarnVault(_vault).lpToken()).safeTransfer(_vault, _lpTokenBal);
+		_poolInfo.lpToken.safeTransfer(_vault, _lpTokenBal);
 		emit EmergencyWithdraw(_amount, _vault, _lpTokenBal);
 	}
 
@@ -267,12 +264,12 @@ contract CurveMetaPoolZap is Ownable, BaseRelayRecipient {
 	function _findCurrentBest(uint256 _amount, address _vault, address _token) private returns (address) {
 		address _baseCoin = address(poolInfos[_vault].baseCoin);
 		// Get estimated amount out of LP token for each input token
-		uint256 _amountOut = _calcAmountOut(_amount, _token, address(_DAI), _vault);
+		uint256 _amountOut = _calcAmountOut(_amount, _token, _baseCoin, _vault);
+		uint256 _amountOutDAI = _calcAmountOut(_amount, _token, address(_DAI), _vault);
 		uint256 _amountOutUSDC = _calcAmountOut(_amount, _token, address(_USDC), _vault);
 		uint256 _amountOutUSDT = _calcAmountOut(_amount, _token, address(_USDT), _vault);
-		uint256 _amountOutBase = _calcAmountOut(_amount, _token, _baseCoin, _vault);
 		// Compare for highest LP token out among coin address
-		address _best = address(_DAI);
+		address _best = _baseCoin;
 		if (_amountOutUSDC > _amountOut) {
 			_best = address(_USDC);
 			_amountOut = _amountOutUSDC;
@@ -281,7 +278,7 @@ contract CurveMetaPoolZap is Ownable, BaseRelayRecipient {
 			_best = address(_USDT);
 			_amountOut = _amountOutUSDT;
 		}
-		if (_amountOutBase > _amountOut) {
+		if (_amountOutDAI > _amountOut) {
 			_best = _baseCoin;
 		}
 		return _best;
@@ -308,15 +305,27 @@ contract CurveMetaPoolZap is Ownable, BaseRelayRecipient {
 			_path[2] = _coin;
 			_amountsOut = _sushiRouter.getAmountsOut(_amount, _path);
 			_amountOut = _amountsOut[2];
+			// console.log(_token); // 0xbb0e17ef65f82ab018d8edd776e8dd940327b28b
+			// console.log(_coin); // 0x57ab1ec28d129707052df4df418d58a2d46d5f51
+			// console.log(_amountsOut[2]); // 9858711987908515714426
 		}
 
 		PoolInfo memory _poolInfo = poolInfos[_vault];
 		uint256[4] memory _amounts;
-		_amounts[0] = _coin == address(_poolInfo.baseCoin) ? _amountOut : 0;
-		_amounts[1] = _coin == address(_DAI) ? _amountOut : 0;
-		_amounts[2] = _coin == address(_USDC) ? _amountOut : 0;
-		_amounts[3] = _coin == address(_USDT) ? _amountOut : 0;
-		return _poolInfo.curveZap.calc_token_amount(_amounts, true);
+		_amounts[0] = _coin == address(_DAI) ? _amountOut : 0;
+		_amounts[1] = _coin == address(_USDC) ? _amountOut : 0;
+		_amounts[2] = _coin == address(_USDT) ? _amountOut : 0;
+		_amounts[3] = _coin == address(_poolInfo.baseCoin) ? _amountOut : 0;
+		// console.log(_amounts[0]);
+		// console.log(_amounts[1]);
+		// console.log(_amounts[2]);
+		// console.log(_amounts[3]); // 9858.711987908515714426
+		// console.log("------");
+		// console.log(_DAI.balanceOf(address(this)));
+		// console.log(_USDC.balanceOf(address(this)));
+		// console.log(_USDT.balanceOf(address(this)));
+		// console.log(_poolInfo.baseCoin.balanceOf(address(this))); // 401.659169181602192079
+		return _poolInfo.curvePool.calc_token_amount(_amounts, true);
 	}
 
 	/// @notice Function to add new Curve pool (for Curve metapool with factory deposit zap only)
@@ -327,7 +336,7 @@ contract CurveMetaPoolZap is Ownable, BaseRelayRecipient {
 		IEarnVault _vault = IEarnVault(vault_);
 		IERC20 _lpToken = IERC20(_vault.lpToken());
 		ICurvePool _curvePool = ICurvePool(curvePool_);
-		IERC20 _baseCoin = IERC20(_curvePool.coins(0)); // Base coin is the coin other than USDT/USDC/DAI in Curve metapool
+		IERC20 _baseCoin = IERC20(_curvePool.coins(3)); // Base coin is the coin other than USDT/USDC/DAI in Curve plain pool
 		address _strategy = _vault.strategy();
 
 		_lpToken.safeApprove(vault_, type(uint).max);
@@ -338,13 +347,13 @@ contract CurveMetaPoolZap is Ownable, BaseRelayRecipient {
 		_USDT.safeApprove(curveZap_, type(uint).max);
 		_baseCoin.safeApprove(curveZap_, type(uint).max);
 		_baseCoin.safeApprove(curvePool_, type(uint).max);
-		_3Crv.safeApprove(curvePool_, type(uint).max);
 
 		poolInfos[vault_] = PoolInfo(
             _curvePool,
             ICurveZap(curveZap_),
             IEarnStrategy(_strategy),
-            _baseCoin
+            _baseCoin,
+			IERC20(_vault.lpToken())
         );
 		emit AddPool(vault_, curvePool_, curveZap_);
 	}

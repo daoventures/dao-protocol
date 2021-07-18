@@ -4,8 +4,7 @@ pragma solidity 0.8.4;
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "../../libs/OwnableUpgradeable.sol";
-
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 interface ICurveZap {
     function compound(uint256 _amount, address _vault) external returns (uint256);
@@ -91,12 +90,11 @@ contract EarnStrategy is Initializable, OwnableUpgradeable {
     /// @param _admin Address of admin
     /// @param _communityWallet Address of community wallet
     /// @param _strategist Address of strategist
-    /// @param _owner Address of deployer of this contract
-    function init(
+    function initialize(
         uint256 _pid, address _curveZap,
-        address _admin, address _communityWallet, address _strategist, address _owner
+        address _admin, address _communityWallet, address _strategist
     ) external initializer {
-        __Ownable_init(_owner);
+        __Ownable_init_unchained();
 
         yieldFeePerc = 1000;
         admin = _admin;
