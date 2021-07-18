@@ -364,7 +364,7 @@ contract CurvePlainPoolZap is Ownable, BaseRelayRecipient {
 	}
 
 	/// @notice Function to check token availability to depositZap()
-	/// @param _amount Amount to be swapped
+	/// @param _amount Amount to be swapped (decimals follow _tokenIn)
 	/// @param _tokenIn Address to be swapped
 	/// @param _tokenOut Address to be received (Stablecoin)
 	/// @return Amount out in USD. Token not available if return 0.
