@@ -20,6 +20,8 @@ contract MoneyPrinterStrategy is Ownable{
 
     address public vault;
     address public treasury;
+    address public communityWallet;
+    address public strategist;
 
     IERC20 public constant DAI = IERC20(0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063); 
     IERC20 public constant USDC = IERC20(0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174);
@@ -52,7 +54,7 @@ contract MoneyPrinterStrategy is Ownable{
 
     mapping(IERC20 => int128) curveIds;
 
-    constructor(address _treasury) {
+    constructor(address _treasury, address _communityWallet, address _strategist) {
         curveIds[DAI] = 0;
         curveIds[USDC] = 1;
         curveIds[USDT] = 2;
@@ -78,6 +80,8 @@ contract MoneyPrinterStrategy is Ownable{
         QuickDAI_USDTPair.approve(address(quickSwapRouter), type(uint).max);
 
         treasury= _treasury;
+        communityWallet = _communityWallet;
+        strategist = _strategist;
     }
 
     modifier onlyVault {
@@ -137,7 +141,12 @@ contract MoneyPrinterStrategy is Ownable{
         _harvestFromQuick();
         _harvestFromCurve();
 
-        DAI.transfer(treasury, DAI.balanceOf(address(this)).div(10));//10% to treasury
+        uint fee = DAI.balanceOf(address(this)).div(10); //10%
+        uint feeSplit = fee.mul(2).div(5);
+        DAI.safeTransfer(treasury, feeSplit);//4 out of 10% to treasury
+        DAI.safeTransfer(communityWallet, feeSplit);//4 out of 10% to communityWallet
+        DAI.safeTransfer(strategist, fee.sub(feeSplit).sub(feeSplit));//2 out of 10% to strategist
+
         _deposit(DAI.balanceOf(address(this)), DAI);
     }
 
@@ -337,6 +346,14 @@ contract MoneyPrinterStrategy is Ownable{
 
     function setTreasuryWallet(address _treasury)external onlyVault{
         treasury = _treasury;
+    }
+
+    function setCommunityWallet(address _communityWallet)external onlyVault{
+        communityWallet = _communityWallet;
+    }
+
+    function setStrategist(address _strategist)external onlyVault{
+        strategist = _strategist;
     }
 
     function getValueInPool() public view returns (uint) {

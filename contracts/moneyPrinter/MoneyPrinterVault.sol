@@ -19,6 +19,8 @@ interface IStrategy{
     function migrateFunds(IERC20 _withdrawnToken) external ;
     function setVault(address _vault) external ;
     function setTreasuryWallet(address _newTreasury) external;
+    function setCommunityWallet(address _communityWallet) external;
+    function setStrategist(address _strategist) external;
 }
 
 
@@ -307,6 +309,8 @@ contract MoneyPrinterVault is ERC20, Ownable, BaseRelayRecipient {
 
     function setCommunityWallet(address _communityWallet) external onlyOwner{
         require(_communityWallet != address(0), "Invalid Address");
+
+        strategy.setCommunityWallet(_communityWallet);
         address oldCommunityWallet = communityWallet;
         communityWallet = _communityWallet;
 
@@ -316,10 +320,66 @@ contract MoneyPrinterVault is ERC20, Ownable, BaseRelayRecipient {
     function setStrategist(address _strategist) external {
         require(_strategist != address(0), "Invalid Address");
         require(msg.sender == owner() || msg.sender == strategist, "Only admin");
+
+        strategy.setStrategist(_strategist);
         address oldStrategist = strategist;
         strategist = _strategist;
         emit SetStrategistWallet(oldStrategist, _strategist);
     }
+
+    function setBiconomy(address _biconomy) external onlyOwner {
+        trustedForwarder = _biconomy;
+    }
+
+    function setNetworkFeeTier2(uint256[] calldata _networkFeeTier2) external onlyOwner {
+        require(_networkFeeTier2[0] != 0, "Minimun amount cannot be 0");
+        require(_networkFeeTier2[1] > _networkFeeTier2[0], "Maximun amount must greater than minimun amount");
+        /**
+         * Network fees have three tier, but it is sufficient to have minimun and maximun amount of tier 2
+         * Tier 1: deposit amount < minimun amount of tier 2
+         * Tier 2: minimun amount of tier 2 <= deposit amount <= maximun amount of tier 2
+         * Tier 3: amount > maximun amount of tier 2
+         */
+        networkFeeTier2 = _networkFeeTier2;
+    }
+
+    /// @notice Function to set new custom network fee tier
+    /// @param _customNetworkFeeTier Amount of new custom network fee tier (18 decimals)
+    function setCustomNetworkFeeTier(uint256 _customNetworkFeeTier) external onlyOwner {
+        require(_customNetworkFeeTier > networkFeeTier2[1], "Custom network fee tier must greater than tier 2");
+
+        customNetworkFeeTier = _customNetworkFeeTier;
+    }
+
+    /// @notice Function to set new network fee percentage
+    /// @param _networkFeePerc Array that contains new network fee percentage for tier 1, tier 2 and tier 3
+    function setNetworkFeePerc(uint256[] calldata _networkFeePerc) external onlyOwner {
+        require(
+            _networkFeePerc[0] < 3000 &&
+                _networkFeePerc[1] < 3000 &&
+                _networkFeePerc[2] < 3000,
+            "Network fee percentage cannot be more than 30%"
+        );
+        /**
+         * _networkFeePerc content a array of 3 element, representing network fee of tier 1, tier 2 and tier 3
+         * For example networkFeePerc is [100, 75, 50]
+         * which mean network fee for Tier 1 = 1%, Tier 2 = 0.75% and Tier 3 = 0.5%
+         */
+        networkFeePerc = _networkFeePerc;
+    }
+
+    function setCustomNetworkFeePerc(uint256 _percentage) public onlyOwner {
+        require(_percentage < networkFeePerc[2], "Custom network fee percentage cannot be more than tier 2");
+
+        customNetworkFeePerc = _percentage;
+    }
+
+    function setProfitSharingFeePerc(uint256 _percentage) external onlyOwner {
+        require(_percentage < 3000, "Profile sharing fee percentage cannot be more than 30%");
+
+        profitSharingFeePerc = _percentage;
+    }
+
 
     function getValueInPool() public view returns (uint){
         //returns balance in vault during emergency
