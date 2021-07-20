@@ -11,6 +11,7 @@ UST | USDT/USDC/DAI/[UST](https://etherscan.io/address/0xa47c8bf37f92aBed4A126BD
 USDN | USDT/USDC/DAI/[USDN](https://etherscan.io/address/0x674C6Ad92Fd080e4004b2312b45f796a192D27a0)/*[LP Token](https://etherscan.io/address/0x4f3E8F405CF5aFC05D68142F3783bDfE13811522)/[3Crv](https://etherscan.io/address/0x6c3F90f043a72FA612cbac8115EE7e52BDe6E490)/**any token/directly from ETH
 sUSD | USDT/USDC/DAI/[sUSD](https://etherscan.io/address/0x57Ab1ec28D129707052df4dF418D58a2D46d5f51)/*[LP Token](https://etherscan.io/address/0xC25a3A3b969415c80451098fa907EC722572917F)/**any token/directly from ETH
 Yearn | USDT/USDC/DAI/[TUSD](https://etherscan.io/address/0x0000000000085d4780B73119b644AE5ecd22b376)/[yUSDT](https://etherscan.io/address/0x83f798e925BcD4017Eb265844FDDAbb448f1707D)/[yUSDC](https://etherscan.io/address/0xd6aD7a6750A7593E092a9B218d66C0A814a3436e)/[yDAI](https://etherscan.io/address/0x16de59092dAE5CcF4A1E6439D611fd0653f0Bd01)/[yTUSD](https://etherscan.io/address/0x73a052500105205d34Daf004eAb301916DA8190f)/*[LP Token](https://etherscan.io/address/0xdF5e0e81Dff6FAF3A7e52BA697820c5e32D806A8)/**any token/directly from ETH
+AAVE | USDT/USDC/DAI/[aUSDT](https://etherscan.io/address/0x3Ed3B47Dd13EC9a98b44e6204A523E766B225811)/[aUSDC](https://etherscan.io/address/0xBcca60bB61934080951369a648Fb03DF4F96263C)/[aDAI](https://etherscan.io/address/0x028171bCA77440897B824Ca71D1c56caC55b68A3)/*[LP Token](https://etherscan.io/address/0xFd2a8fA60Abd58Efe3EeE34dd494cD491dC14900)/**any token/directly from ETH
 
 *Deposit LP token for no slippage & fees by Curve
 
@@ -26,6 +27,7 @@ UST | USDT/USDC/DAI/[UST](https://etherscan.io/address/0xa47c8bf37f92aBed4A126BD
 USDN | USDT/USDC/DAI/[USDN](https://etherscan.io/address/0x674C6Ad92Fd080e4004b2312b45f796a192D27a0)/[LP Token](https://etherscan.io/address/0x4f3E8F405CF5aFC05D68142F3783bDfE13811522)
 sUSD | USDT/USDC/DAI/[sUSD](https://etherscan.io/address/0x57Ab1ec28D129707052df4dF418D58a2D46d5f51)/[LP Token](https://etherscan.io/address/0xC25a3A3b969415c80451098fa907EC722572917F)
 Yearn | USDT/USDC/DAI/[TUSD](https://etherscan.io/address/0x0000000000085d4780B73119b644AE5ecd22b376)/[LP Token](https://etherscan.io/address/0xdF5e0e81Dff6FAF3A7e52BA697820c5e32D806A8)
+AAVE | USDT/USDC/DAI/[LP Token](https://etherscan.io/address/0xdF5e0e81Dff6FAF3A7e52BA697820c5e32D806A8)
 
 # Developer docs
 Each DAO Earn pool consist of 3 contracts: **vault**, **strategy**, and **zap**.

@@ -12,9 +12,6 @@ const AXSAddr = "0xBB0E17EF65F82Ab018d8EDd776e8DD940327B28b"
 const lpTokenAddr = "0xFd2a8fA60Abd58Efe3EeE34dd494cD491dC14900" // *variable
 const unlockedAddr = "0x28C6c06298d514Db089934071355E5743bf21d60"
 const unlockedLpTokenAddr = "0x5641519cc28DeF80D631BaA28b949F17A6A22AD1" // *variable
-// const unlockedaUSDTAddr = "0x3c9Ea5C4Fec2A77E23Dd82539f4414266Fe8f757"
-// const unlockedaUSDCAddr = "0x602d9aBD5671D24026e2ca473903fF2A9A957407"
-// const unlockedaDAIAddr = "0x71bE8726C96873F04d2690AA05b2ACcA7C7104d0"
 const unlockedCoinsAddr = "0x3DdfA8eC3052539b6C9549F12cEA2C295cfF5296"
 
 const curvePoolAddr = "0xDeBF20617708857ebe4F679508E7b7863a8A8EeE" // *variable
@@ -28,7 +25,7 @@ describe("DAO Earn", () => {
         const [deployer, client, admin, strategist, biconomy, treasury, community] = await ethers.getSigners()
         const CurveZap = await ethers.getContractFactory(curveZapType, deployer)
         const curveZap = await CurveZap.deploy()
-        const EarnStrategyTemplate = await ethers.getContractFactory("EarnStrategy", deployer)
+        const EarnStrategyTemplate = await ethers.getContractFactory("EarnStrategyAAVE", deployer)
         const earnStrategyTemplate = await EarnStrategyTemplate.deploy()
         const EarnStrategyFactory = await ethers.getContractFactory("EarnStrategyFactory", deployer)
         const earnStrategyFactory = await EarnStrategyFactory.deploy()
@@ -115,7 +112,7 @@ describe("DAO Earn", () => {
         // console.log(ethers.utils.formatUnits(await USDTContract.balanceOf(strategist.address), 6))
         await earnVault.connect(admin).invest()
 
-        // Change Curve Zap contract 
+        // Change Curve Zap contract
         const curveZap2 = await CurveZap.deploy()
         await curveZap2.addPool(earnVault.address, curvePoolAddr, ethers.constants.AddressZero)
         await earnVault.setCurveZap(curveZap2.address)
@@ -172,7 +169,7 @@ describe("DAO Earn", () => {
 
         // Test deposit & withdraw with other contract
         const Sample = await ethers.getContractFactory("Sample", deployer)
-        const sample = await Sample.deploy(lpTokenAddr, earnVault.address, curvePoolZap)
+        const sample = await Sample.deploy(lpTokenAddr, earnVault.address, curveZap2.address)
         await lpTokenContract.transfer(sample.address, ethers.utils.parseEther("1000"))
         tx = await sample.deposit()
         // receipt = await tx.wait()
@@ -207,7 +204,7 @@ describe("DAO Earn", () => {
         await curveZap2.connect(client).depositZap(earnVault.address, ethers.utils.parseEther("5"), ethers.constants.AddressZero, {from: client.address, value: ethers.utils.parseEther("5")})
         await earnVault.connect(admin).invest()
         expect(await earnVault.strategy()).to.equal(earnStrategy2.address)
-        expect((await curveZap2.poolInfos(earnVault.address))[2]).to.equal(earnStrategy2.address)
+        expect((await curveZap2.poolInfos(earnVault.address))[1]).to.equal(earnStrategy2.address)
         await earnVault.connect(client).withdraw(withdrawAmt)
         tx = await curveZap2.connect(client).withdraw(earnVault.address, withdrawAmt, USDTAddr)
         tx = await curveZap2.connect(client).withdraw(earnVault.address, withdrawAmt, USDCAddr)

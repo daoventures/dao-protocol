@@ -5,6 +5,7 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 
 interface ICurveZap {
     function compound(uint256 _amount, address _vault) external returns (uint256);
@@ -43,16 +44,18 @@ interface IWETH is IERC20Upgradeable {
     function withdraw(uint256 _amount) external;
 }
 
-contract EarnStrategy is Initializable, OwnableUpgradeable {
+contract EarnStrategyAAVE is Initializable, OwnableUpgradeable {
     using SafeERC20Upgradeable for IERC20Upgradeable;
     using SafeERC20Upgradeable for IWETH;
 
     ISushiRouter private constant _sushiRouter = ISushiRouter(0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F);
+    ISwapRouter private constant _uniRouter = ISwapRouter(0xE592427A0AEce92De3Edee1F18E0157C05861564);
     ICvVault private constant _cvVault = ICvVault(0xF403C135812408BFbE8713b5A23a04b3D48AAE31);
     ICvStake public cvStake;
     ICurveZap public curveZap;
 
     IWETH private constant _WETH = IWETH(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+    IERC20Upgradeable private constant _stkAAVE = IERC20Upgradeable(0x4da27a545c0c5B758a6BA100e3a049001de870f5);
     IERC20Upgradeable private constant _CVX = IERC20Upgradeable(0x4e3FBD56CD56c3e72c1403e103b45Db9da5B9D2B);
     IERC20Upgradeable private constant _CRV = IERC20Upgradeable(0xD533a949740bb3306d119CC777fa900bA034cd52);
     IERC20Upgradeable public lpToken;
@@ -105,6 +108,7 @@ contract EarnStrategy is Initializable, OwnableUpgradeable {
 
         _CVX.safeApprove(address(_sushiRouter), type(uint256).max);
         _CRV.safeApprove(address(_sushiRouter), type(uint256).max);
+        _stkAAVE.safeApprove(address(_uniRouter), type(uint256).max);
         _WETH.safeApprove(_curveZap, type(uint256).max);
 
         // Add pool
@@ -142,21 +146,21 @@ contract EarnStrategy is Initializable, OwnableUpgradeable {
         if (_CRVBalance > 0) {
             _swap(address(_CRV), address(_WETH), _CRVBalance);
         }
-        // Dealing with extra reward tokens if available
-        if (cvStake.extraRewardsLength() > 0) {
-            // Extra reward tokens might more than 1
-            for (uint256 _i = 0; _i < cvStake.extraRewardsLength(); _i++) {
-                IERC20Upgradeable _extraRewardToken = IERC20Upgradeable(ICvRewards(cvStake.extraRewards(_i)).rewardToken());
-                uint256 _extraRewardTokenBalance = _extraRewardToken.balanceOf(address(this));
-                if (_extraRewardTokenBalance > 0) {
-                    // We do token approval here, because the reward tokens have many kinds and 
-                    // might be added in future by Convex
-                    if (_extraRewardToken.allowance(address(this), address(_sushiRouter)) == 0) {
-                        _extraRewardToken.safeApprove(address(_sushiRouter), type(uint256).max);
-                    }
-                    _swap(address(_extraRewardToken), address(_WETH), _extraRewardTokenBalance);
-                }
-            }
+        uint256 _stkAAVEBalance = _stkAAVE.balanceOf(address(this));
+        if (_stkAAVEBalance > 0) {
+            ISwapRouter.ExactInputParams memory params =
+                ISwapRouter.ExactInputParams({
+                    path: abi.encodePacked(
+                        address(_stkAAVE), uint24(10000),
+                        0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9,
+                        uint24(3000), address(_WETH)
+                    ),
+                    recipient: msg.sender,
+                    deadline: block.timestamp,
+                    amountIn: _stkAAVEBalance,
+                    amountOutMinimum: 0
+                });
+            _uniRouter.exactInput(params);
         }
 
         // Split yield fees

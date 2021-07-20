@@ -11,7 +11,6 @@ import "hardhat/console.sol";
 interface ICurvePool {
     function coins(uint256 _index) external returns (address);
     function underlying_coins(uint256 _index) external returns (address);
-    function add_liquidity(uint256[3] memory _amounts, uint256 _amountOutMin) external returns (uint256);
     function add_liquidity(uint256[3] memory _amounts, uint256 _amountOutMin, bool _useUnderlying) external returns (uint256);
 	function remove_liquidity_one_coin(uint256 _amount, int128 _index, uint256 _amountOutMin, bool _useUnderlying) external returns (uint256);
     function calc_token_amount(uint256[3] memory _amounts, bool _isDeposit) external returns (uint256);
@@ -103,6 +102,7 @@ contract CurveLendingPool3Zap is Ownable, BaseRelayRecipient {
     function deposit(address _vault, uint256 _amount, address _coin) external onlyEOAOrBiconomy returns (uint256 _lpTokenBal) {
 		require(_amount > 0, "Amount must > 0");
 		IERC20(_coin).safeTransferFrom(_msgSender(), address(this), _amount);
+		// console.log("checkpoint0");
 		_lpTokenBal = _deposit(_vault, _amount, _coin);
     }
 
@@ -112,16 +112,19 @@ contract CurveLendingPool3Zap is Ownable, BaseRelayRecipient {
 	/// @param _tokenAddr Address of token to deposit. Pass address(0) if deposit ETH
 	/// @return LP token amount to deposit after add liquidity to Curve pool (18 decimals)
 	function depositZap(address _vault, uint256 _amount, address _tokenAddr) external payable onlyEOAOrBiconomy returns (uint256) {
+		// console.log("checkpoint1");
 		require(_amount > 0, "Amount must > 0");
 		address _best = _findCurrentBest(_amount, _vault, _tokenAddr);
 		uint256 _lpTokenBal;
 		if (_tokenAddr == address(0)) { // Deposit ETH
+			// console.log("checkpoint2");
 			address[] memory _path = new address[](2);
 			_path[0] = address(_WETH);
 			_path[1] = _best;
 			uint256[] memory _amounts = _sushiRouter.swapExactETHForTokens{value: msg.value}(0, _path, address(this), block.timestamp);
 			_lpTokenBal = _deposit(_vault, _amounts[1], _best);
 		} else {
+			// console.log("checkpoint3");
 			IERC20 _token = IERC20(_tokenAddr);
 			_token.safeTransferFrom(_msgSender(), address(this), _amount);
 			if (_token.allowance(address(this), address(_sushiRouter)) == 0) {
@@ -132,7 +135,11 @@ contract CurveLendingPool3Zap is Ownable, BaseRelayRecipient {
 			_path[1] = address(_WETH);
 			_path[2] = _best;
 			uint256[] memory _amounts = _sushiRouter.swapExactTokensForTokens(_amount, 0, _path, address(this), block.timestamp);
+			// console.log(_best);
+			// console.log(IERC20(_best).balanceOf(address(this)));
+			// console.log("checkpoint4");
 			_lpTokenBal = _deposit(_vault, _amounts[2], _best);
+			// console.log("checkpoint5");
 		}
 		return _lpTokenBal;
 	}
@@ -149,6 +156,7 @@ contract CurveLendingPool3Zap is Ownable, BaseRelayRecipient {
 		address[] memory _underlying = _poolInfo.underlying;
 		uint256[3] memory _amounts;
 		uint256 _lpTokenBal;
+		// console.log(_coin == address(_coins[0]) || _coin == address(_coins[1]) || _coin == address(_coins[2]));
 		if (_coin == address(_coins[0]) || _coin == address(_coins[1]) || _coin == address(_coins[2])) {
 			_amounts[0] = _coin == address(_coins[0]) ? _amount : 0;
 			_amounts[1] = _coin == address(_coins[1]) ? _amount : 0;
@@ -156,14 +164,15 @@ contract CurveLendingPool3Zap is Ownable, BaseRelayRecipient {
 			// console.log(_amounts[0]);
 			// console.log(_amounts[1]);
 			// console.log(_amounts[2]);
-			_lpTokenBal = _curvePool.add_liquidity(_amounts, 0);
-			// _lpTokenBal = _curvePool.add_liquidity(_amounts, 0, false);
-		}
-		if (_coin == address(_underlying[0]) || _coin == address(_underlying[1]) || _coin == address(_underlying[2])) {
+			// console.log(IERC20(_curvePool.underlying_coins(2)).balanceOf(address(this)));
+			_lpTokenBal = _curvePool.add_liquidity(_amounts, 0, false);
+		} else if (_coin == address(_underlying[0]) || _coin == address(_underlying[1]) || _coin == address(_underlying[2])) {
 			_amounts[0] = _coin == address(_underlying[0]) ? _amount : 0;
 			_amounts[1] = _coin == address(_underlying[1]) ? _amount : 0;
 			_amounts[2] = _coin == address(_underlying[2]) ? _amount : 0;
 			_lpTokenBal = _curvePool.add_liquidity(_amounts, 0, true);
+		} else {
+			revert("Coin not acceptable");
 		}
 		IEarnVault(_vault).depositZap(_lpTokenBal, _msgSender());
 		emit Deposit(_vault, _amount, _coin, _lpTokenBal);
@@ -186,6 +195,7 @@ contract CurveLendingPool3Zap is Ownable, BaseRelayRecipient {
 		else if (_coin == _underlying[1]) {_index = 1;}
 		else if (_coin == _underlying[2]) {_index = 2;}
 		_coinAmount = _poolInfo.curvePool.remove_liquidity_one_coin(_lpTokenBal, _index, 0, true);
+		IERC20(_coin).safeTransfer(msg.sender, _coinAmount);
 		emit Withdraw(_vault, _shares, _coin, _lpTokenBal, _coinAmount);
 	}
 

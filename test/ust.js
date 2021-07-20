@@ -170,7 +170,7 @@ describe("DAO Earn", () => {
 
         // Test deposit & withdraw with other contract
         const Sample = await ethers.getContractFactory("Sample", deployer)
-        const sample = await Sample.deploy(lpTokenAddr, earnVault.address, curvePoolZap)
+        const sample = await Sample.deploy(lpTokenAddr, earnVault.address, curveZap2.address)
         await lpTokenContract.transfer(sample.address, ethers.utils.parseEther("1000"))
         tx = await sample.deposit()
         // receipt = await tx.wait()

@@ -7,7 +7,7 @@
       "hash": "0x86f8bc2204ee78343730c01b9acd0cab03127ee702749e0a72256eb4dab8bbad",
       "type": 0,
       "accessList": null,
-      "blockHash": "0xbfd91dafdb3d1a47e02da7d0352a81a8bf10d765b05ca2be129375faac55f255",
+      "blockHash": "0x3fb7614a1ca0be1688e306e61cde2794c49a72f24e3a92e980eccd98912e107a",
       "blockNumber": 12787006,
       "transactionIndex": 0,
       "confirmations": 1,
@@ -42,7 +42,7 @@
     },
     {
       "address": "0x5eb3Bc0a489C5A8288765d2336659EbCA68FCd00",
-      "txHash": "0x8ff35de08602cde49a1f84268e20029495186e94aa4580c2f79d20281af827d1",
+      "txHash": "0xb65ecb16dce567039b1330e51f0fe78ae923bb6ab3814e7057500de79148189e",
       "kind": "transparent"
     }
   ],
@@ -163,13 +163,13 @@
           {
             "contract": "EarnVault",
             "label": "strategy",
-            "type": "t_contract(IStrategy)3438",
+            "type": "t_contract(IStrategy)4512",
             "src": "contracts/vaults/EarnVault.sol:37"
           },
           {
             "contract": "EarnVault",
             "label": "curveZap",
-            "type": "t_contract(ICurveZap)3458",
+            "type": "t_contract(ICurveZap)4532",
             "src": "contracts/vaults/EarnVault.sol:38"
           },
           {
@@ -264,10 +264,10 @@
           "t_uint256": {
             "label": "uint256"
           },
-          "t_contract(IStrategy)3438": {
+          "t_contract(IStrategy)4512": {
             "label": "contract IStrategy"
           },
-          "t_contract(ICurveZap)3458": {
+          "t_contract(ICurveZap)4532": {
             "label": "contract ICurveZap"
           },
           "t_address": {
