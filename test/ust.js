@@ -216,6 +216,23 @@ describe("DAO Earn", () => {
         console.log("DAI withdraw:", ethers.utils.formatEther(await DAIContract.balanceOf(client.address)))
         console.log("Base coin withdraw:", ethers.utils.formatEther(await baseCoinContract.balanceOf(client.address)))
 
+        // Add new pool in CurveZap
+        await earnStrategyFactory.createStrategy(
+            earnStrategyTemplate.address,
+            13, curveZap2.address,
+            admin.address, community.address, strategist.address
+        )
+        const earnStrategy3Addr = await earnStrategyFactory.strategies((await earnStrategyFactory.getTotalStrategies()).sub(1))
+        const earnStrategy3 = await ethers.getContractAt("EarnStrategy", earnStrategy3Addr, deployer)
+        const earnVault2 = await upgrades.deployProxy(EarnVault, [
+            await earnStrategy3.lpToken(), earnStrategy3Addr, curveZap2.address,
+            treasury.address, community.address,
+            admin.address, strategist.address, biconomy.address
+        ])
+        await earnVault2.deployed()
+        await earnStrategy3.setVault(earnVault2.address)
+        await curveZap2.addPool(earnVault2.address, "0x0f9cb53Ebe405d49A0bbdBD291A65Ff571bC83e1", "0x094d12e5b541784701FD8d65F11fc0598FBC6332")
+
         // Set functions
         await earnVault.setNetworkFeeTier2([ethers.utils.parseEther("10000"), ethers.utils.parseEther("50000")])
         expect(await earnVault.networkFeeTier2(0)).to.equal(ethers.utils.parseEther("10000"))

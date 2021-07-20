@@ -10,6 +10,7 @@ alUSD | USDT/USDC/DAI/[alUSD](https://etherscan.io/address/0xBC6DA0FE9aD5f3b0d58
 UST | USDT/USDC/DAI/[UST](https://etherscan.io/address/0xa47c8bf37f92aBed4A126BDA807A7b7498661acD)/*[LP Token](https://etherscan.io/address/0x94e131324b6054c0D789b190b2dAC504e4361b53)/[3Crv](https://etherscan.io/address/0x6c3F90f043a72FA612cbac8115EE7e52BDe6E490)/**any token/directly from ETH
 USDN | USDT/USDC/DAI/[USDN](https://etherscan.io/address/0x674C6Ad92Fd080e4004b2312b45f796a192D27a0)/*[LP Token](https://etherscan.io/address/0x4f3E8F405CF5aFC05D68142F3783bDfE13811522)/[3Crv](https://etherscan.io/address/0x6c3F90f043a72FA612cbac8115EE7e52BDe6E490)/**any token/directly from ETH
 sUSD | USDT/USDC/DAI/[sUSD](https://etherscan.io/address/0x57Ab1ec28D129707052df4dF418D58a2D46d5f51)/*[LP Token](https://etherscan.io/address/0xC25a3A3b969415c80451098fa907EC722572917F)/**any token/directly from ETH
+Yearn | USDT/USDC/DAI/[TUSD](https://etherscan.io/address/0x0000000000085d4780B73119b644AE5ecd22b376)/[yUSDT](https://etherscan.io/address/0x83f798e925BcD4017Eb265844FDDAbb448f1707D)/[yUSDC](https://etherscan.io/address/0xd6aD7a6750A7593E092a9B218d66C0A814a3436e)/[yDAI](https://etherscan.io/address/0x16de59092dAE5CcF4A1E6439D611fd0653f0Bd01)/[yTUSD](https://etherscan.io/address/0x73a052500105205d34Daf004eAb301916DA8190f)/*[LP Token](https://etherscan.io/address/0xdF5e0e81Dff6FAF3A7e52BA697820c5e32D806A8)/**any token/directly from ETH
 
 *Deposit LP token for no slippage & fees by Curve
 
@@ -24,11 +25,12 @@ alUSD | USDT/USDC/DAI/[alUSD](https://etherscan.io/address/0xBC6DA0FE9aD5f3b0d58
 UST | USDT/USDC/DAI/[UST](https://etherscan.io/address/0xa47c8bf37f92aBed4A126BDA807A7b7498661acD)/[LP Token](https://etherscan.io/address/0x94e131324b6054c0D789b190b2dAC504e4361b53)
 USDN | USDT/USDC/DAI/[USDN](https://etherscan.io/address/0x674C6Ad92Fd080e4004b2312b45f796a192D27a0)/[LP Token](https://etherscan.io/address/0x4f3E8F405CF5aFC05D68142F3783bDfE13811522)
 sUSD | USDT/USDC/DAI/[sUSD](https://etherscan.io/address/0x57Ab1ec28D129707052df4dF418D58a2D46d5f51)/[LP Token](https://etherscan.io/address/0xC25a3A3b969415c80451098fa907EC722572917F)
+Yearn | USDT/USDC/DAI/[TUSD](https://etherscan.io/address/0x0000000000085d4780B73119b644AE5ecd22b376)/[LP Token](https://etherscan.io/address/0xdF5e0e81Dff6FAF3A7e52BA697820c5e32D806A8)
 
 # Developer docs
 Each DAO Earn pool consist of 3 contracts: **vault**, **strategy**, and **zap**.
 
-**Vault** is the contract to keep and invest LP token.
+**Vault** is the contract to keep and invest LP token into strategy.
 
 **Strategy** is the contract to invest and compound LP token in Convex.
 
@@ -54,7 +56,7 @@ Any available token on Sushi: (through **zap** contract)
 token.approve(zap.address, ethers.constants.MaxUint256)
 zap.depositZap(vault.address, amountOfToken, token.address)
 ```
-To Check token availability, use `checkTokenSwapAvailability()` function in zap contract.
+To Check token availability, use `checkTokenSwapAvailability()` function in zap contract. Return amount in USD, return 0 if token not availability.
 ```
 zap.checkTokenSwapAvailability(amountInput, tokenInput, tokenOutput)
 ```
