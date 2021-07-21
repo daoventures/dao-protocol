@@ -233,7 +233,7 @@ contract CurveMetaPoolZap is Ownable, BaseRelayRecipient {
 	function _addLiquidity(uint256 _amount, address _vault) private returns (uint256 _lpTokenBal) {
 		PoolInfo memory _poolInfo = poolInfos[_vault];
 		_WETH.safeTransferFrom(address(_poolInfo.strategy), address(this), _amount);
-		// Swap WETH to coin which can provide highest LP token return
+		// Swap WETH to coin which can provide highest LP token return 
 		address _best = _findCurrentBest(_amount, _vault, address(0));
 		address[] memory _path = new address[](2);
 		_path[0] = address(_WETH);
