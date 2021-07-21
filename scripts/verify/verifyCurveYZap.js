@@ -1,11 +1,11 @@
 const { run } = require('hardhat')
 
-const curveLendingPoolZap = "" // copy from deployCurveLendingPoolZap.js output
+const curveYZap = "" // copy from deployCurveYZap.js output
 
 async function main() {
     await run('verify:verify', {
-        address: curveLendingPoolZap,
-        contract: 'contracts/zaps/CurveLendingPoolZap.sol:CurveLendingPoolZap',
+        address: curveYZap,
+        contract: 'contracts/zaps/CurveYZap.sol:CurveYZap',
     })
 }
 

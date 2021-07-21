@@ -76,7 +76,7 @@ describe("DAO Earn", () => {
         await expect(earnVault.connect(admin).setStrategist(admin.address)).to.be.revertedWith("Only owner or strategist")
 
         // EarnStrategy
-        await expect(earnStrategy.init(
+        await expect(earnStrategy.initialize(
             poolIndex, curveZap.address,
             admin.address, community.address, strategist.address
         )).to.be.revertedWith("Initializable: contract is already initialized")

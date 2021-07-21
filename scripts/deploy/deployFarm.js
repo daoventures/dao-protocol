@@ -3,7 +3,7 @@ const { mainnet } = require("../../addresses/index")
 
 const earnStrategyFactoryAddr = ""
 const earnStrategyTemplateAddr = ""
-const poolIndex = 0
+const poolIndex = ""
 const curveZapAddr = ""
 
 async function main() {
@@ -12,7 +12,8 @@ async function main() {
     await earnStrategyFactory.createStrategy(
         earnStrategyTemplateAddr,
         poolIndex, curveZapAddr,
-        mainnet.admin, mainnet.community, mainnet.strategist
+        mainnet.admin, mainnet.community, mainnet.strategist,
+        { gasLimit: 9000000 }
     )
     const earnStrategyAddr = await earnStrategyFactory.strategies((await earnStrategyFactory.getTotalStrategies()).sub(1))
     const earnStrategy = await ethers.getContractAt("EarnStrategy", earnStrategyAddr, deployer)
@@ -22,7 +23,7 @@ async function main() {
         mainnet.treasury, mainnet.community,
         mainnet.admin, mainnet.strategist, mainnet.biconomy
     ])
-    await earnVault.deployed()
+    await earnVault.deployed({ gasLimit: 9000000 })
     await earnStrategy.setVault(earnVault.address)
     const curveZap = new ethers.Contract(curveZapAddr, ["function addPool(address, address, address) external"], deployer)
     await curveZap.addPool(earnVault.address, curvePoolAddr, curvePoolZap)

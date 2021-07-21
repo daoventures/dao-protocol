@@ -45,7 +45,7 @@ describe("DAO Earn", () => {
         ])
         await earnVault.deployed()
         await earnStrategy.setVault(earnVault.address)
-        await curveZap.addPool(earnVault.address, curvePoolAddr, curvePoolZap)
+        await curveZap.addPool(earnVault.address, curvePoolAddr)
         // Transfer LP token to client
         await network.provider.request({method: "hardhat_impersonateAccount",params: [unlockedLpTokenAddr],});
         const unlockedLpTokenSigner = await ethers.getSigner(unlockedLpTokenAddr);
@@ -114,7 +114,7 @@ describe("DAO Earn", () => {
 
         // Change Curve Zap contract 
         const curveZap2 = await CurveZap.deploy()
-        await curveZap2.addPool(earnVault.address, curvePoolAddr, curvePoolZap)
+        await curveZap2.addPool(earnVault.address, curvePoolAddr)
         await earnVault.setCurveZap(curveZap2.address)
         expect(await earnVault.curveZap()).to.equal(curveZap2.address)
         expect(await earnStrategy.curveZap()).to.equal(curveZap2.address)
@@ -204,7 +204,7 @@ describe("DAO Earn", () => {
         await curveZap2.connect(client).depositZap(earnVault.address, ethers.utils.parseEther("5"), ethers.constants.AddressZero, {from: client.address, value: ethers.utils.parseEther("5")})
         await earnVault.connect(admin).invest()
         expect(await earnVault.strategy()).to.equal(earnStrategy2.address)
-        expect((await curveZap2.poolInfos(earnVault.address))[2]).to.equal(earnStrategy2.address)
+        expect((await curveZap2.poolInfos(earnVault.address))[1]).to.equal(earnStrategy2.address)
         await earnVault.connect(client).withdraw(withdrawAmt)
         tx = await curveZap2.connect(client).withdraw(earnVault.address, withdrawAmt, USDTAddr)
         tx = await curveZap2.connect(client).withdraw(earnVault.address, withdrawAmt, USDCAddr)

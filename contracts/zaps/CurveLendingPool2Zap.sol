@@ -9,9 +9,9 @@ import "../../libs/BaseRelayRecipient.sol";
 interface ICurvePool {
     function coins(uint256 _index) external returns (address);
     function underlying_coins(uint256 _index) external returns (address);
-    function add_liquidity(uint256[3] memory _amounts, uint256 _amountOutMin, bool _useUnderlying) external returns (uint256);
+    function add_liquidity(uint256[2] memory _amounts, uint256 _amountOutMin, bool _useUnderlying) external returns (uint256);
 	function remove_liquidity_one_coin(uint256 _amount, int128 _index, uint256 _amountOutMin, bool _useUnderlying) external returns (uint256);
-    function calc_token_amount(uint256[3] memory _amounts, bool _isDeposit) external returns (uint256);
+    function calc_token_amount(uint256[2] memory _amounts, bool _isDeposit) external returns (uint256);
 	function get_virtual_price() external view returns (uint256);
 	function lp_token() external view returns (address);
 }
@@ -45,7 +45,7 @@ interface ISushiRouter {
 	function getAmountsOut(uint amountIn, address[] memory path) external view returns (uint[] memory amounts);
 }
 
-contract CurveLendingPool3Zap is Ownable, BaseRelayRecipient {
+contract CurveLendingPool2Zap is Ownable, BaseRelayRecipient {
     using SafeERC20 for IERC20;
 
 	struct PoolInfo {
@@ -141,17 +141,15 @@ contract CurveLendingPool3Zap is Ownable, BaseRelayRecipient {
 		ICurvePool _curvePool = _poolInfo.curvePool;
 		address[] memory _coins = _poolInfo.coins;
 		address[] memory _underlying = _poolInfo.underlying;
-		uint256[3] memory _amounts;
+		uint256[2] memory _amounts;
 		uint256 _lpTokenBal;
-		if (_coin == address(_coins[0]) || _coin == address(_coins[1]) || _coin == address(_coins[2])) {
+		if (_coin == address(_coins[0]) || _coin == address(_coins[1])) {
 			_amounts[0] = _coin == address(_coins[0]) ? _amount : 0;
 			_amounts[1] = _coin == address(_coins[1]) ? _amount : 0;
-			_amounts[2] = _coin == address(_coins[2]) ? _amount : 0;
 			_lpTokenBal = _curvePool.add_liquidity(_amounts, 0, false);
-		} else if (_coin == address(_underlying[0]) || _coin == address(_underlying[1]) || _coin == address(_underlying[2])) {
+		} else if (_coin == address(_underlying[0]) || _coin == address(_underlying[1])) {
 			_amounts[0] = _coin == address(_underlying[0]) ? _amount : 0;
 			_amounts[1] = _coin == address(_underlying[1]) ? _amount : 0;
-			_amounts[2] = _coin == address(_underlying[2]) ? _amount : 0;
 			_lpTokenBal = _curvePool.add_liquidity(_amounts, 0, true);
 		} else {
 			revert("Coin not acceptable");
@@ -170,12 +168,11 @@ contract CurveLendingPool3Zap is Ownable, BaseRelayRecipient {
 		require(msg.sender == tx.origin, "Only EOA");
 		PoolInfo memory _poolInfo = poolInfos[_vault];
 		address[] memory _underlying = _poolInfo.underlying;
-		require(_coin == _underlying[0] || _coin == _underlying[1] || _coin == _underlying[2], "Only authorized coin");
+		require(_coin == _underlying[0] || _coin == _underlying[1], "Only authorized coin");
 		uint256 _lpTokenBal = IEarnVault(_vault).withdrawZap(_shares, msg.sender);
 		int128 _index;
 		if (_coin == _underlying[0]) {_index = 0;}
 		else if (_coin == _underlying[1]) {_index = 1;}
-		else if (_coin == _underlying[2]) {_index = 2;}
 		_coinAmount = _poolInfo.curvePool.remove_liquidity_one_coin(_lpTokenBal, _index, 0, true);
 		IERC20(_coin).safeTransfer(msg.sender, _coinAmount);
 		emit Withdraw(_vault, _shares, _coin, _lpTokenBal, _coinAmount);
@@ -224,10 +221,9 @@ contract CurveLendingPool3Zap is Ownable, BaseRelayRecipient {
 		_path[1] = _best;
 		uint256[] memory _amountsOut = _sushiRouter.swapExactTokensForTokens(_amount, 0, _path, address(this), block.timestamp);
 		// Add coin into Curve pool
-		uint256[3] memory _amounts;
+		uint256[2] memory _amounts;
 		_amounts[0] = _best == address(_underlying[0]) ? _amountsOut[1] : 0;
 		_amounts[1] = _best == address(_underlying[1]) ? _amountsOut[1] : 0;
-		_amounts[2] = _best == address(_underlying[2]) ? _amountsOut[1] : 0;
 		_lpTokenBal = _poolInfo.curvePool.add_liquidity(_amounts, 0, true);
 		emit AddLiquidity(_amount, _vault, _best, _lpTokenBal);
 	}
@@ -253,17 +249,8 @@ contract CurveLendingPool3Zap is Ownable, BaseRelayRecipient {
 		// Get estimated amount out of LP token for each input token
 		uint256 _amountOut = _calcAmountOut(_amount, _token, _underlying[0], _vault);
 		uint256 _amountOut1 = _calcAmountOut(_amount, _token, _underlying[1], _vault);
-		uint256 _amountOut2 = _calcAmountOut(_amount, _token, _underlying[2], _vault);
 		// Compare for highest LP token out among coin address
-		address _best = _underlying[0];
-		if (_amountOut1 > _amountOut) {
-			_best = _underlying[1];
-			_amountOut = _amountOut1;
-		}
-		if (_amountOut2 > _amountOut) {
-			_best = _underlying[2];
-		}
-		return _best;
+		return _amountOut1 > _amountOut ? _underlying[1] : _underlying[0];
 	}
 
 	/// @notice Function to calculate amount out of LP token
@@ -291,10 +278,9 @@ contract CurveLendingPool3Zap is Ownable, BaseRelayRecipient {
 
 		PoolInfo memory _poolInfo = poolInfos[_vault];
 		address[] memory _underlying = _poolInfo.underlying;
-		uint256[3] memory _amounts;
+		uint256[2] memory _amounts;
 		_amounts[0] = _coin == address(_underlying[0]) ? _amountOut : 0;
 		_amounts[1] = _coin == address(_underlying[1]) ? _amountOut : 0;
-		_amounts[2] = _coin == address(_underlying[2]) ? _amountOut : 0;
 		return _poolInfo.curvePool.calc_token_amount(_amounts, true);
 	}
 
@@ -307,15 +293,15 @@ contract CurveLendingPool3Zap is Ownable, BaseRelayRecipient {
 		ICurvePool _curvePool = ICurvePool(curvePool_);
 		address _strategy = _vault.strategy();
 		
-		address[] memory _coins = new address[](3);
-		for (uint256 _i; _i < 3; _i++) {
+		address[] memory _coins = new address[](2);
+		for (uint256 _i; _i < 2; _i++) {
 			address _coin = _curvePool.coins(_i);
 			IERC20(_coin).safeApprove(curvePool_, type(uint).max);
 			_coins[_i] = _coin;
 		}
 
-		address[] memory _underlying = new address[](3);
-		for (uint256 _i; _i < 3; _i++) {
+		address[] memory _underlying = new address[](2);
+		for (uint256 _i; _i < 2; _i++) {
 			address underlying_ = _curvePool.underlying_coins(_i);
 			IERC20(underlying_).safeApprove(curvePool_, type(uint).max);
 			_underlying[_i] = underlying_;

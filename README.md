@@ -42,41 +42,79 @@ Each DAO Earn pool consist of 3 contracts: **vault**, **strategy**, and **zap**.
 Example with Ethers.js
 ### Deposit
 LP token: (through **vault** contract)
-```
+```javascript
 lpToken.approve(vault.address, ethers.constants.MaxUint256)
 vault.deposit(amountOfLpToken)
 ```
 
 USDT/USDC/DAI/Base coin/3Crv: (through **zap** contract)
-```
+```javascript
 coin.approve(zap.address, ethers.constants.MaxUint256)
 zap.deposit(vault.address, amountOfCoin, coin.address)
 ```
 
 Any available token on Sushi: (through **zap** contract)
-```
+```javascript
 token.approve(zap.address, ethers.constants.MaxUint256)
 zap.depositZap(vault.address, amountOfToken, token.address)
 ```
 To Check token availability, use `checkTokenSwapAvailability()` function in zap contract. Return amount in USD, return 0 if token not availability.
-```
+```javascript
 zap.checkTokenSwapAvailability(amountInput, tokenInput, tokenOutput)
 ```
 
 Directly from ETH: (through **zap** contract, `amountOfETH` in 18 decimals)
-```
+```javascript
 zap.depositZap(vault.address, amountOfETH, ethers.constants.AddressZero, {from: client.address, value: amountOfETH})
 ```
 
 ### Withdraw
 LP token: (through **vault** contract)
-```
+```javascript
 vault.withdraw(amountOfShares)
 ```
 USDT/USDC/DAI/Base coin: (through **zap** contract)
-```
+```javascript
 zap.withdraw(vault.address, amountOfShares, coin.address)
 ```
 
 ## Backend
 [Formula to calculate APY](https://docs.google.com/document/d/1E4xEBG7COtlIvleQWoh26PcvIkpFxgOUpmk9BXJsv8s/edit#heading=h.suss79bdwa4r)
+
+## Deployer
+Run script for everything in scipts/deploy folder except ```deployFarm.js```
+Record down every contract address that deployed. (will show with console.log after success deploy)
+For each deploy script in deploy folder, there is a corresponding verify script in verify folder.
+```
+npx hardhat run --network mainnet scripts/deploy/deployCurveLendingPool2Zap.js
+npx hardhat run --network mainnet scripts/verify/verifyCurveLendingPool2Zap.js
+```
+
+In ```deployFarm.js```:
+```javascript
+const earnStrategyFactoryAddr = "" // Only one
+const earnStrategyTemplateAddr = ""
+const poolIndex = "" // Integar
+const curveZapAddr = ""
+```
+
+Farm Name | earnStrategyTemplateAddr | poolIndex | curveZapAddr
+--------- | ---------------------| --------- | ------------
+LUSD | EarnStrategyTemplate | 33 | CurveMetaPoolFacZap
+BUSDv2 | EarnStrategyTemplate | 34 | CurveMetaPoolFacZap
+alUSD | EarnStrategyTemplate | 36 | CurveMetaPoolFacZap
+UST | EarnStrategyTemplate | 21 | CurveMetaPoolFacZap
+USDN | EarnStrategyTemplate | 13 | CurveMetaPoolZap
+sUSD | EarnStrategyTemplate | 4 | CurvePlainPoolZap
+Yearn | EarnStrategyTemplate | 2 | CurveYZap
+AAVE | EarnStrategyAAVETemplate | 24 | CurveLendingPool3Zap
+sAAVE | EarnStrategyAAVETemplate | 26 | CurveLendingPool2Zap
+
+For each deployed farm, copy ```earnVaultAddr``` & ```earnStrategyAddr``` from output (console.log) and paste into ```verifyFarm.js``` in script/verify folder.
+```javascript
+const earnVaultAddr = "" // copy from deployFarm.js output
+const earnStrategyAddr = "" // copy from deployFarm.js output
+```
+```
+npx hardhat run --network mainnet scripts/verify/verifyFarm.js
+```

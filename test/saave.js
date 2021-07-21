@@ -1,24 +1,22 @@
-const { ethers, network } = require("hardhat")
+const { ethers, upgrades, network } = require("hardhat")
 const { expect } = require("chai")
 const IERC20_ABI = require("../abis/IERC20_ABI.json")
 
-const USDTAddr = "0xdAC17F958D2ee523a2206206994597C13D831ec7"
-const USDCAddr = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
 const DAIAddr = "0x6B175474E89094C44Da98b954EedeAC495271d0F"
-const baseCoinAddr = "0x4Fabb145d64652a948d72533023f6E7A623C7C53" // *variable
+const sUSDAddr = "0x57Ab1ec28D129707052df4dF418D58a2D46d5f51"
+const aDAIAddr = "0x028171bCA77440897B824Ca71D1c56caC55b68A3"
+const aSUSDAddr = "0x6C5024Cd4F8A59110119C56f8933403A539555EB"
 const AXSAddr = "0xBB0E17EF65F82Ab018d8EDd776e8DD940327B28b"
-const lpTokenAddr = "0x4807862AA8b2bF68830e4C8dc86D0e9A998e085a" // *variable
-const _3crvAddr = "0x6c3F90f043a72FA612cbac8115EE7e52BDe6E490"
+const lpTokenAddr = "0x02d341CcB60fAaf662bC0554d13778015d1b285C" // *variable
 const unlockedAddr = "0x28C6c06298d514Db089934071355E5743bf21d60"
-const unlockedLpTokenAddr = "0xDf8752DE9b615e991378c89D1424FC94F4FFa2D0" // *variable
-const unlockedBaseCoinAddr = "0xF977814e90dA44bFA03b6295A0616a897441aceC" // *variable
-const unlocked3CrvAddr = "0xa7888F85BD76deeF3Bd03d4DbCF57765a49883b3"
+const unlockedLpTokenAddr = "0xE594173Aaa1493665EC6A19a0D170C76EEa1124a" // *variable
+const unlockedaDAIAddr = "0x3DdfA8eC3052539b6C9549F12cEA2C295cfF5296"
+const unlockedaSUSDAddr = "0xEd90aB9f302505f903ed36EcF6E3401D96db4328"
 
-const curvePoolAddr = "0x4807862AA8b2bF68830e4C8dc86D0e9A998e085a" // *variable
-const curvePoolZap = "0xA79828DF1850E8a3A3064576f380D90aECDD3359" // *variable
+const curvePoolAddr = "0xEB16Ae0052ed37f479f7fe63849198Df1765a733" // *variable
 
-const poolIndex = 34 // *variable
-const curveZapType = "CurveMetaPoolFacZap" // *variable
+const poolIndex = 26 // *variable
+const curveZapType = "CurveLendingPool2Zap" // *variable
 
 describe("DAO Earn", () => {
     it("should work", async () => {
@@ -26,7 +24,7 @@ describe("DAO Earn", () => {
         const [deployer, client, admin, strategist, biconomy, treasury, community] = await ethers.getSigners()
         const CurveZap = await ethers.getContractFactory(curveZapType, deployer)
         const curveZap = await CurveZap.deploy()
-        const EarnStrategyTemplate = await ethers.getContractFactory("EarnStrategy", deployer)
+        const EarnStrategyTemplate = await ethers.getContractFactory("EarnStrategyAAVE", deployer)
         const earnStrategyTemplate = await EarnStrategyTemplate.deploy()
         const EarnStrategyFactory = await ethers.getContractFactory("EarnStrategyFactory", deployer)
         const earnStrategyFactory = await EarnStrategyFactory.deploy()
@@ -45,53 +43,46 @@ describe("DAO Earn", () => {
         ])
         await earnVault.deployed()
         await earnStrategy.setVault(earnVault.address)
-        await curveZap.addPool(earnVault.address, curvePoolAddr)
+        await curveZap.addPool(earnVault.address, curvePoolAddr, ethers.constants.AddressZero)
         // Transfer LP token to client
         await network.provider.request({method: "hardhat_impersonateAccount",params: [unlockedLpTokenAddr],});
         const unlockedLpTokenSigner = await ethers.getSigner(unlockedLpTokenAddr);
         const lpTokenContract = new ethers.Contract(lpTokenAddr, IERC20_ABI, unlockedLpTokenSigner);
         await lpTokenContract.transfer(client.address, ethers.utils.parseEther("20000"))
         await lpTokenContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
-        // Transfer USDT/USDC/DAI/AXS coin to client
+        // Transfer DAI/sUSD coin to client
         await network.provider.request({method: "hardhat_impersonateAccount",params: [unlockedAddr],});
         const unlockedSigner = await ethers.getSigner(unlockedAddr);
-        const USDTContract = new ethers.Contract(USDTAddr, IERC20_ABI, unlockedSigner)
-        const USDCContract = new ethers.Contract(USDCAddr, IERC20_ABI, unlockedSigner)
         const DAIContract = new ethers.Contract(DAIAddr, IERC20_ABI, unlockedSigner)
+        const sUSDContract = new ethers.Contract(sUSDAddr, IERC20_ABI, unlockedSigner)
         const AXSContract = new ethers.Contract(AXSAddr, IERC20_ABI, unlockedSigner)
-        await USDTContract.transfer(client.address, ethers.utils.parseUnits("20000", 6))
-        await USDCContract.transfer(client.address, ethers.utils.parseUnits("20000", 6))
         await DAIContract.transfer(client.address, ethers.utils.parseEther("20000"))
+        await sUSDContract.transfer(client.address, ethers.utils.parseEther("20000"))
         await AXSContract.transfer(client.address, ethers.utils.parseEther("20000"))
-        await USDTContract.connect(client).approve(curveZap.address, ethers.constants.MaxUint256)
-        await USDCContract.connect(client).approve(curveZap.address, ethers.constants.MaxUint256)
         await DAIContract.connect(client).approve(curveZap.address, ethers.constants.MaxUint256)
+        await sUSDContract.connect(client).approve(curveZap.address, ethers.constants.MaxUint256)
         await AXSContract.connect(client).approve(curveZap.address, ethers.constants.MaxUint256)
-        // Transfer base coin to client
-        await network.provider.request({method: "hardhat_impersonateAccount",params: [unlockedBaseCoinAddr],});
-        const unlockedBaseCoinSigner = await ethers.getSigner(unlockedBaseCoinAddr);
-        const baseCoinContract = new ethers.Contract(baseCoinAddr, IERC20_ABI, unlockedBaseCoinSigner);
-        await baseCoinContract.transfer(client.address, ethers.utils.parseEther("20000"))
-        await baseCoinContract.connect(client).approve(curveZap.address, ethers.constants.MaxUint256)
-        // Transfer 3Crv to client
-        await network.provider.request({method: "hardhat_impersonateAccount",params: [unlocked3CrvAddr],});
-        const unlocked3CrvSigner = await ethers.getSigner(unlocked3CrvAddr);
-        const _3CrvContract = new ethers.Contract(_3crvAddr, IERC20_ABI, unlocked3CrvSigner);
-        await _3CrvContract.transfer(client.address, ethers.utils.parseEther("20000"))
-        await _3CrvContract.connect(client).approve(curveZap.address, ethers.constants.MaxUint256)
+        // Transfer aDAI/aSUSD coin to client
+        await network.provider.request({method: "hardhat_impersonateAccount", params: [unlockedaDAIAddr],});
+        const unlockedaDAISigner = await ethers.getSigner(unlockedaDAIAddr);
+        const aDAIContract = new ethers.Contract(aDAIAddr, IERC20_ABI, unlockedaDAISigner)
+        await aDAIContract.transfer(client.address, ethers.utils.parseEther("20000"))
+        await aDAIContract.connect(client).approve(curveZap.address, ethers.constants.MaxUint256)
+        await network.provider.request({method: "hardhat_impersonateAccount", params: [unlockedaSUSDAddr],});
+        const unlockedaSUSDSigner = await ethers.getSigner(unlockedaSUSDAddr);
+        const aSUSDContract = new ethers.Contract(aSUSDAddr, IERC20_ABI, unlockedaSUSDSigner)
+        await aSUSDContract.transfer(client.address, ethers.utils.parseEther("20000"))
+        await aSUSDContract.connect(client).approve(curveZap.address, ethers.constants.MaxUint256)
 
         // Deposit
         await earnVault.connect(client).deposit(ethers.utils.parseEther("10000"))
         // console.log(ethers.utils.formatEther(await earnVault.getAmtToInvest()))
         // console.log("Client share in USD:", ethers.utils.formatUnits((await earnVault.balanceOf(client.address)).mul(await earnVault.getPricePerFullShare(true)), 24))
         // console.log(ethers.utils.formatUnits(await earnVault.getPricePerFullShare(true), 6))
-        tx = await curveZap.connect(client).deposit(earnVault.address, ethers.utils.parseUnits("10000", 6), USDTAddr)
-        // receipt = await tx.wait()
-        // console.log(receipt.gasUsed.toString())
-        tx = await curveZap.connect(client).deposit(earnVault.address, ethers.utils.parseUnits("10000", 6), USDCAddr)
-        // receipt = await tx.wait()
-        // console.log(receipt.gasUsed.toString())
         tx = await curveZap.connect(client).deposit(earnVault.address, ethers.utils.parseEther("10000"), DAIAddr)
+        // receipt = await tx.wait()
+        // console.log(receipt.gasUsed.toString())
+        tx = await curveZap.connect(client).deposit(earnVault.address, ethers.utils.parseEther("10000"), sUSDAddr)
         // receipt = await tx.wait()
         // console.log(receipt.gasUsed.toString())
 
@@ -101,8 +92,8 @@ describe("DAO Earn", () => {
         // console.log(receipt.gasUsed.toString())
 
         // Second deposit and invest, check fees
-        tx = await curveZap.connect(client).deposit(earnVault.address, ethers.utils.parseEther("10000"), baseCoinAddr)
-        tx = await curveZap.connect(client).deposit(earnVault.address, ethers.utils.parseEther("10000"), _3crvAddr)
+        tx = await curveZap.connect(client).deposit(earnVault.address, ethers.utils.parseEther("10000"), aDAIAddr)
+        tx = await curveZap.connect(client).deposit(earnVault.address, ethers.utils.parseEther("10000"), aSUSDAddr)
         tx = await curveZap.connect(client).depositZap(earnVault.address, ethers.utils.parseEther("750"), AXSAddr)
         tx = await curveZap.connect(client).depositZap(earnVault.address, ethers.utils.parseEther("5"), ethers.constants.AddressZero, {from: client.address, value: ethers.utils.parseEther("5")})
         // console.log(ethers.utils.formatUnits(await USDTContract.balanceOf(treasury.address), 6))
@@ -112,17 +103,18 @@ describe("DAO Earn", () => {
         // console.log(ethers.utils.formatUnits(await USDTContract.balanceOf(strategist.address), 6))
         await earnVault.connect(admin).invest()
 
-        // Change Curve Zap contract 
+        // Change Curve Zap contract
         const curveZap2 = await CurveZap.deploy()
-        await curveZap2.addPool(earnVault.address, curvePoolAddr)
+        await curveZap2.addPool(earnVault.address, curvePoolAddr, ethers.constants.AddressZero)
         await earnVault.setCurveZap(curveZap2.address)
         expect(await earnVault.curveZap()).to.equal(curveZap2.address)
         expect(await earnStrategy.curveZap()).to.equal(curveZap2.address)
         await USDTContract.connect(client).approve(curveZap2.address, ethers.constants.MaxUint256)
         await USDCContract.connect(client).approve(curveZap2.address, ethers.constants.MaxUint256)
         await DAIContract.connect(client).approve(curveZap2.address, ethers.constants.MaxUint256)
-        await baseCoinContract.connect(client).approve(curveZap2.address, ethers.constants.MaxUint256)
-        await _3CrvContract.connect(client).approve(curveZap2.address, ethers.constants.MaxUint256)
+        await aUSDTContract.connect(client).approve(curveZap2.address, ethers.constants.MaxUint256)
+        await aUSDCContract.connect(client).approve(curveZap2.address, ethers.constants.MaxUint256)
+        await aDAIContract.connect(client).approve(curveZap2.address, ethers.constants.MaxUint256)
         await AXSContract.connect(client).approve(curveZap2.address, ethers.constants.MaxUint256)
 
         // Balance keep in vault, retrieve LP token from strategy
@@ -159,14 +151,10 @@ describe("DAO Earn", () => {
         const withdrawAmt = (await earnVault.balanceOf(client.address)).mul(1).div(10)
         await earnVault.connect(client).withdraw(withdrawAmt)
         // console.log("LP token withdraw:", ethers.utils.formatEther(await lpTokenContract.balanceOf(client.address)))
-        tx = await curveZap2.connect(client).withdraw(earnVault.address, withdrawAmt, USDTAddr)
-        // console.log("USDT withdraw:", ethers.utils.formatUnits(await USDTContract.balanceOf(client.address), 6))
-        tx = await curveZap2.connect(client).withdraw(earnVault.address, withdrawAmt, USDCAddr)
-        // console.log("USDC withdraw:", ethers.utils.formatUnits(await USDCContract.balanceOf(client.address), 6))
         tx = await curveZap2.connect(client).withdraw(earnVault.address, withdrawAmt, DAIAddr)
         // console.log("DAI withdraw:", ethers.utils.formatEther(await DAIContract.balanceOf(client.address)))
-        tx = await curveZap2.connect(client).withdraw(earnVault.address, withdrawAmt, baseCoinAddr)
-        // console.log("Base coin withdraw:", ethers.utils.formatEther(await baseCoinContract.balanceOf(client.address)))
+        tx = await curveZap2.connect(client).withdraw(earnVault.address, withdrawAmt, sUSDAddr)
+        // console.log("DAI withdraw:", ethers.utils.formatEther(await DAIContract.balanceOf(client.address)))
 
         // Test deposit & withdraw with other contract
         const Sample = await ethers.getContractFactory("Sample", deployer)
@@ -195,26 +183,21 @@ describe("DAO Earn", () => {
         await earnVault.changeStrategy()
         await earnVault.connect(admin).reinvest()
         await earnVault.connect(client).deposit(ethers.utils.parseEther("10000"))
-        await curveZap2.connect(client).deposit(earnVault.address, ethers.utils.parseUnits("10000", 6), USDTAddr)
-        await curveZap2.connect(client).deposit(earnVault.address, ethers.utils.parseUnits("10000", 6), USDCAddr)
         await curveZap2.connect(client).deposit(earnVault.address, ethers.utils.parseEther("10000"), DAIAddr)
-        await curveZap2.connect(client).deposit(earnVault.address, ethers.utils.parseEther("10000"), baseCoinAddr)
-        await curveZap2.connect(client).deposit(earnVault.address, ethers.utils.parseEther("10000"), _3crvAddr)
+        await curveZap2.connect(client).deposit(earnVault.address, ethers.utils.parseEther("10000"), sUSDAddr)
+        await curveZap2.connect(client).deposit(earnVault.address, ethers.utils.parseEther("10000"), aDAIAddr)
+        await curveZap2.connect(client).deposit(earnVault.address, ethers.utils.parseEther("10000"), aSUSDAddr)
         await curveZap2.connect(client).depositZap(earnVault.address, ethers.utils.parseEther("750"), AXSAddr)
         await curveZap2.connect(client).depositZap(earnVault.address, ethers.utils.parseEther("5"), ethers.constants.AddressZero, {from: client.address, value: ethers.utils.parseEther("5")})
         await earnVault.connect(admin).invest()
         expect(await earnVault.strategy()).to.equal(earnStrategy2.address)
         expect((await curveZap2.poolInfos(earnVault.address))[1]).to.equal(earnStrategy2.address)
         await earnVault.connect(client).withdraw(withdrawAmt)
-        tx = await curveZap2.connect(client).withdraw(earnVault.address, withdrawAmt, USDTAddr)
-        tx = await curveZap2.connect(client).withdraw(earnVault.address, withdrawAmt, USDCAddr)
         tx = await curveZap2.connect(client).withdraw(earnVault.address, withdrawAmt, DAIAddr)
-        tx = await curveZap2.connect(client).withdraw(earnVault.address, withdrawAmt, baseCoinAddr)
+        tx = await curveZap2.connect(client).withdraw(earnVault.address, withdrawAmt, sUSDAddr)
         console.log("LP token withdraw:", ethers.utils.formatEther(await lpTokenContract.balanceOf(client.address)))
-        console.log("USDT withdraw:", ethers.utils.formatUnits(await USDTContract.balanceOf(client.address), 6))
-        console.log("USDC withdraw:", ethers.utils.formatUnits(await USDCContract.balanceOf(client.address), 6))
         console.log("DAI withdraw:", ethers.utils.formatEther(await DAIContract.balanceOf(client.address)))
-        console.log("Base coin withdraw:", ethers.utils.formatEther(await baseCoinContract.balanceOf(client.address)))
+        console.log("DAI withdraw:", ethers.utils.formatEther(await sUSDContract.balanceOf(client.address)))
 
         // Set functions
         await earnVault.setNetworkFeeTier2([ethers.utils.parseEther("10000"), ethers.utils.parseEther("50000")])
