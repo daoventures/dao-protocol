@@ -102,14 +102,6 @@ contract CurveMetaPoolZap is Ownable, BaseRelayRecipient {
     /// @param _coin Address of token to deposit
     /// @return _lpTokenBal LP token amount to deposit after add liquidity to Curve pool (18 decimals)
     function deposit(address _vault, uint256 _amount, address _coin) external onlyEOAOrBiconomy returns (uint256 _lpTokenBal) {
-        require(
-            _coin == address(_DAI) ||
-            _coin == address(_USDC) ||
-            _coin == address(_USDT) ||
-            _coin == address(poolInfos[_vault].baseCoin) ||
-            _coin == address(_3Crv),
-            "Only authorized coin"
-        );
         require(_amount > 0, "Amount must > 0");
         IERC20(_coin).safeTransferFrom(_msgSender(), address(this), _amount);
         _lpTokenBal = _deposit(_vault, _amount, _coin);
@@ -155,19 +147,22 @@ contract CurveMetaPoolZap is Ownable, BaseRelayRecipient {
         PoolInfo memory _poolInfo = poolInfos[_vault];
         ICurvePool _curvePool = _poolInfo.curvePool;
         uint256 _lpTokenBal;
-        if (_coin == address(_DAI) || _coin == address(_USDC) || _coin == address(_USDT)) {
+        if (_coin == address(_3Crv)) {
+            _lpTokenBal = _curvePool.add_liquidity([0, _amount], 0);
+        } else {
             uint256[4] memory _amounts;
-            _amounts[0] = 0; // Base coin
-            _amounts[1] = _coin == address(_DAI) ? _amount : 0;
-            _amounts[2] = _coin == address(_USDC) ? _amount : 0;
-            _amounts[3] = _coin == address(_USDT) ? _amount : 0;
+            if (_coin == address(_poolInfo.baseCoin)) {
+                _amounts[0] = _amount;
+            } else if (_coin == address(_USDT)) {
+                _amounts[3] = _amount;
+            } else if (_coin == address(_USDC)) {
+                _amounts[2] = _amount;
+            } else if (_coin == address(_DAI)) {
+                _amounts[1] = _amount;
+            } else {
+                revert("Coin not acceptable");
+            }
             _lpTokenBal = _poolInfo.curveZap.add_liquidity(_amounts, 0);
-        }
-        if (_coin == address(_poolInfo.baseCoin) || _coin == address(_3Crv)) {
-            uint256[2] memory _amounts;
-            _amounts[0] = _coin == address(_poolInfo.baseCoin) ? _amount : 0;
-            _amounts[1] = _coin == address(_3Crv) ? _amount : 0;
-            _lpTokenBal = _curvePool.add_liquidity(_amounts, 0);
         }
         IEarnVault(_vault).depositZap(_lpTokenBal, _msgSender());
         emit Deposit(_vault, _amount, _coin, _lpTokenBal);
@@ -182,19 +177,19 @@ contract CurveMetaPoolZap is Ownable, BaseRelayRecipient {
     function withdraw(address _vault, uint256 _shares, address _coin) external returns (uint256 _coinAmount) {
         require(msg.sender == tx.origin, "Only EOA");
         PoolInfo memory _poolInfo = poolInfos[_vault];
-        address _baseCoin = address(_poolInfo.baseCoin);
-        require(
-            _coin == address(_DAI) ||
-            _coin == address(_USDC) ||
-            _coin == address(_USDT) ||
-            _coin == _baseCoin,
-            "Only authorized coin"
-        );
         uint256 _lpTokenBal = IEarnVault(_vault).withdrawZap(_shares, msg.sender);
-        int128 _index = 3; // USDT
-        if (_coin == _baseCoin) {_index = 0;}
-        else if (_coin == address(_DAI)) {_index = 1;}
-        else if (_coin == address(_USDC)) {_index = 2;}
+        int128 _index;
+        if (_coin == address(_poolInfo.baseCoin)) {
+            _index = 0;
+        } else if (_coin == address(_USDT)) {
+            _index = 3;
+        } else if (_coin == address(_USDC)) {
+            _index = 2;
+        } else if (_coin == address(_DAI)) {
+            _index = 1;
+        } else {
+            revert("Coin not acceptable");
+        }
         _coinAmount = _poolInfo.curveZap.remove_liquidity_one_coin(_lpTokenBal, _index, 0);
         IERC20(_coin).safeTransfer(msg.sender, _coinAmount);
         emit Withdraw(_vault, _shares, _coin, _lpTokenBal, _coinAmount);
@@ -241,10 +236,15 @@ contract CurveMetaPoolZap is Ownable, BaseRelayRecipient {
         uint256[] memory _amountsOut = _sushiRouter.swapExactTokensForTokens(_amount, 0, _path, address(this), block.timestamp);
         // Add coin into Curve pool
         uint256[4] memory _amounts;
-        _amounts[0] = _best == address(_poolInfo.baseCoin) ? _amountsOut[1] : 0;
-        _amounts[1] = _best == address(_DAI) ? _amountsOut[1] : 0;
-        _amounts[2] = _best == address(_USDC) ? _amountsOut[1] : 0;
-        _amounts[3] = _best == address(_USDT) ? _amountsOut[1] : 0;
+        if (_best == address(_poolInfo.baseCoin)) {
+            _amounts[0] = _amountsOut[1];
+        } else if (_best == address(_DAI)) {
+            _amounts[1] = _amountsOut[1];
+        } else if (_best == address(_USDC)) {
+            _amounts[2] = _amountsOut[1];
+        } else { // address(_USDT)
+            _amounts[3] = _amountsOut[1];
+        }
         _lpTokenBal = _poolInfo.curveZap.add_liquidity(_amounts, 0);
         emit AddLiquidity(_amount, _vault, _best, _lpTokenBal);
     }
@@ -293,29 +293,31 @@ contract CurveMetaPoolZap is Ownable, BaseRelayRecipient {
     /// @param _token Input token address to be calculate (for depositZap(), otherwise address(0))
     /// @return Amount out of LP token
     function _calcAmountOut(uint256 _amount, address _token, address _coin, address _vault) private returns (uint256) {
-        uint256[] memory _amountsOut;
         uint256 _amountOut;
         if (_token == address(0)) { // From _addLiquidity()
             address[] memory _path = new address[](2);
             _path[0] = address(_WETH);
             _path[1] = _coin;
-            _amountsOut = _sushiRouter.getAmountsOut(_amount, _path);
-            _amountOut = _amountsOut[1];
+            _amountOut = (_sushiRouter.getAmountsOut(_amount, _path))[1];
         } else { // From depositZap()
             address[] memory _path = new address[](3);
             _path[0] = _token;
             _path[1] = address(_WETH);
             _path[2] = _coin;
-            _amountsOut = _sushiRouter.getAmountsOut(_amount, _path);
-            _amountOut = _amountsOut[2];
+            _amountOut = (_sushiRouter.getAmountsOut(_amount, _path))[2];
         }
 
         PoolInfo memory _poolInfo = poolInfos[_vault];
         uint256[4] memory _amounts;
-        _amounts[0] = _coin == address(_poolInfo.baseCoin) ? _amountOut : 0;
-        _amounts[1] = _coin == address(_DAI) ? _amountOut : 0;
-        _amounts[2] = _coin == address(_USDC) ? _amountOut : 0;
-        _amounts[3] = _coin == address(_USDT) ? _amountOut : 0;
+        if (_coin == address(_poolInfo.baseCoin)) {
+            _amounts[0] = _amountOut;
+        } else if (_coin == address(_DAI)) {
+            _amounts[1] = _amountOut;
+        } else if (_coin == address(_USDC)) {
+            _amounts[2] = _amountOut;
+        } else { // address(_USDT)
+            _amounts[3] = _amountOut;
+        }
         return _poolInfo.curveZap.calc_token_amount(_amounts, true);
     }
 

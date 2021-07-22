@@ -75,7 +75,9 @@ describe("DAO Earn", () => {
         await aSUSDContract.connect(client).approve(curveZap.address, ethers.constants.MaxUint256)
 
         // Deposit
-        await earnVault.connect(client).deposit(ethers.utils.parseEther("10000"))
+        tx = await earnVault.connect(client).deposit(ethers.utils.parseEther("10000"))
+        // receipt = await tx.wait()
+        // console.log(receipt.gasUsed.toString())
         // console.log(ethers.utils.formatEther(await earnVault.getAmtToInvest()))
         // console.log("Client share in USD:", ethers.utils.formatUnits((await earnVault.balanceOf(client.address)).mul(await earnVault.getPricePerFullShare(true)), 24))
         // console.log(ethers.utils.formatUnits(await earnVault.getPricePerFullShare(true), 6))
@@ -96,12 +98,16 @@ describe("DAO Earn", () => {
         tx = await curveZap.connect(client).deposit(earnVault.address, ethers.utils.parseEther("10000"), aSUSDAddr)
         tx = await curveZap.connect(client).depositZap(earnVault.address, ethers.utils.parseEther("750"), AXSAddr)
         tx = await curveZap.connect(client).depositZap(earnVault.address, ethers.utils.parseEther("5"), ethers.constants.AddressZero, {from: client.address, value: ethers.utils.parseEther("5")})
-        // console.log(ethers.utils.formatUnits(await USDTContract.balanceOf(treasury.address), 6))
+        // console.log(ethers.utils.formatEther(await DAIContract.balanceOf(treasury.address)))
+        // console.log(ethers.utils.formatEther(await DAIContract.balanceOf(community.address)))
+        // console.log(ethers.utils.formatEther(await DAIContract.balanceOf(strategist.address)))
         // await earnVault.connect(admin).transferOutFees()
-        // console.log(ethers.utils.formatUnits(await USDTContract.balanceOf(treasury.address), 6))
-        // console.log(ethers.utils.formatUnits(await USDTContract.balanceOf(community.address), 6))
-        // console.log(ethers.utils.formatUnits(await USDTContract.balanceOf(strategist.address), 6))
-        await earnVault.connect(admin).invest()
+        // console.log(ethers.utils.formatEther(await DAIContract.balanceOf(treasury.address)))
+        // console.log(ethers.utils.formatEther(await DAIContract.balanceOf(community.address)))
+        // console.log(ethers.utils.formatEther(await DAIContract.balanceOf(strategist.address)))
+        tx = await earnVault.connect(admin).invest()
+        // receipt = await tx.wait()
+        // console.log(receipt.gasUsed.toString())
 
         // Change Curve Zap contract
         const curveZap2 = await CurveZap.deploy()
@@ -109,12 +115,10 @@ describe("DAO Earn", () => {
         await earnVault.setCurveZap(curveZap2.address)
         expect(await earnVault.curveZap()).to.equal(curveZap2.address)
         expect(await earnStrategy.curveZap()).to.equal(curveZap2.address)
-        await USDTContract.connect(client).approve(curveZap2.address, ethers.constants.MaxUint256)
-        await USDCContract.connect(client).approve(curveZap2.address, ethers.constants.MaxUint256)
         await DAIContract.connect(client).approve(curveZap2.address, ethers.constants.MaxUint256)
-        await aUSDTContract.connect(client).approve(curveZap2.address, ethers.constants.MaxUint256)
-        await aUSDCContract.connect(client).approve(curveZap2.address, ethers.constants.MaxUint256)
+        await sUSDContract.connect(client).approve(curveZap2.address, ethers.constants.MaxUint256)
         await aDAIContract.connect(client).approve(curveZap2.address, ethers.constants.MaxUint256)
+        await aSUSDContract.connect(client).approve(curveZap2.address, ethers.constants.MaxUint256)
         await AXSContract.connect(client).approve(curveZap2.address, ethers.constants.MaxUint256)
 
         // Balance keep in vault, retrieve LP token from strategy
@@ -132,12 +136,12 @@ describe("DAO Earn", () => {
         // console.log(ethers.utils.formatEther(await strategist.getBalance()))
 
         // Emergency withdraw
-        // const cvStake = new ethers.Contract("0x02E2151D4F351881017ABdF2DD2b51150841d5B3", ["function balanceOf(address) external view returns (uint)"], deployer)
+        const cvStake = new ethers.Contract("0xF86AE6790654b70727dbE58BF1a863B270317fD0", ["function balanceOf(address) external view returns (uint)"], deployer)
         // console.log(ethers.utils.formatEther(await cvStake.balanceOf(earnStrategy.address)))
         // console.log(ethers.utils.formatEther(await lpTokenContract.balanceOf(earnVault.address)))
         await earnVault.connect(admin).emergencyWithdraw()
         await expect(earnVault.connect(client).deposit(ethers.utils.parseEther("10000"))).to.be.revertedWith("Pausable: paused")
-        await expect(curveZap2.connect(client).deposit(earnVault.address, ethers.utils.parseUnits("10000", 6), USDTAddr)).to.be.revertedWith("Pausable: paused")
+        await expect(curveZap2.connect(client).deposit(earnVault.address, ethers.utils.parseEther("10000"), DAIAddr)).to.be.revertedWith("Pausable: paused")
         // console.log(ethers.utils.formatEther(await cvStake.balanceOf(earnStrategy.address)))
         // console.log(ethers.utils.formatEther(await lpTokenContract.balanceOf(earnVault.address)))
         await earnVault.connect(admin).reinvest()
@@ -154,7 +158,7 @@ describe("DAO Earn", () => {
         tx = await curveZap2.connect(client).withdraw(earnVault.address, withdrawAmt, DAIAddr)
         // console.log("DAI withdraw:", ethers.utils.formatEther(await DAIContract.balanceOf(client.address)))
         tx = await curveZap2.connect(client).withdraw(earnVault.address, withdrawAmt, sUSDAddr)
-        // console.log("DAI withdraw:", ethers.utils.formatEther(await DAIContract.balanceOf(client.address)))
+        // console.log("sUSD withdraw:", ethers.utils.formatEther(await sUSDContract.balanceOf(client.address)))
 
         // Test deposit & withdraw with other contract
         const Sample = await ethers.getContractFactory("Sample", deployer)
@@ -163,6 +167,7 @@ describe("DAO Earn", () => {
         tx = await sample.deposit()
         // receipt = await tx.wait()
         // console.log(receipt.gasUsed.toString())
+        // console.log(ethers.utils.formatEther(await earnVault.balanceOf(sample.address)))
         await expect(sample.withdraw()).to.be.revertedWith("Withdraw within locked period")
         network.provider.send("evm_increaseTime", [300])
         await sample.withdraw()
@@ -182,7 +187,9 @@ describe("DAO Earn", () => {
         network.provider.send("evm_increaseTime", [86400*2])
         await earnVault.changeStrategy()
         await earnVault.connect(admin).reinvest()
-        await earnVault.connect(client).deposit(ethers.utils.parseEther("10000"))
+        tx = await earnVault.connect(client).deposit(ethers.utils.parseEther("10000"))
+        // receipt = await tx.wait()
+        // console.log(receipt.gasUsed.toString())
         await curveZap2.connect(client).deposit(earnVault.address, ethers.utils.parseEther("10000"), DAIAddr)
         await curveZap2.connect(client).deposit(earnVault.address, ethers.utils.parseEther("10000"), sUSDAddr)
         await curveZap2.connect(client).deposit(earnVault.address, ethers.utils.parseEther("10000"), aDAIAddr)
@@ -197,7 +204,7 @@ describe("DAO Earn", () => {
         tx = await curveZap2.connect(client).withdraw(earnVault.address, withdrawAmt, sUSDAddr)
         console.log("LP token withdraw:", ethers.utils.formatEther(await lpTokenContract.balanceOf(client.address)))
         console.log("DAI withdraw:", ethers.utils.formatEther(await DAIContract.balanceOf(client.address)))
-        console.log("DAI withdraw:", ethers.utils.formatEther(await sUSDContract.balanceOf(client.address)))
+        console.log("sUSD withdraw:", ethers.utils.formatEther(await sUSDContract.balanceOf(client.address)))
 
         // Set functions
         await earnVault.setNetworkFeeTier2([ethers.utils.parseEther("10000"), ethers.utils.parseEther("50000")])
