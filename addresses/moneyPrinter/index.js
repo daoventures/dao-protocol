@@ -33,7 +33,7 @@ module.exports = {
             strategist: "0x897123d92fA17aA911A86f34051A7dc6937f6dBE",
             treasuryWallet: "0xADAcD247B4b3D873D8B2E664564a52F70907629C",
             trustedForwarder: "0x86C80a8aa58e0A4fa09A69624c31Ab2a6CAD56b8",
-            adminAddress: "0x84D34f4f83a87596Cd3FB6887cFf8F17Bf5A7B83"//"0x3f68A3c1023d736D8Be867CA49Cb18c543373B99",
+            adminAddress: "0x3f68A3c1023d736D8Be867CA49Cb18c543373B99"//"0x3f68A3c1023d736D8Be867CA49Cb18c543373B99",
         }
     }
 }
