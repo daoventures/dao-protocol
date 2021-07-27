@@ -211,7 +211,7 @@ contract MoneyPrinterVault is ERC20, Ownable, BaseRelayRecipient {
         
 
         if(_fee != 0) {
-            _token.safeTransfer(treasuryWallet, _fee);
+            transferNetworkFee(_fee, _token);
         }
 
         _token.safeTransfer(msg.sender,  amountToWithdraw);
