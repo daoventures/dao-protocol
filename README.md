@@ -44,19 +44,19 @@ Example with Ethers.js
 LP token: (through **vault** contract)
 ```javascript
 lpToken.approve(vault.address, ethers.constants.MaxUint256)
-vault.deposit(amountOfLpToken)
+vault.deposit(amountOfLpToken, trueOrFalse)
 ```
 
 USDT/USDC/DAI/Base coin/3Crv: (through **zap** contract)
 ```javascript
 coin.approve(zap.address, ethers.constants.MaxUint256)
-zap.deposit(vault.address, amountOfCoin, coin.address)
+zap.deposit(vault.address, amountOfCoin, coin.address, trueOrFalse)
 ```
 
 Any available token on Sushi: (through **zap** contract)
 ```javascript
 token.approve(zap.address, ethers.constants.MaxUint256)
-zap.depositZap(vault.address, amountOfToken, token.address)
+zap.depositZap(vault.address, amountOfToken, token.address, trueOrFalse)
 ```
 To Check token availability, use `checkTokenSwapAvailability()` function in zap contract. Return amount in USD, return 0 if token not availability.
 ```javascript
@@ -65,8 +65,9 @@ zap.checkTokenSwapAvailability(amountInput, tokenInput, tokenOutput)
 
 Directly from ETH: (through **zap** contract, `amountOfETH` in 18 decimals)
 ```javascript
-zap.depositZap(vault.address, amountOfETH, ethers.constants.AddressZero, {from: client.address, value: amountOfETH})
+zap.depositZap(vault.address, amountOfETH, ethers.constants.AddressZero, trueOrFalse, {from: client.address, value: amountOfETH})
 ```
+> `trueOfFalse` is a boolean to stake daoERN into DAOmine directly.
 
 ### Withdraw
 LP token: (through **vault** contract)
@@ -82,7 +83,7 @@ zap.withdraw(vault.address, amountOfShares, coin.address)
 [Formula to calculate APY](https://docs.google.com/document/d/1E4xEBG7COtlIvleQWoh26PcvIkpFxgOUpmk9BXJsv8s/edit#heading=h.suss79bdwa4r)
 
 ## Deployer
-Run script for everything in scipts/deploy folder except ```deployFarm.js```
+Run script for everything in scipts/deploy folder except ```deployFarm.js``` & ```deployFarmNoDC.js```
 Record down every contract address that deployed. (will show with console.log after success deploy)
 For each deploy script in deploy folder, there is a corresponding verify script in verify folder.
 ```
@@ -90,31 +91,30 @@ npx hardhat run --network mainnet scripts/deploy/deployCurveLendingPool2Zap.js
 npx hardhat run --network mainnet scripts/verify/verifyCurveLendingPool2Zap.js
 ```
 
-In ```deployFarm.js```:
-```javascript
-const earnStrategyFactoryAddr = "" // Only one
-const earnStrategyTemplateAddr = ""
-const poolIndex = "" // Integar
-const curveZapAddr = ""
-```
+Farm Name | Deploy Script | earnStrategyTemplateAddr | poolIndex | curveZapAddr | Verify Script
+--------- | ------------- | -------------------------| --------- | ------------ | -------------
+LUSD | deployFarmMetaPoolFac.js | EarnStrategyTemplate | 33 | CurveMetaPoolFacZap | verifyFarm.js
+BUSDv2 | deployFarmMetaPoolFac.js | EarnStrategyTemplate | 34 | CurveMetaPoolFacZap | verifyFarm.js
+alUSD | deployFarmMetaPoolFac.js | EarnStrategyTemplate | 36 | CurveMetaPoolFacZap | verifyFarm.js
+UST | deployFarm.js | EarnStrategyTemplate | 21 | CurveMetaPoolFacZap | verifyFarm.js
+USDN | deployFarm.js | EarnStrategyTemplate | 13 | CurveMetaPoolZap | verifyFarm.js
+sUSD | deployFarm.js | EarnStrategyTemplate | 4 | CurvePlainPoolZap | verifyFarm.js
+Yearn | deployFarm.js | EarnStrategyTemplate | 2 | CurveYZap | verifyFarm.js
+AAVE | deployFarmNoDC.js | EarnStrategyAAVETemplate | 24 | CurveLendingPool3Zap | verifyFarmAAVE.js
+sAAVE | deployFarmNoDC.js | EarnStrategyAAVETemplate | 26 | CurveLendingPool2Zap | verifyFarmAAVE.js
 
-Farm Name | earnStrategyTemplateAddr | poolIndex | curveZapAddr
---------- | ---------------------| --------- | ------------
-LUSD | EarnStrategyTemplate | 33 | CurveMetaPoolFacZap
-BUSDv2 | EarnStrategyTemplate | 34 | CurveMetaPoolFacZap
-alUSD | EarnStrategyTemplate | 36 | CurveMetaPoolFacZap
-UST | EarnStrategyTemplate | 21 | CurveMetaPoolFacZap
-USDN | EarnStrategyTemplate | 13 | CurveMetaPoolZap
-sUSD | EarnStrategyTemplate | 4 | CurvePlainPoolZap
-Yearn | EarnStrategyTemplate | 2 | CurveYZap
-AAVE | EarnStrategyAAVETemplate | 24 | CurveLendingPool3Zap
-sAAVE | EarnStrategyAAVETemplate | 26 | CurveLendingPool2Zap
+## Kovan contract addresses
+These contracts use as interface for all USD series product. In Mainnet each product will have different contract address.
 
-For each deployed farm, copy ```earnVaultAddr``` & ```earnStrategyAddr``` from output (console.log) and paste into ```verifyFarm.js``` in script/verify folder.
-```javascript
-const earnVaultAddr = "" // copy from deployFarm.js output
-const earnStrategyAddr = "" // copy from deployFarm.js output
-```
-```
-npx hardhat run --network mainnet scripts/verify/verifyFarm.js
-```
+EarnVault proxy: 0x47bb78583fea8Ab0F1D8cA94750fe4C266fFb8F1
+CurveZap: 0x032C77879F47C6f2617AB7b31626a003c73C5127
+
+EarnStrategyFactory: 0xebcC9b9B4239670fb384C82e97A61B7469d97A12
+EarnStrategyTemplate: 0x41240a6207E1FCCD5A209112137c08001982583E
+
+AnyToken "ATN": 0xBB06dF04f0D508FC4b1bdBbf164d82884C5F677A
+USDT: 0x07de306FF27a2B630B1141956844eB1552B956B5
+USDC: 0xb7a4F3E9097C08dA09517b5aB877F7a917224ede
+DAI: 0x4F96Fe3b7A6Cf9725f59d353F723c1bDb64CA6Aa
+
+In Kovan, vault contract accept ATN only. Zap contract accept USDT/USDC/DAI, ATN(depositZap()) and ETH(depositZap()) only.

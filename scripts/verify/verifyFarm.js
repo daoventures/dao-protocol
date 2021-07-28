@@ -1,18 +1,21 @@
-const { run } = require('hardhat')
-const { mainnet } = require("../../addresses/index")
+const { run, ethers } = require('hardhat')
 
-const earnVaultAddr = "" // copy from deployFarm.js output
-const earnStrategyAddr = "" // copy from deployFarm.js output
+// earnVaultAddr can be found in folder .openzeppelin -> mainnet.json -> impls -> address
+const earnVaultAddr = ""
+
+// earnStrategy contract is minimal proxy contract of earnStrategyTemplate
+// so it will automatically been verified
+// const earnStrategyAddr = ""
 
 async function main() {
     await run('verify:verify', {
         address: earnVaultAddr,
-        contract: 'contracts/strategies/EarnVault.sol:EarnVault',
+        contract: 'contracts/vaults/EarnVault.sol:EarnVault',
     })
-    await run('verify:verify', {
-        address: earnStrategyAddr,
-        contract: 'contracts/factories/EarnStrategyFactory.sol:EarnStrategy',
-    })
+    // await run('verify:verify', {
+    //     address: earnStrategyAddr,
+    //     contract: 'contracts/strategies/EarnStrategy.sol:EarnStrategy',
+    // })
 }
 
 main()

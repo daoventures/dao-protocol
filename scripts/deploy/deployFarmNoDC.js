@@ -29,14 +29,13 @@ async function main() {
         curveZapAddr,
         [
             "function addPool(address, address, address) external",
-            "function poolInfos(address) external view returns (address, address)"
+            "function poolInfos(address) external view returns (address)"
         ],
         deployer
     )
     await curveZap.addPool(
         earnVault.address,
-        (await curveZap.poolInfos(earnVault.address))[0],
-        (await curveZap.poolInfos(earnVault.address))[1]
+        await curveZap.poolInfos(earnVault.address)
     )
 
     console.log('EarnVault address:', earnVault.address)

@@ -13,17 +13,17 @@ module.exports = {
         blockNumber: 12787000,
 
         // url: process.env.ALCHEMY_URL_KOVAN,
-        // blockNumber: 25412550, // Kovan
+        // blockNumber: 26380000, // Kovan
       },
     },
     // mainnet: {
     //   url: process.env.ALCHEMY_URL_MAINNET,
     //   accounts: [`0x${process.env.PRIVATE_KEY}`],
     // },
-    // kovan: {
-    //   url: process.env.ALCHEMY_URL_KOVAN,
-    //   accounts: [`0x${process.env.PRIVATE_KEY}`],
-    // },
+    kovan: {
+      url: process.env.ALCHEMY_URL_KOVAN,
+      accounts: [`0x${process.env.PRIVATE_KEY}`],
+    },
   },
   etherscan: {
     apiKey: process.env.ETHERSCAN_API_KEY,

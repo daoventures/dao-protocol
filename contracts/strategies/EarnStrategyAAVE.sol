@@ -99,7 +99,7 @@ contract EarnStrategyAAVE is Initializable, OwnableUpgradeable {
     ) external initializer {
         __Ownable_init_unchained();
 
-        yieldFeePerc = 1000;
+        yieldFeePerc = 2000;
         admin = _admin;
         communityWallet = _communityWallet;
         strategist = _strategist;

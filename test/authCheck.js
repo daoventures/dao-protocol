@@ -50,7 +50,7 @@ describe("DAO Earn", () => {
             treasury.address, community.address,
             admin.address, strategist.address, biconomy.address
         )).to.be.revertedWith("Initializable: contract is already initialized")
-        await expect(earnVault.connect(client).depositZap(ethers.utils.parseEther("10000"), client.address)).to.be.revertedWith("Only CurveZap")
+        await expect(earnVault.connect(client).depositZap(ethers.utils.parseEther("10000"), client.address, false)).to.be.revertedWith("Only CurveZap")
         await expect(earnVault.connect(client).withdrawZap(ethers.utils.parseEther("10000"), client.address)).to.be.revertedWith("Only CurveZap")
         await expect(earnVault.connect(client).transferOutFees()).to.be.revertedWith("Only authorized caller")
         await expect(earnVault.connect(client).invest()).to.be.revertedWith("Only owner or admin")

@@ -7,7 +7,7 @@
       "hash": "0x86f8bc2204ee78343730c01b9acd0cab03127ee702749e0a72256eb4dab8bbad",
       "type": 0,
       "accessList": null,
-      "blockHash": "0x3d7b1a339a175136cf5dbdf996760bed3af300bd9366f84c74e37de3329e6171",
+      "blockHash": "0x46ee1f59b42b1c5008194877e8af32f464d0506e6324712c4b67f0c10aff3b05",
       "blockNumber": 12787006,
       "transactionIndex": 0,
       "confirmations": 1,
@@ -36,20 +36,20 @@
   },
   "proxies": [
     {
-      "address": "0xB0D4afd8879eD9F52b28595d31B441D079B2Ca07",
-      "txHash": "0x542664ccaddd5372b83de34f6519b4bfce2adf0b1ca03247f04d0bc090240b30",
+      "address": "0x5eb3Bc0a489C5A8288765d2336659EbCA68FCd00",
+      "txHash": "0xb2cea3add9b68a2dc1b918d62d4503ac44d54030fc97dd90a93e75a6caedfc05",
       "kind": "transparent"
     },
     {
-      "address": "0x5eb3Bc0a489C5A8288765d2336659EbCA68FCd00",
-      "txHash": "0x520027341a2bc167616cdf2c6e09df441a150263bf78ec5056ab4488e73a59c2",
+      "address": "0xB0D4afd8879eD9F52b28595d31B441D079B2Ca07",
+      "txHash": "0xffaee449a277ffe9bf6b421571cccfcdd62c9f3ebe03d7295d25260fbc7a2e07",
       "kind": "transparent"
     }
   ],
   "impls": {
-    "f04167fce5d475506fb858fe8a0a3f068b90bc160cd3d46650e2386d63758d00": {
+    "d915821299aee09443a6fa9d1bb73213beeb4c197a01e1473fa1cbb3f7f1cafe": {
       "address": "0x8f86403A4DE0BB5791fa46B8e795C547942fE4Cf",
-      "txHash": "0xe0a562f45fd0304f04d0c75fe4fdf8a1240e0a69e51381777e70c5930230563f",
+      "txHash": "0xa33445f6d9db33aabfb486fc54c394c1067a405ed66721c4e4143b481d76e8cc",
       "layout": {
         "storage": [
           {
@@ -152,109 +152,121 @@
             "contract": "EarnVault",
             "label": "lpToken",
             "type": "t_contract(IERC20Upgradeable)959",
-            "src": "contracts/vaults/EarnVault.sol:35"
+            "src": "contracts/vaults/EarnVault.sol:39"
           },
           {
             "contract": "EarnVault",
             "label": "percKeepInVault",
             "type": "t_uint256",
-            "src": "contracts/vaults/EarnVault.sol:36"
+            "src": "contracts/vaults/EarnVault.sol:40"
           },
           {
             "contract": "EarnVault",
             "label": "strategy",
             "type": "t_contract(IStrategy)4512",
-            "src": "contracts/vaults/EarnVault.sol:37"
+            "src": "contracts/vaults/EarnVault.sol:41"
           },
           {
             "contract": "EarnVault",
             "label": "curveZap",
             "type": "t_contract(ICurveZap)4532",
-            "src": "contracts/vaults/EarnVault.sol:38"
+            "src": "contracts/vaults/EarnVault.sol:42"
           },
           {
             "contract": "EarnVault",
             "label": "admin",
             "type": "t_address",
-            "src": "contracts/vaults/EarnVault.sol:39"
-          },
-          {
-            "contract": "EarnVault",
-            "label": "networkFeeTier2",
-            "type": "t_array(t_uint256)dyn_storage",
             "src": "contracts/vaults/EarnVault.sol:43"
           },
           {
             "contract": "EarnVault",
-            "label": "customNetworkFeeTier",
-            "type": "t_uint256",
-            "src": "contracts/vaults/EarnVault.sol:44"
-          },
-          {
-            "contract": "EarnVault",
-            "label": "networkFeePerc",
-            "type": "t_array(t_uint256)dyn_storage",
-            "src": "contracts/vaults/EarnVault.sol:45"
-          },
-          {
-            "contract": "EarnVault",
-            "label": "customNetworkFeePerc",
-            "type": "t_uint256",
-            "src": "contracts/vaults/EarnVault.sol:46"
-          },
-          {
-            "contract": "EarnVault",
-            "label": "profitSharingFeePerc",
-            "type": "t_uint256",
+            "label": "daoMine",
+            "type": "t_contract(IDAOmine)4542",
             "src": "contracts/vaults/EarnVault.sol:47"
           },
           {
             "contract": "EarnVault",
-            "label": "_fees",
+            "label": "daoMinePid",
             "type": "t_uint256",
             "src": "contracts/vaults/EarnVault.sol:48"
           },
           {
             "contract": "EarnVault",
-            "label": "treasuryWallet",
-            "type": "t_address",
+            "label": "networkFeeTier2",
+            "type": "t_array(t_uint256)dyn_storage",
             "src": "contracts/vaults/EarnVault.sol:51"
           },
           {
             "contract": "EarnVault",
-            "label": "communityWallet",
-            "type": "t_address",
+            "label": "customNetworkFeeTier",
+            "type": "t_uint256",
             "src": "contracts/vaults/EarnVault.sol:52"
           },
           {
             "contract": "EarnVault",
-            "label": "strategist",
-            "type": "t_address",
+            "label": "networkFeePerc",
+            "type": "t_array(t_uint256)dyn_storage",
             "src": "contracts/vaults/EarnVault.sol:53"
           },
           {
             "contract": "EarnVault",
-            "label": "depositTime",
-            "type": "t_mapping(t_address,t_uint256)",
+            "label": "customNetworkFeePerc",
+            "type": "t_uint256",
+            "src": "contracts/vaults/EarnVault.sol:54"
+          },
+          {
+            "contract": "EarnVault",
+            "label": "profitSharingFeePerc",
+            "type": "t_uint256",
+            "src": "contracts/vaults/EarnVault.sol:55"
+          },
+          {
+            "contract": "EarnVault",
+            "label": "_fees",
+            "type": "t_uint256",
             "src": "contracts/vaults/EarnVault.sol:56"
           },
           {
             "contract": "EarnVault",
-            "label": "pendingStrategy",
+            "label": "treasuryWallet",
             "type": "t_address",
             "src": "contracts/vaults/EarnVault.sol:59"
           },
           {
             "contract": "EarnVault",
+            "label": "communityWallet",
+            "type": "t_address",
+            "src": "contracts/vaults/EarnVault.sol:60"
+          },
+          {
+            "contract": "EarnVault",
+            "label": "strategist",
+            "type": "t_address",
+            "src": "contracts/vaults/EarnVault.sol:61"
+          },
+          {
+            "contract": "EarnVault",
+            "label": "depositTime",
+            "type": "t_mapping(t_address,t_uint256)",
+            "src": "contracts/vaults/EarnVault.sol:64"
+          },
+          {
+            "contract": "EarnVault",
+            "label": "pendingStrategy",
+            "type": "t_address",
+            "src": "contracts/vaults/EarnVault.sol:67"
+          },
+          {
+            "contract": "EarnVault",
             "label": "canSetPendingStrategy",
             "type": "t_bool",
-            "src": "contracts/vaults/EarnVault.sol:60"
+            "src": "contracts/vaults/EarnVault.sol:68"
           },
           {
             "contract": "EarnVault",
             "label": "unlockTime",
             "type": "t_uint256",
-            "src": "contracts/vaults/EarnVault.sol:61"
+            "src": "contracts/vaults/EarnVault.sol:69"
           }
         ],
         "types": {
@@ -272,6 +284,9 @@
           },
           "t_address": {
             "label": "address"
+          },
+          "t_contract(IDAOmine)4542": {
+            "label": "contract IDAOmine"
           },
           "t_array(t_uint256)dyn_storage": {
             "label": "uint256[]"

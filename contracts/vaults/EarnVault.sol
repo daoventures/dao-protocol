@@ -28,6 +28,10 @@ interface ICurveZap {
     function swapFees(uint256 _fees) external returns (uint256, address);
 }
 
+interface IDAOmine {
+    function depositByProxy(address _user, uint256 _pid, uint256 _amount) external;
+}
+
 contract EarnVault is Initializable, ERC20Upgradeable, OwnableUpgradeable,
         ReentrancyGuardUpgradeable, PausableUpgradeable, BaseRelayRecipient {
     using SafeERC20Upgradeable for IERC20Upgradeable;
@@ -38,6 +42,10 @@ contract EarnVault is Initializable, ERC20Upgradeable, OwnableUpgradeable,
     ICurveZap public curveZap;
     address public admin;
     uint256 private constant _DENOMINATOR = 10000;
+
+    // DAOmine
+    IDAOmine public daoMine;
+    uint256 public daoMinePid;
 
     // Calculation for fees
     uint256[] public networkFeeTier2;
@@ -110,7 +118,7 @@ contract EarnVault is Initializable, ERC20Upgradeable, OwnableUpgradeable,
         customNetworkFeeTier = 1000000*1e18;
         networkFeePerc = [100, 75, 50];
         customNetworkFeePerc = 25;
-        profitSharingFeePerc = 2000;
+        profitSharingFeePerc = 0;
 
         lpToken = IERC20Upgradeable(_lpToken);
         percKeepInVault = 500;
@@ -139,7 +147,9 @@ contract EarnVault is Initializable, ERC20Upgradeable, OwnableUpgradeable,
 
     /// @notice Function to deposit token
     /// @param _amount Amount to deposit (18 decimals)
-    function deposit(uint256 _amount) external nonReentrant whenNotPaused {
+    /// @param _stake True if stake into DAOmine
+    /// @return _daoERNAmount Amount of minted shares
+    function deposit(uint256 _amount, bool _stake) external nonReentrant whenNotPaused returns (uint256 _daoERNAmount) {
         require(_amount > 0, "Amount must > 0");
         if (msg.sender != tx.origin && !isTrustedForwarder(msg.sender)) {
             // Smart contract interaction: to prevent deposit & withdraw at same transaction
@@ -148,22 +158,26 @@ contract EarnVault is Initializable, ERC20Upgradeable, OwnableUpgradeable,
 
         address _sender = _msgSender();
         lpToken.safeTransferFrom(_sender, address(this), _amount);
-        _deposit(_amount, _sender);
+        _daoERNAmount = _deposit(_amount, _sender, _stake);
     }
 
     /// @notice Function to deposit token through CurveZap contract
     /// @param _amount Amount to deposit (18 decimals)
     /// @param _account Account to deposit (user address)
-    function depositZap(uint256 _amount, address _account) external nonReentrant whenNotPaused {
+    /// @param _stake True if stake into DAOmine
+    /// @return _daoERNAmount Amount of minted shares
+    function depositZap(uint256 _amount, address _account, bool _stake) external nonReentrant whenNotPaused returns (uint256 _daoERNAmount) {
         require(msg.sender == address(curveZap), "Only CurveZap");
         lpToken.safeTransferFrom(address(curveZap), address(this), _amount);
-        _deposit(_amount, _account);
+        _daoERNAmount = _deposit(_amount, _account, _stake);
     }
 
     /// @notice Derived function from deposit()
     /// @param _amount Amount to deposit (18 decimals)
     /// @param _account Account to deposit (user address)
-    function _deposit(uint256 _amount, address _account) private {
+    /// @param _stake True if stake into DAOmine
+    /// @return Amount of minted shares
+    function _deposit(uint256 _amount, address _account, bool _stake) private returns (uint256) {
         uint256 _amtDeposit = _amount; // For event purpose
 
         // Calculate network fee
@@ -181,8 +195,16 @@ contract EarnVault is Initializable, ERC20Upgradeable, OwnableUpgradeable,
         _fees = _fees + _fee;
         _amount = _amount - _fee;
 
-        _mint(_account, _amount); // 1:1 mint shares from deposit amount(after fee)
+        // 1:1 mint shares from deposit amount(after fee)
+        if (_stake) {
+            _mint(address(this), _amount);
+            daoMine.depositByProxy(_account, daoMinePid, _amount);
+        } else {
+            _mint(_account, _amount);
+        }
         emit Deposit(_account, _amtDeposit, _amount);
+
+        return _amount;
     }
 
     /// @notice Function to withdraw token

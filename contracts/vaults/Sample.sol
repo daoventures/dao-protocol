@@ -4,13 +4,13 @@ pragma solidity 0.8.4;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 interface IEarnVault is IERC20 {
-    function deposit(uint) external;
+    function deposit(uint, bool) external;
     function withdraw(uint) external;
 }
 
 interface ICurveZap {
-    function deposit(address, uint, address) external;
-    function depositZap(address, uint, address) external;
+    function deposit(address, uint, address, bool) external;
+    function depositZap(address, uint, address, bool) external;
     function withdraw(address, uint, address) external;
 }
 
@@ -27,18 +27,18 @@ contract Sample {
         curveZap = ICurveZap(_curveZap);
     }
     function deposit() external {
-        vault.deposit(lpToken.balanceOf(address(this)));
+        vault.deposit(lpToken.balanceOf(address(this)), false);
     }
     function withdraw() external {
         vault.withdraw(vault.balanceOf(address(this)));
     }
 
     function depositZap1() external {
-        curveZap.deposit(address(vault), 1e6, address(USDT));
+        curveZap.deposit(address(vault), 1e6, address(USDT), false);
     }
 
     function depositZap2() external {
-        curveZap.depositZap(address(vault), 1e18, address(AXS));
+        curveZap.depositZap(address(vault), 1e18, address(AXS), false);
     }
 
     function withdrawZap() external {
