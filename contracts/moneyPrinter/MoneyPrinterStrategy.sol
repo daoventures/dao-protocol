@@ -49,6 +49,7 @@ contract MoneyPrinterStrategy is Ownable{
     uint private daiInPool;
     uint private usdcInPool;
     uint private usdtInPool;
+    uint private valueInPool;
 
     uint usdtusdcWexPID = 9;
 
@@ -105,6 +106,8 @@ contract MoneyPrinterStrategy is Ownable{
         _depositToWexPoly(usdtToDeposit, usdcToDeposit);
         _depositToquickSwap(daiToDeposit, usdtToDeposit);
         _depositToCurve();
+        
+        valueInPool = daiInPool.add(usdcInPool).add(usdtInPool);
     }   
 
 
@@ -123,6 +126,10 @@ contract MoneyPrinterStrategy is Ownable{
         usdcInPool = usdcBalance.mul(1e12) < usdcInPool ? usdcInPool.sub(usdcBalance.mul(1e12)): 0;
         daiInPool = daiBalance < daiInPool ? daiInPool.sub(daiBalance): 0;
 
+        {
+        uint valueRemoved = daiBalance.add(usdtBalance.mul(1e12)).add(usdcBalance.mul(1e12));
+        valueInPool = valueRemoved < valueInPool ? valueInPool.sub(valueRemoved) : 0;
+        }
         //convert to _token 
 
         if(_token != DAI)
@@ -301,20 +308,24 @@ contract MoneyPrinterStrategy is Ownable{
     }
 
     function _depositToWexPoly(uint _usdtAmount, uint _usdcAmount) internal returns (uint usdt_usdcpoolToken){
-        usdcInPool = usdcInPool.add(_usdcAmount.mul(1e12));
-        usdtInPool = usdtInPool.add(_usdtAmount.mul(1e12));
+        uint usdcAdded; uint usdtAdded;
+        (usdcAdded, usdtAdded, usdt_usdcpoolToken) = WexPolyRouter.addLiquidity(address(USDC), address(USDT), _usdcAmount, _usdtAmount, 0, 0, address(this), block.timestamp);
 
-        (,, usdt_usdcpoolToken) = WexPolyRouter.addLiquidity(address(USDC), address(USDT), _usdcAmount, _usdtAmount, 0, 0, address(this), block.timestamp);
         
+        usdcInPool = usdcInPool.add(usdcAdded.mul(1e12));
+        usdtInPool = usdtInPool.add(usdtAdded.mul(1e12));
+    
         wexStakingContract.deposit(usdtusdcWexPID, usdt_usdcpoolToken, false);
         //deposit to wexPoly
     }
 
     function _depositToquickSwap(uint _daiAmount, uint _usdtAmount) internal returns(uint dai_usdtpoolToken){
-        daiInPool = daiInPool.add(_daiAmount);
-        usdtInPool = usdtInPool.add(_usdtAmount.mul(1e12));
-        
-        (,, dai_usdtpoolToken) = quickSwapRouter.addLiquidity(address(DAI), address(USDT), _daiAmount, _usdtAmount, 0, 0, address(this), block.timestamp);
+
+        uint daiAdded; uint usdtAdded;
+        (daiAdded,usdtAdded, dai_usdtpoolToken) = quickSwapRouter.addLiquidity(address(DAI), address(USDT), _daiAmount, _usdtAmount, 0, 0, address(this), block.timestamp);
+
+        daiInPool = daiInPool.add(daiAdded);
+        usdtInPool = usdtInPool.add(usdtAdded.mul(1e12));
         
         DAIUSDTQuickswapPool.stake(dai_usdtpoolToken);
     }
@@ -357,6 +368,6 @@ contract MoneyPrinterStrategy is Ownable{
     }
 
     function getValueInPool() public view returns (uint) {
-        return daiInPool.add(usdcInPool.add(usdtInPool));
+        return valueInPool; 
     }
 }
