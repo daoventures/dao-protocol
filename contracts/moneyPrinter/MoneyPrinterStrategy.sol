@@ -52,6 +52,8 @@ contract MoneyPrinterStrategy is Ownable{
 
     mapping(IERC20 => int128) curveIds;
 
+    event Yield(uint wexPolyEarned, uint quickEarned, uint wMaticEarned, uint crvEarned, uint valueInDai);
+
     constructor(address _treasury, address _communityWallet, address _strategist) {
         curveIds[DAI] = 0;
         curveIds[USDC] = 1;
@@ -136,17 +138,20 @@ contract MoneyPrinterStrategy is Ownable{
 
     function harvest() external onlyVault {
         
-        _harvestFromWexPoly();
-        _harvestFromQuick();
-        _harvestFromCurve();
+        uint wexPolyEarned = _harvestFromWexPoly();
+        uint quickEarned = _harvestFromQuick();
+        (uint wMaticEarned, uint crvEarned) = _harvestFromCurve();
 
-        uint fee = DAI.balanceOf(address(this)).div(10); //10%
+        uint valueInDai = DAI.balanceOf(address(this));
+        uint fee = valueInDai.div(10); //10%
         uint feeSplit = fee.mul(2).div(5);
         DAI.safeTransfer(treasury, feeSplit);//4 out of 10% to treasury
         DAI.safeTransfer(communityWallet, feeSplit);//4 out of 10% to communityWallet
         DAI.safeTransfer(strategist, fee.sub(feeSplit).sub(feeSplit));//2 out of 10% to strategist
 
         _deposit(DAI.balanceOf(address(this)), DAI);
+
+        emit Yield(wexPolyEarned, quickEarned, wMaticEarned, crvEarned, valueInDai);
     }
 
     function migrateFunds(IERC20 _token)external onlyVault{
@@ -230,8 +235,8 @@ contract MoneyPrinterStrategy is Ownable{
         _withdrawnUSDT = withdrawnAmounts[2];
     }
 
-    function _harvestFromWexPoly() internal {
-        uint WexpolyEarned = wexStakingContract.pendingWex(usdtusdcWexPID, address(this));
+    function _harvestFromWexPoly() internal returns (uint WexpolyEarned){
+        WexpolyEarned = wexStakingContract.pendingWex(usdtusdcWexPID, address(this));
         
         if(WexpolyEarned > 0 ) {
             wexStakingContract.claim(usdtusdcWexPID);
@@ -246,11 +251,11 @@ contract MoneyPrinterStrategy is Ownable{
 
 
 
-    function _harvestFromQuick() internal {
+    function _harvestFromQuick() internal returns(uint quickBalance){
 
         DAIUSDTQuickswapPool.getReward();
 
-        uint quickBalance = QUICK.balanceOf(address(this));
+        quickBalance = QUICK.balanceOf(address(this));
         if(quickBalance > 0) {
             address[] memory path = new address[](2);
             path[0] = address(QUICK);
@@ -261,18 +266,19 @@ contract MoneyPrinterStrategy is Ownable{
 
     }
 
-    function _harvestFromCurve() internal {
+    function _harvestFromCurve() internal returns (uint maticHarvested, uint crvHarvested){
         rewardGauge.claim_rewards(); 
 
         address[] memory path = new address[](2);
         path[1] = address(DAI);
-
-        if(MATIC.balanceOf(address(this)) > 0) {
+        maticHarvested = MATIC.balanceOf(address(this));
+        if(maticHarvested > 0) {
             path[0] = address(MATIC);    
             quickSwapRouter.swapExactTokensForTokens(MATIC.balanceOf(address(this)), 0, path, address(this), block.timestamp);
         }
 
-        if(CRV.balanceOf(address(this)) > 0) {
+        crvHarvested = CRV.balanceOf(address(this));
+        if(crvHarvested > 0) {
             path[0] = address(CRV);
             quickSwapRouter.swapExactTokensForTokens(CRV.balanceOf(address(this)), 0, path, address(this), block.timestamp);
         }
