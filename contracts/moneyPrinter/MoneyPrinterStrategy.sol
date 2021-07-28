@@ -46,9 +46,6 @@ contract MoneyPrinterStrategy is Ownable{
     IUniswapV2Pair public constant QuickDAI_USDTPair = IUniswapV2Pair(0x59153f27eeFE07E5eCE4f9304EBBa1DA6F53CA88);
         
 
-    uint private daiInPool;
-    uint private usdcInPool;
-    uint private usdtInPool;
     uint private valueInPool;
 
     uint usdtusdcWexPID = 9;
@@ -107,7 +104,7 @@ contract MoneyPrinterStrategy is Ownable{
         _depositToquickSwap(daiToDeposit, usdtToDeposit);
         _depositToCurve();
         
-        valueInPool = daiInPool.add(usdcInPool).add(usdtInPool);
+        
     }   
 
 
@@ -121,11 +118,6 @@ contract MoneyPrinterStrategy is Ownable{
         uint usdcBalance = usdcFromwSwap.add(usdcFromCurve);
         uint usdtBalance = usdtFromQSwap.add(usdtFromCurve).add(usdtFromwSwap);
     
-    
-        usdtInPool = usdtBalance.mul(1e12) < usdtInPool ? usdtInPool.sub(usdtBalance.mul(1e12)): 0;
-        usdcInPool = usdcBalance.mul(1e12) < usdcInPool ? usdcInPool.sub(usdcBalance.mul(1e12)): 0;
-        daiInPool = daiBalance < daiInPool ? daiInPool.sub(daiBalance): 0;
-
         {
         uint valueRemoved = daiBalance.add(usdtBalance.mul(1e12)).add(usdcBalance.mul(1e12));
         valueInPool = valueRemoved < valueInPool ? valueInPool.sub(valueRemoved) : 0;
@@ -191,10 +183,8 @@ contract MoneyPrinterStrategy is Ownable{
         curveFi.exchange_underlying(curveIds[USDT], curveIds[_token], USDT.balanceOf(address(this)), 0);
 
         //All funds are withdrawn, so vaules are set to 0.
-        daiInPool = 0;
-        usdcInPool = 0;
-        usdtInPool = 0;
-
+        
+        valueInPool = 0;
         _token.safeTransfer(address(vault), _token.balanceOf(address(this)));
 
     }
@@ -312,11 +302,11 @@ contract MoneyPrinterStrategy is Ownable{
         (usdcAdded, usdtAdded, usdt_usdcpoolToken) = WexPolyRouter.addLiquidity(address(USDC), address(USDT), _usdcAmount, _usdtAmount, 0, 0, address(this), block.timestamp);
 
         
-        usdcInPool = usdcInPool.add(usdcAdded.mul(1e12));
-        usdtInPool = usdtInPool.add(usdtAdded.mul(1e12));
     
         wexStakingContract.deposit(usdtusdcWexPID, usdt_usdcpoolToken, false);
         //deposit to wexPoly
+
+        valueInPool = valueInPool.add(usdcAdded.mul(1e12)).add(usdtAdded.mul(1e12));
     }
 
     function _depositToquickSwap(uint _daiAmount, uint _usdtAmount) internal returns(uint dai_usdtpoolToken){
@@ -324,10 +314,9 @@ contract MoneyPrinterStrategy is Ownable{
         uint daiAdded; uint usdtAdded;
         (daiAdded,usdtAdded, dai_usdtpoolToken) = quickSwapRouter.addLiquidity(address(DAI), address(USDT), _daiAmount, _usdtAmount, 0, 0, address(this), block.timestamp);
 
-        daiInPool = daiInPool.add(daiAdded);
-        usdtInPool = usdtInPool.add(usdtAdded.mul(1e12));
         
         DAIUSDTQuickswapPool.stake(dai_usdtpoolToken);
+        valueInPool = valueInPool.add(daiAdded).add(usdtAdded.mul(1e12));
     }
 
 
@@ -343,10 +332,7 @@ contract MoneyPrinterStrategy is Ownable{
         lpTokenAmount = curveLpToken.balanceOf(address(this));
         rewardGauge.deposit(lpTokenAmount);
 
-        daiInPool = daiInPool.add(daiBalance);
-        usdcInPool = usdcInPool.add(usdcBalance.mul(1e12));
-        usdtInPool = usdtInPool.add(usdtBalance.mul(1e12));
-        
+        valueInPool = valueInPool.add(daiBalance).add(usdcBalance.mul(1e12)).add(usdtBalance.mul(1e12));
     }
 
     function setVault(address _vault) external onlyOwner{
