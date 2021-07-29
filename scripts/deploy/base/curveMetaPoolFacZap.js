@@ -1,9 +1,19 @@
 async function main() {
+    let result = "SUCCESS"
+
     const [deployer] = await ethers.getSigners()
     const CurveZap = await ethers.getContractFactory("CurveMetaPoolFacZap", deployer)
     const curveZap = await CurveZap.deploy({ gasLimit: 9000000 })
 
-    console.log('CurveMetaPoolFacZap address:', curveZap.address)
+    try {
+        await curveZap.deployTransaction.wait()
+    } catch(error) {
+        if(error.receipt.status == 0) {
+            result = "FAILED"
+        }
+    }
+
+    console.log('CurveMetaPoolFacZap address:', curveZap.address, result)
 }
 
 main()

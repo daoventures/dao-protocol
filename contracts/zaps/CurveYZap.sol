@@ -322,10 +322,10 @@ contract CurveYZap is Ownable, BaseRelayRecipient {
         return curvePool.calc_token_amount(_amounts, true);
     }
 
-    /// @notice Function to add new Curve pool (for Curve metapool with factory deposit zap only)
+    /// @notice Function to add new Curve Y pool (limit only for Curve Y pool)
     /// @param vault_ Address of corresponding vault contract
-    /// @param curvePool_ Address of Curve metapool contract
-    /// @param curveZap_ Address of Curve metapool factory deposit zap contract
+    /// @param curvePool_ Address of Curve Y contract
+    /// @param curveZap_ Address of Curve Y deposit zap contract
     function addPool(address vault_, address curvePool_, address curveZap_) external onlyOwner {
         vault = IEarnVault(vault_);
         strategy = IEarnStrategy(vault.strategy());

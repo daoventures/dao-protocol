@@ -1,13 +1,14 @@
 const { ethers } = require("hardhat")
-const { mainnet } = require("../../addresses/index")
+const { mainnet } = require("../../../addresses/index")
 
-const earnStrategyFactoryAddr = ""
-const earnStrategyTemplateAddr = ""
-const curveZapAddr = ""
+const earnStrategyFactoryAddr = "" // from deploy/base/earnStrategyFactory.js
+const earnStrategyTemplateAddr = "" // from deploy/base/earnStrategy.js
+const curveZapAddr = "" // from deploy/base/curveMetaPoolZap.js
 
 // Curve
-const poolAddr = ""
-const poolIndex = "" // Integar
+const poolAddr = "0x890f4e345B1dAED0367A877a1612f86A1f86985f"
+const zapAddr = "0xB0a0716841F2Fc03fbA72A891B8Bb13584F52F2d"
+const poolIndex = 21
 
 async function main() {
     let resultVault = "SUCCESS"
@@ -26,7 +27,6 @@ async function main() {
     } catch(error) {
         if(error.receipt.status == 0) {
             resultStrategy = "FAILED"
-            console.log(resultStrategy)
         }
     }
     const earnStrategyAddr = await earnStrategyFactory.strategies((await earnStrategyFactory.getTotalStrategies()).sub(1))
@@ -46,12 +46,14 @@ async function main() {
         }
     }
     await earnStrategy.setVault(earnVault.address)
-    const curveZap = new ethers.Contract(curveZapAddr, ["function addPool(address, address) external"], deployer)
+    const curveZap = new ethers.Contract(curveZapAddr, ["function addPool(address, address, address) external"], deployer)
     await curveZap.addPool(
         earnVault.address,
         poolAddr,
+        zapAddr
     )
 
+    console.log("DAO Earn: UST farm")
     console.log('EarnVault proxy address:', earnVault.address, resultVault)
     console.log('EarnStrategy address:', earnStrategy.address, resultStrategy)
 }

@@ -1,11 +1,11 @@
 const { run } = require('hardhat')
 
-const curveMetaPoolFacZap = "" // copy from deployCurveMetaPoolFacZap.js output
+const earnStrategyAAVETemplate = "" // from deploy/base/earnStrategyAAVE.js
 
 async function main() {
     await run('verify:verify', {
-        address: curveMetaPoolFacZap,
-        contract: 'contracts/zaps/CurveMetaPoolFacZap.sol:CurveMetaPoolFacZap',
+        address: earnStrategyAAVETemplate,
+        contract: 'contracts/strategies/EarnStrategyAAVE.sol:EarnStrategyAAVE',
     })
 }
 

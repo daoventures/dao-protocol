@@ -32,7 +32,7 @@ AAVE | USDT/USDC/DAI/[LP Token](https://etherscan.io/address/0xdF5e0e81Dff6FAF3A
 # Developer docs
 Each DAO Earn pool consist of 3 contracts: **vault**, **strategy**, and **zap**.
 
-**Vault** is the contract to keep and invest LP token into strategy.
+**Vault** is the proxy contract to keep and invest LP token into strategy.
 
 **Strategy** is the contract to invest and compound LP token in Convex.
 
@@ -41,7 +41,7 @@ Each DAO Earn pool consist of 3 contracts: **vault**, **strategy**, and **zap**.
 ## Frontend
 Example with Ethers.js
 ### Deposit
-LP token: (through **vault** contract)
+LP token: (through **vault** proxy contract)
 ```javascript
 lpToken.approve(vault.address, ethers.constants.MaxUint256)
 vault.deposit(amountOfLpToken, trueOrFalse)
@@ -70,7 +70,7 @@ zap.depositZap(vault.address, amountOfETH, ethers.constants.AddressZero, trueOrF
 > `trueOfFalse` is a boolean to stake daoERN into DAOmine directly.
 
 ### Withdraw
-LP token: (through **vault** contract)
+LP token: (through **vault** proxy contract)
 ```javascript
 vault.withdraw(amountOfShares)
 ```
@@ -83,38 +83,53 @@ zap.withdraw(vault.address, amountOfShares, coin.address)
 [Formula to calculate APY](https://docs.google.com/document/d/1E4xEBG7COtlIvleQWoh26PcvIkpFxgOUpmk9BXJsv8s/edit#heading=h.suss79bdwa4r)
 
 ## Deployer
-Run script for everything in scipts/deploy folder except ```deployFarm.js``` & ```deployFarmNoDC.js```
-Record down every contract address that deployed. (will show with console.log after success deploy)
-For each deploy script in deploy folder, there is a corresponding verify script in verify folder.
+1/
+
+Run script for everything in scripts/deploy/base folder.
+
+Record down every contract address that deployed for later use. (will show with console.log after success deploy)
+
+For each deploy script in deploy/base folder, there is a verify script in verify/base folder with same script name.
 ```
-npx hardhat run --network mainnet scripts/deploy/deployCurveLendingPool2Zap.js
-npx hardhat run --network mainnet scripts/verify/verifyCurveLendingPool2Zap.js
+npx hardhat run --network mainnet scripts/deploy/base/curveLendingPool2Zap.js
+npx hardhat run --network mainnet scripts/verify/base/curveLendingPool2Zap.js
 ```
 
-Farm Name | Deploy Script | earnStrategyTemplateAddr | poolIndex | curveZapAddr | Verify Script
---------- | ------------- | -------------------------| --------- | ------------ | -------------
-LUSD | deployFarmMetaPoolFac.js | EarnStrategyTemplate | 33 | CurveMetaPoolFacZap | verifyFarm.js
-BUSDv2 | deployFarmMetaPoolFac.js | EarnStrategyTemplate | 34 | CurveMetaPoolFacZap | verifyFarm.js
-alUSD | deployFarmMetaPoolFac.js | EarnStrategyTemplate | 36 | CurveMetaPoolFacZap | verifyFarm.js
-UST | deployFarm.js | EarnStrategyTemplate | 21 | CurveMetaPoolFacZap | verifyFarm.js
-USDN | deployFarm.js | EarnStrategyTemplate | 13 | CurveMetaPoolZap | verifyFarm.js
-sUSD | deployFarm.js | EarnStrategyTemplate | 4 | CurvePlainPoolZap | verifyFarm.js
-Yearn | deployFarm.js | EarnStrategyTemplate | 2 | CurveYZap | verifyFarm.js
-AAVE | deployFarmNoDC.js | EarnStrategyAAVETemplate | 24 | CurveLendingPool3Zap | verifyFarmAAVE.js
-sAAVE | deployFarmNoDC.js | EarnStrategyAAVETemplate | 26 | CurveLendingPool2Zap | verifyFarmAAVE.js
+2/
+
+Run every script in scripts/deploy/farms folder. Fill in `earnStrategyFactoryAddr`, `earnStrategyTemplateAddr` and `curveZapAddr` with corresponding contract address before run.
+
+```
+npx hardhat run --network mainnet scripts/deploy/farms/alusd.js
+```
+
+Verify earnVault:
+
+```
+npx hardhat run --network mainnet scripts/verify/base/earnVault.js
+```
+
+> earnVault verification only need run once.
+
+Then, go to [Etherscan](https://kovan.etherscan.io/), search earnVault proxy contract address for each farm, click *Code*, click *More Options* -> *Is this a proxy?*, click *Verify*, check if implementation contract is same as `earnVaultAddr` in `earnVault.js`, then proceed with the verification. After success verify, there will be 2 new button, *Read as Proxy* & *Write as Proxy*, in the same row of *Code*, *Read Contract* & *Write Contract*.
 
 ## Kovan contract addresses
 These contracts use as interface for all USD series product. In Mainnet each product will have different contract address.
 
 EarnVault proxy: 0x47bb78583fea8Ab0F1D8cA94750fe4C266fFb8F1
+
 CurveZap: 0x032C77879F47C6f2617AB7b31626a003c73C5127
 
 EarnStrategyFactory: 0xebcC9b9B4239670fb384C82e97A61B7469d97A12
+
 EarnStrategyTemplate: 0x41240a6207E1FCCD5A209112137c08001982583E
 
 AnyToken "ATN": 0xBB06dF04f0D508FC4b1bdBbf164d82884C5F677A
+
 USDT: 0x07de306FF27a2B630B1141956844eB1552B956B5
+
 USDC: 0xb7a4F3E9097C08dA09517b5aB877F7a917224ede
+
 DAI: 0x4F96Fe3b7A6Cf9725f59d353F723c1bDb64CA6Aa
 
-In Kovan, vault contract accept ATN only. Zap contract accept USDT/USDC/DAI, ATN(depositZap()) and ETH(depositZap()) only.
+> In Kovan, vault contract accept ATN only. Zap contract accept USDT/USDC/DAI, ATN(`depositZap()`) and ETH(`depositZap()`) only.

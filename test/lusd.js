@@ -15,7 +15,6 @@ const unlockedBaseCoinAddr = "0xe3786BF25E15013FDDa09dbe881529d44B9CA239" // *va
 const unlocked3CrvAddr = "0xa7888F85BD76deeF3Bd03d4DbCF57765a49883b3"
 
 const curvePoolAddr = "0xEd279fDD11cA84bEef15AF5D39BB4d4bEE23F0cA" // *variable
-const curvePoolZap = "0xA79828DF1850E8a3A3064576f380D90aECDD3359" // *variable
 
 const poolIndex = 33 // *variable
 const curveZapType = "CurveMetaPoolFacZap" // *variable

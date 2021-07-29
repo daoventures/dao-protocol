@@ -323,10 +323,10 @@ contract CurveMetaPoolZap is Ownable, BaseRelayRecipient {
         return _poolInfo.curveZap.calc_token_amount(_amounts, true);
     }
 
-    /// @notice Function to add new Curve pool (for Curve metapool with factory deposit zap only)
+    /// @notice Function to add new Curve metapool (not factory metapool)
     /// @param vault_ Address of corresponding vault contract
     /// @param curvePool_ Address of Curve metapool contract
-    /// @param curveZap_ Address of Curve metapool factory deposit zap contract
+    /// @param curveZap_ Address of Curve metapool deposit zap contract
     function addPool(address vault_, address curvePool_, address curveZap_) external onlyOwner {
         IEarnVault _vault = IEarnVault(vault_);
         IERC20 _lpToken = IERC20(_vault.lpToken());

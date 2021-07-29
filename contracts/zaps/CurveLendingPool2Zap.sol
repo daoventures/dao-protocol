@@ -66,7 +66,7 @@ contract CurveLendingPool2Zap is Ownable, BaseRelayRecipient {
     event Compound(uint256 amount, address indexed vault, uint256 lpTokenBal);
     event AddLiquidity(uint256 amount, address indexed vault, address indexed best, uint256 lpTokenBal);
     event EmergencyWithdraw(uint256 amount, address indexed vault, uint256 lpTokenBal);
-    event AddPool(address indexed vault, address indexed curvePool, address indexed curveZap);
+    event AddPool(address indexed vault, address indexed curvePool);
     event SetStrategy(address indexed strategy);
     event SetBiconomy(address indexed biconomy);
 
@@ -286,15 +286,15 @@ contract CurveLendingPool2Zap is Ownable, BaseRelayRecipient {
         return _poolInfo.curvePool.calc_token_amount(_amounts, true);
     }
 
-    /// @notice Function to add new Curve pool (for Curve metapool with factory deposit zap only)
+    /// @notice Function to add new Curve lending pool (with 2 assets only)
     /// @param vault_ Address of corresponding vault contract
-    /// @param curvePool_ Address of Curve metapool contract
-    /// @param curveZap_ Address of Curve metapool factory deposit zap contract
-    function addPool(address vault_, address curvePool_, address curveZap_) external onlyOwner {
+    /// @param curvePool_ Address of Curve lending contract
+    function addPool(address vault_, address curvePool_) external onlyOwner {
         IEarnVault _vault = IEarnVault(vault_);
         ICurvePool _curvePool = ICurvePool(curvePool_);
         address _strategy = _vault.strategy();
         
+        // Here use loop because of stake too deep issue
         address[] memory _coins = new address[](2);
         for (uint256 _i; _i < 2; _i++) {
             address _coin = _curvePool.coins(_i);
@@ -319,7 +319,7 @@ contract CurveLendingPool2Zap is Ownable, BaseRelayRecipient {
             _coins,
             _underlying
         );
-        emit AddPool(vault_, curvePool_, curveZap_);
+        emit AddPool(vault_, curvePool_);
     }
     
     /// @notice Function to set new strategy contract

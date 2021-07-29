@@ -1,11 +1,12 @@
 const { run } = require('hardhat')
 
-const curveMetaPoolZap = "" // copy from deployCurveMetaPoolZap.js output
+// earnVaultAddr (not proxy) can be found in folder .openzeppelin -> mainnet.json -> impls -> address
+const earnVaultAddr = ""
 
 async function main() {
     await run('verify:verify', {
-        address: curveMetaPoolZap,
-        contract: 'contracts/zaps/CurveMetaPoolZap.sol:CurveMetaPoolZap',
+        address: earnVaultAddr,
+        contract: 'contracts/vaults/EarnVault.sol:EarnVault',
     })
 }
 
