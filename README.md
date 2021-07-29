@@ -83,7 +83,7 @@ zap.withdraw(vault.address, amountOfShares, coin.address)
 [Formula to calculate APY](https://docs.google.com/document/d/1E4xEBG7COtlIvleQWoh26PcvIkpFxgOUpmk9BXJsv8s/edit#heading=h.suss79bdwa4r)
 
 ## Deployer
-1/
+1/ Base contracts
 
 Run script for everything in scripts/deploy/base folder.
 
@@ -95,7 +95,7 @@ npx hardhat run --network mainnet scripts/deploy/base/curveLendingPool2Zap.js
 npx hardhat run --network mainnet scripts/verify/base/curveLendingPool2Zap.js
 ```
 
-2/
+2/ Farm contracts
 
 Run every script in scripts/deploy/farms folder. Fill in `earnStrategyFactoryAddr`, `earnStrategyTemplateAddr` and `curveZapAddr` with corresponding contract address before run.
 
@@ -111,7 +111,11 @@ npx hardhat run --network mainnet scripts/verify/base/earnVault.js
 
 > earnVault verification only need run once.
 
-Then, go to [Etherscan](https://kovan.etherscan.io/), search earnVault proxy contract address for each farm, click *Code*, click *More Options* -> *Is this a proxy?*, click *Verify*, check if implementation contract is same as `earnVaultAddr` in `earnVault.js`, then proceed with the verification. After success verify, there will be 2 new button, *Read as Proxy* & *Write as Proxy*, in the same row of *Code*, *Read Contract* & *Write Contract*.
+Then, go to [Etherscan](https://etherscan.io/), search earnVault proxy contract address for each farm, click *Code*, click *More Options* -> *Is this a proxy?*, click *Verify*, check if implementation contract is same as `earnVaultAddr` in `earnVault.js`, then proceed with the verification. After success verify, there will be 2 new button, *Read as Proxy* & *Write as Proxy*, in the same row of *Code*, *Read Contract* & *Write Contract*.
+
+3/ Transfer ownership
+
+All contracts can be transfer to multi-sig via `transferOwnership()` through Etherscan, except proxy admin. The process of transferring proxy admin can be done only through code, and after transferring proxy admin, there will be some troublesome to upgrade implementation contract. Since user can't see the owner of proxy admin through Etherscan, let's stick it to the deployer first.
 
 ## Kovan contract addresses
 These contracts use as interface for all USD series product. In Mainnet each product will have different contract address.
