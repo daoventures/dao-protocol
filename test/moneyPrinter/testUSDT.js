@@ -80,7 +80,7 @@ const mine = async () => {
     })
 }
 
-describe("Money Printer - USDC", () => {
+describe("Money Printer - USDT", () => {
     
     beforeEach(async () => {
         await deployments.fixture(["mp_mainnet"])
@@ -160,8 +160,8 @@ describe("Admin functions", async() => {
     })
 
     it('Should work correctly with admin', async() => {
-        const {moneyPrinterVault, moneyPrinterStrategy, admin, deployer, unlockedUser, USDC} = await setup()
-        await moneyPrinterVault.connect(unlockedUser).deposit(ethers.utils.parseUnits("100", 6), USDC.address)
+        const {moneyPrinterVault, moneyPrinterStrategy, admin, deployer, unlockedUser, USDT} = await setup()
+        await moneyPrinterVault.connect(unlockedUser).deposit(ethers.utils.parseUnits("100", 6), USDT.address)
         await increaseTime(3600000)
         await moneyPrinterVault.connect(admin).yield()
     })
@@ -174,34 +174,34 @@ describe("EmergencyWithdraw", async() => {
     })
     
     it('Should work correctly', async () => {
-        const {moneyPrinterVault, moneyPrinterStrategy, admin, USDC, unlockedUser} = await setup()
-        await moneyPrinterVault.connect(unlockedUser).deposit(ethers.utils.parseUnits("100", 6), USDC.address)
-        await moneyPrinterVault.connect(admin).emergencyWithdraw(USDC.address)
-        const balanceBefore = await USDC.balanceOf(unlockedUser.address)
-        await moneyPrinterVault.connect(unlockedUser).withdraw(moneyPrinterVault.balanceOf(unlockedUser.address), USDC.address)
-        const balanceAfter = await USDC.balanceOf(unlockedUser.address)
+        const {moneyPrinterVault, moneyPrinterStrategy, admin, USDT, unlockedUser} = await setup()
+        await moneyPrinterVault.connect(unlockedUser).deposit(ethers.utils.parseUnits("100", 6), USDT.address)
+        await moneyPrinterVault.connect(admin).emergencyWithdraw(USDT.address)
+        const balanceBefore = await USDT.balanceOf(unlockedUser.address)
+        await moneyPrinterVault.connect(unlockedUser).withdraw(moneyPrinterVault.balanceOf(unlockedUser.address), USDT.address)
+        const balanceAfter = await USDT.balanceOf(unlockedUser.address)
 
         expect(balanceAfter.gt(balanceBefore)) 
     }) 
 
     it('Should not allow other functions during emergency', async() => {
-        const {moneyPrinterVault, moneyPrinterStrategy, admin, USDC, unlockedUser, deployer} = await setup()
-        await moneyPrinterVault.connect(unlockedUser).deposit(ethers.utils.parseUnits("100", 6), USDC.address)
-        await moneyPrinterVault.connect(admin).emergencyWithdraw(USDC.address)
-        await expect( moneyPrinterVault.connect(unlockedUser).deposit(ethers.utils.parseUnits("100", 6), USDC.address)).to.be.revertedWith("Cannot deposit during emergency")
+        const {moneyPrinterVault, moneyPrinterStrategy, admin, USDT, unlockedUser, deployer} = await setup()
+        await moneyPrinterVault.connect(unlockedUser).deposit(ethers.utils.parseUnits("100", 6), USDT.address)
+        await moneyPrinterVault.connect(admin).emergencyWithdraw(USDT.address)
+        await expect( moneyPrinterVault.connect(unlockedUser).deposit(ethers.utils.parseUnits("100", 6), USDT.address)).to.be.revertedWith("Cannot deposit during emergency")
         await expect( moneyPrinterVault.connect(admin).yield()).to.be.revertedWith("Cannot call during emergency")
         // await expect( moneyPrinterVault.connect(deployer).migrateFunds(USDC.address)).to.be.revertedWith("Cannot call during emergency")
     })
 
     it('Should remove emergency on reInvest', async() => {
-        const {moneyPrinterVault, moneyPrinterStrategy, admin, USDC, unlockedUser, unlockedUser2, deployer} = await setup()
-        await moneyPrinterVault.connect(unlockedUser).deposit(ethers.utils.parseUnits("100", 6), USDC.address)
-        await moneyPrinterVault.connect(unlockedUser2).deposit(ethers.utils.parseUnits("50", 6), USDC.address)
+        const {moneyPrinterVault, moneyPrinterStrategy, admin, USDT, unlockedUser, unlockedUser2, deployer} = await setup()
+        await moneyPrinterVault.connect(unlockedUser).deposit(ethers.utils.parseUnits("100", 6), USDT.address)
+        await moneyPrinterVault.connect(unlockedUser2).deposit(ethers.utils.parseUnits("50", 6), USDT.address)
         await increaseTime(3600000)
         await moneyPrinterVault.connect(admin).yield()
-        await moneyPrinterVault.connect(admin).emergencyWithdraw(USDC.address)
+        await moneyPrinterVault.connect(admin).emergencyWithdraw(USDT.address)
         await moneyPrinterVault.connect(deployer).reInvest()
-        await moneyPrinterVault.connect(unlockedUser).deposit(ethers.utils.parseUnits("100", 6), USDC.address)
+        await moneyPrinterVault.connect(unlockedUser).deposit(ethers.utils.parseUnits("100", 6), USDT.address)
     })
 }) 
 
@@ -210,66 +210,66 @@ describe("Normal flow", async () => {
         await deployments.fixture(["mp_mainnet"])
     })
     it('Should deposit, yield, withdraw correctly', async() => {
-        const {moneyPrinterVault, moneyPrinterStrategy, admin, USDC, unlockedUser, unlockedUser2, deployer} = await setup()
-        await moneyPrinterVault.connect(unlockedUser).deposit(ethers.utils.parseUnits("100", 6), USDC.address)
-        await moneyPrinterVault.connect(unlockedUser2).deposit(ethers.utils.parseUnits("50", 6), USDC.address)
+        const {moneyPrinterVault, moneyPrinterStrategy, admin, USDT, unlockedUser, unlockedUser2, deployer} = await setup()
+        await moneyPrinterVault.connect(unlockedUser).deposit(ethers.utils.parseUnits("100", 6), USDT.address)
+        await moneyPrinterVault.connect(unlockedUser2).deposit(ethers.utils.parseUnits("50", 6), USDT.address)
         await increaseTime(3600000)
         await moneyPrinterVault.connect(admin).yield()
-        let user1balanceBefore = await USDC.balanceOf(unlockedUser.address)
-        let user2balanceBefore = await USDC.balanceOf(unlockedUser2.address)
-        await moneyPrinterVault.connect(unlockedUser).withdraw(moneyPrinterVault.balanceOf(unlockedUser.address), USDC.address)
-        await moneyPrinterVault.connect(unlockedUser2).withdraw(moneyPrinterVault.balanceOf(unlockedUser2.address), USDC.address)
-        let user1balanceAfter = await USDC.balanceOf(unlockedUser.address)
-        let user2balanceAfter = await USDC.balanceOf(unlockedUser2.address)
+        let user1balanceBefore = await USDT.balanceOf(unlockedUser.address)
+        let user2balanceBefore = await USDT.balanceOf(unlockedUser2.address)
+        await moneyPrinterVault.connect(unlockedUser).withdraw(moneyPrinterVault.balanceOf(unlockedUser.address), USDT.address)
+        await moneyPrinterVault.connect(unlockedUser2).withdraw(moneyPrinterVault.balanceOf(unlockedUser2.address), USDT.address)
+        let user1balanceAfter = await USDT.balanceOf(unlockedUser.address)
+        let user2balanceAfter = await USDT.balanceOf(unlockedUser2.address)
 
         console.log('amountWithdrawn-1', (user1balanceAfter.sub(user1balanceBefore)).toString())
         console.log('amountWithdrawn-2', (user2balanceAfter.sub(user2balanceBefore)).toString())
     })
  
     it("Should update poolValue correctly", async () => {
-        const { moneyPrinterVault, moneyPrinterStrategy, admin, USDC, unlockedUser, unlockedUser2, deployer } = await setup()
-        await moneyPrinterVault.connect(unlockedUser).deposit(ethers.utils.parseUnits("100", 6), USDC.address)
-        await moneyPrinterVault.connect(unlockedUser2).deposit(ethers.utils.parseUnits("50", 6), USDC.address)
+        const { moneyPrinterVault, moneyPrinterStrategy, admin, USDT, unlockedUser, unlockedUser2, deployer } = await setup()
+        await moneyPrinterVault.connect(unlockedUser).deposit(ethers.utils.parseUnits("100", 6), USDT.address)
+        await moneyPrinterVault.connect(unlockedUser2).deposit(ethers.utils.parseUnits("50", 6), USDT.address)
 
-        await moneyPrinterVault.connect(unlockedUser).withdraw(await moneyPrinterVault.balanceOf(unlockedUser.address), USDC.address)
-        await moneyPrinterVault.connect(unlockedUser2).withdraw(await moneyPrinterVault.balanceOf(unlockedUser2.address), USDC.address)
+        await moneyPrinterVault.connect(unlockedUser).withdraw(await moneyPrinterVault.balanceOf(unlockedUser.address), USDT.address)
+        await moneyPrinterVault.connect(unlockedUser2).withdraw(await moneyPrinterVault.balanceOf(unlockedUser2.address), USDT.address)
         
         await expect(await moneyPrinterVault.getValueInPool()).to.equal(0)
 
     })
 
     it("Should update poolValue correctly - After liquidity changed", async () => {
-        const { moneyPrinterVault, moneyPrinterStrategy, admin, USDC, DAI, USDT, unlockedUser, unlockedUser2, deployer, quickSwapRouter } = await setup()
-        await moneyPrinterVault.connect(unlockedUser).deposit(ethers.utils.parseUnits("100", 6), USDC.address)
-        await moneyPrinterVault.connect(unlockedUser2).deposit(ethers.utils.parseUnits("50", 6), USDC.address)
+        const { moneyPrinterVault, moneyPrinterStrategy, admin, USDT, DAI, unlockedUser, unlockedUser2, deployer, quickSwapRouter } = await setup()
+        await moneyPrinterVault.connect(unlockedUser).deposit(ethers.utils.parseUnits("100", 6), USDT.address)
+        await moneyPrinterVault.connect(unlockedUser2).deposit(ethers.utils.parseUnits("50", 6), USDT.address)
 
         //execute large swap
         await quickSwapRouter.connect(unlockedUser2).swapExactTokensForTokens(ethers.utils.parseUnits("30000", 18), 0, [DAI.address, USDT.address], unlockedUser2.address,4120631147); //2100 year
 
-        await moneyPrinterVault.connect(unlockedUser).withdraw(await moneyPrinterVault.balanceOf(unlockedUser.address), USDC.address)
-        console.log('valueInPool', (await moneyPrinterVault.getValueInPool()).toString())
-        await moneyPrinterVault.connect(unlockedUser2).withdraw(await moneyPrinterVault.balanceOf(unlockedUser2.address), USDC.address)
+        await moneyPrinterVault.connect(unlockedUser).withdraw(await moneyPrinterVault.balanceOf(unlockedUser.address), USDT.address)
+        // console.log('valueInPool', (await moneyPrinterVault.getValueInPool()).toString())
+        await moneyPrinterVault.connect(unlockedUser2).withdraw(await moneyPrinterVault.balanceOf(unlockedUser2.address), USDT.address)
         
         await expect(await moneyPrinterVault.getValueInPool()).to.equal(0)
 
     })
 
     it("Should transfer fee correctly on deposit", async () => {
-        const { moneyPrinterVault, moneyPrinterStrategy, admin, USDC, unlockedUser, unlockedUser2, deployer } = await setup()
-        let treasuryBefore = await USDC.balanceOf(treasury)
-        let communityWalletBefore = await USDC.balanceOf(communityWallet)
-        let strategistBefore = await USDC.balanceOf(strategist)
+        const { moneyPrinterVault, moneyPrinterStrategy, admin, USDT, unlockedUser, unlockedUser2, deployer } = await setup()
+        let treasuryBefore = await USDT.balanceOf(treasury)
+        let communityWalletBefore = await USDT.balanceOf(communityWallet)
+        let strategistBefore = await USDT.balanceOf(strategist)
 
         let amountDeposited = ethers.utils.parseUnits("100", 6)
         let onePercentOfDeposited = amountDeposited.div(100)
 
-        await moneyPrinterVault.connect(unlockedUser).deposit(amountDeposited, USDC.address)
+        await moneyPrinterVault.connect(unlockedUser).deposit(amountDeposited, USDT.address)
 
-        let treasuryAfter = await USDC.balanceOf(treasury)
-        let communityWalletAfter = await USDC.balanceOf(communityWallet)
-        let strategistAfter = await USDC.balanceOf(strategist)
+        let treasuryAfter = await USDT.balanceOf(treasury)
+        let communityWalletAfter = await USDT.balanceOf(communityWallet)
+        let strategistAfter = await USDT.balanceOf(strategist)
 
-        console.log(onePercentOfDeposited.mul(40).div(100), treasuryAfter.toString(), treasuryBefore.toString())
+        // console.log(onePercentOfDeposited.mul(40).div(100), treasuryAfter.toString(), treasuryBefore.toString())
 
         expect(treasuryAfter.sub(treasuryBefore)).to.equal(onePercentOfDeposited.mul(40).div(100))
         expect(communityWalletAfter.sub(communityWalletBefore)).to.equal(onePercentOfDeposited.mul(40).div(100))
@@ -279,14 +279,14 @@ describe("Normal flow", async () => {
 
 
     it("Should transfer fee correctly on yield", async () => {
-        const { moneyPrinterVault, moneyPrinterStrategy, admin, USDC, DAI, unlockedUser, unlockedUser2, deployer } = await setup()
+        const { moneyPrinterVault, moneyPrinterStrategy, admin, USDT, DAI, unlockedUser, unlockedUser2, deployer } = await setup()
         let treasuryBefore = await DAI.balanceOf(treasury)
         let communityWalletBefore = await DAI.balanceOf(communityWallet)
         let strategistBefore = await DAI.balanceOf(strategist)
 
         let amountDeposited = ethers.utils.parseUnits("10000", 6)
 
-        await moneyPrinterVault.connect(unlockedUser).deposit(amountDeposited, USDC.address)
+        await moneyPrinterVault.connect(unlockedUser).deposit(amountDeposited, USDT.address)
         
         await increaseTime(172800) //2 days
         await mine()
