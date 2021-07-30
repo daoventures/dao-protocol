@@ -49,6 +49,7 @@ contract DAOVaultETHUSDC is ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuar
       IERC20Upgradeable _token0, IERC20Upgradeable _token1, IERC20Upgradeable _lpToken) external initializer {
         
         __ERC20_init(_name, _symbol);
+        __Ownable_init();
         
         poolId = _poolId;
         amountToKeepInVault =_amountToKeepInVault;
@@ -197,6 +198,67 @@ contract DAOVaultETHUSDC is ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuar
         trustedForwarder = _biconomy;
     }
 
+    /// @notice Function to set new network fee for deposit amount tier 2
+    /// @param _networkFeeTier2 Array that contains minimum and maximum amount of tier 2 (18 decimals)
+    function setNetworkFeeTier2(uint256[] calldata _networkFeeTier2) external onlyOwner {
+        require(_networkFeeTier2[0] != 0, "Minimun amount cannot be 0");
+        require(_networkFeeTier2[1] > _networkFeeTier2[0], "Maximun amount must greater than minimun amount");
+        /**
+         * Network fees have three tier, but it is sufficient to have minimun and maximun amount of tier 2
+         * Tier 1: deposit amount < minimun amount of tier 2
+         * Tier 2: minimun amount of tier 2 <= deposit amount <= maximun amount of tier 2
+         * Tier 3: amount > maximun amount of tier 2
+         */
+        uint256[] memory oldNetworkFeeTier2 = networkFeeTier2;
+        networkFeeTier2 = _networkFeeTier2;
+    }
+
+    /// @notice Function to set new custom network fee tier
+    /// @param _customNetworkFeeTier Amount of new custom network fee tier (18 decimals)
+    function setCustomNetworkFeeTier(uint256 _customNetworkFeeTier) external onlyOwner {
+        require(_customNetworkFeeTier > networkFeeTier2[1], "Custom network fee tier must greater than tier 2");
+
+        uint256 oldCustomNetworkFeeTier = customNetworkFeeTier;
+        customNetworkFeeTier = _customNetworkFeeTier;
+    }
+
+    /// @notice Function to set new network fee percentage
+    /// @param _networkFeePerc Array that contains new network fee percentage for tier 1, tier 2 and tier 3
+    function setNetworkFeePerc(uint256[] calldata _networkFeePerc) external onlyOwner {
+        require(
+            _networkFeePerc[0] < 3000 &&
+                _networkFeePerc[1] < 3000 &&
+                _networkFeePerc[2] < 3000,
+            "Network fee percentage cannot be more than 30%"
+        );
+        /**
+         * _networkFeePerc content a array of 3 element, representing network fee of tier 1, tier 2 and tier 3
+         * For example networkFeePerc is [100, 75, 50]
+         * which mean network fee for Tier 1 = 1%, Tier 2 = 0.75% and Tier 3 = 0.5%
+         */
+        uint256[] memory oldNetworkFeePerc = networkFeePerc;
+        networkFeePerc = _networkFeePerc;
+    }
+
+    /// @notice Function to set new custom network fee percentage
+    /// @param _percentage Percentage of new custom network fee
+    function setCustomNetworkFeePerc(uint256 _percentage) public onlyOwner {
+        require(_percentage < networkFeePerc[2], "Custom network fee percentage cannot be more than tier 2");
+
+        uint256 oldCustomNetworkFeePerc = customNetworkFeePerc;
+        customNetworkFeePerc = _percentage;
+    }
+
+    //500 for 50%
+    function setPercTokenKeepInVault(uint256 _percentage) external onlyAdmin {
+        amountToKeepInVault = _percentage;
+    }
+
+    ///@dev To move lpTokens from masterChef to this contract.
+    function withdrawToVault(uint _amount) external onlyAdmin {
+        MasterChef.withdraw(poolId, _amount);
+    }
+
     ///@dev swap to required lpToken. Deposit to masterChef in invest()
     function _deposit(address _token, uint _amount) internal returns(uint _lpTokens){
         
@@ -311,7 +373,5 @@ contract DAOVaultETHUSDC is ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuar
 
 }
 
-//TODO
-//1. add biconomy
-//3. owner functions
-//2. admin or owner to move funds from masterChef to vault
+
+
