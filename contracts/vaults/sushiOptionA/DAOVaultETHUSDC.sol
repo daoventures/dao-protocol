@@ -5,11 +5,15 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/SafeERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+
+import "../../../libs/BaseRelayRecipient.sol";
+import "../../../interfaces/IRelayRecipient.sol";
 import "../../../interfaces/IUniswapV2Router02.sol";
 import "../../../interfaces/IUniswapV2Pair.sol";
 import "../../../interfaces/IMasterChef.sol";
 
-contract DAOVaultETHUSDC is ERC20Upgradeable, OwnableUpgradeable{
+contract DAOVaultETHUSDC is ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpgradeable, BaseRelayRecipient{
     using SafeMathUpgradeable for uint;
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
@@ -65,8 +69,18 @@ contract DAOVaultETHUSDC is ERC20Upgradeable, OwnableUpgradeable{
 
     }
 
+    /// @notice Function that required for inherict BaseRelayRecipient
+    function _msgSender() internal override(ContextUpgradeable, BaseRelayRecipient) view returns (address payable) {
+        return BaseRelayRecipient._msgSender();
+    }
+    
+    /// @notice Function that required for inherict BaseRelayRecipient
+    function versionRecipient() external pure override returns (string memory) {
+        return "1";
+    }
+
     function deposit(IERC20Upgradeable _token, uint _amount) external payable {
-        require(tx.origin == msg.sender, "only EOA");
+        require(tx.origin == msg.sender || isTrustedForwarder(msg.sender), "only EOA");
         require(isEmergency == false ,"Deposit paused");
         //TODO - add nonReentrant
         //share calculations
@@ -153,7 +167,7 @@ contract DAOVaultETHUSDC is ERC20Upgradeable, OwnableUpgradeable{
     function invest() external onlyAdmin {
         require(isEmergency == false ,"Invest paused");
         //keep some % of lpTokens in vault, deposit remaining to masterChef 
-        //TODO withdraw fee
+        //TODO withdraw fee and set _fees = 0
         uint lpTokenBalance = available();
 
         uint amountToDeposit = lpTokenBalance.mul(amountToKeepInVault).div(10000);
@@ -177,6 +191,10 @@ contract DAOVaultETHUSDC is ERC20Upgradeable, OwnableUpgradeable{
         _stakeToPool(amountToDeposit);
 
         isEmergency = false;
+    }
+
+    function setBiconomy(address _biconomy) external onlyOwner {
+        trustedForwarder = _biconomy;
     }
 
     ///@dev swap to required lpToken. Deposit to masterChef in invest()
@@ -296,3 +314,4 @@ contract DAOVaultETHUSDC is ERC20Upgradeable, OwnableUpgradeable{
 //TODO
 //1. add biconomy
 //3. owner functions
+//2. admin or owner to move funds from masterChef to vault
