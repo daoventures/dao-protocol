@@ -27,6 +27,9 @@ contract DAOVaultETHUSDC is ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuar
     IERC20Upgradeable public token1;
 
     address public admin; 
+    address public treasuryWallet;
+    address public communityWallet;
+    address public strategist;
 
     uint public poolId;
     uint public amountToKeepInVault; //500 //5 %
@@ -45,14 +48,15 @@ contract DAOVaultETHUSDC is ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuar
         _;
     }
 
-    function initialize(string memory _name, string memory _symbol, uint _poolId, uint _amountToKeepInVault,
+    ///@dev For ETH-token pairs, _token0 should be ETH 
+    function initialize(string memory _name, string memory _symbol, uint _poolId, 
       IERC20Upgradeable _token0, IERC20Upgradeable _token1, IERC20Upgradeable _lpToken) external initializer {
         
         __ERC20_init(_name, _symbol);
         __Ownable_init();
         
         poolId = _poolId;
-        amountToKeepInVault =_amountToKeepInVault;
+        amountToKeepInVault = 500; //5%
 
         token0 = _token0;
         token1 = _token1;
@@ -168,12 +172,12 @@ contract DAOVaultETHUSDC is ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuar
     function invest() external onlyAdmin {
         require(isEmergency == false ,"Invest paused");
         //keep some % of lpTokens in vault, deposit remaining to masterChef 
-        //TODO withdraw fee and set _fees = 0
-        uint lpTokenBalance = available();
+        _transferFee();
 
-        uint amountToDeposit = lpTokenBalance.mul(amountToKeepInVault).div(10000);
-
-        _stakeToPool(amountToDeposit);
+        uint amountToDeposit = balance().mul(amountToKeepInVault).div(10000);
+        if(amountToDeposit > 0) {
+            _stakeToPool(amountToDeposit);
+        }
     }
 
     function emergencyWithdraw() external onlyAdmin {    
@@ -359,6 +363,34 @@ contract DAOVaultETHUSDC is ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuar
 
     function _stakeToPool(uint _amount) internal {
         MasterChef.deposit(poolId, _amount);
+    }
+
+    ///@dev Transfer fee from vault (in WETH)
+    function _transferFee() internal {
+
+        (uint _token0Amount, uint _token1Amount) = SushiRouter.removeLiquidity(address(token0), address(token1), _fees, 0, 0, address(this), block.timestamp);
+
+        address[] memory path = new address[](2);
+        path[0] = address(token1) ;
+        path[1] = address(WETH);
+
+        SushiRouter.swapExactTokensForTokens(_token1Amount, 0, path, address(this), block.timestamp);
+
+        if(token0 != WETH) {
+            //for farms without ETH
+            path[0] == address(token0);
+            SushiRouter.swapExactTokensForTokens(_token0Amount, 0, path, address(this), block.timestamp);
+        }
+
+        uint feeInEth  = WETH.balanceOf(address(this)); 
+        uint feeSplit = feeInEth.mul(2).div(5);
+
+        WETH.transfer(treasuryWallet, feeSplit); //40%
+        WETH.transfer(communityWallet, feeSplit); //40%
+        WETH.transfer(strategist, feeInEth.sub(feeSplit).sub(feeSplit)); //20%
+
+        _fees = 0;
+
     }
 
     ///@dev balance of LPTokens in vault + masterCHef
