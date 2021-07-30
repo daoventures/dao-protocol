@@ -13,7 +13,7 @@ import "../../../interfaces/IUniswapV2Router02.sol";
 import "../../../interfaces/IUniswapV2Pair.sol";
 import "../../../interfaces/IMasterChef.sol";
 
-contract DAOVaultETHUSDC is ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpgradeable, BaseRelayRecipient{
+contract DAOVaultOptionA is ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpgradeable, BaseRelayRecipient{
     using SafeMathUpgradeable for uint;
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
