@@ -8,7 +8,7 @@ const poolIndex = 36
 const curveZapType = "CurveMetaPoolZap"
 
 describe("DAO Earn", () => {
-    it("should have correct authorization", async () => {
+    it("should have correct authorization and set admin functions successfully", async () => {
         const [deployer, client, admin, strategist, biconomy, treasury, community] = await ethers.getSigners()
         const CurveZap = await ethers.getContractFactory(curveZapType, deployer)
         const curveZap = await CurveZap.deploy()
@@ -103,5 +103,52 @@ describe("DAO Earn", () => {
         await expect(curveZap.connect(admin).addPool(earnVault.address, curvePoolAddr, curvePoolZap)).to.be.revertedWith("Ownable: caller is not the owner")
         await expect(curveZap.setStrategy(earnStrategyAddr)).to.be.revertedWith("Only authorized vault")
         await expect(curveZap.connect(client).setBiconomy(client.address)).to.be.revertedWith("Ownable: caller is not the owner")
+
+        // Set functions
+        await earnVault.setNetworkFeeTier2([ethers.utils.parseEther("10000"), ethers.utils.parseEther("50000")])
+        expect(await earnVault.networkFeeTier2(0)).to.equal(ethers.utils.parseEther("10000"))
+        expect(await earnVault.networkFeeTier2(1)).to.equal(ethers.utils.parseEther("50000"))
+
+        await earnVault.setCustomNetworkFeeTier(ethers.utils.parseEther("100000"))
+        expect(await earnVault.customNetworkFeeTier()).to.equal(ethers.utils.parseEther("100000"))
+        
+        await earnVault.setNetworkFeePerc([200, 100, 75])
+        expect(await earnVault.networkFeePerc(0)).to.equal(200)
+        expect(await earnVault.networkFeePerc(1)).to.equal(100)
+        expect(await earnVault.networkFeePerc(2)).to.equal(75)
+        
+        await earnVault.setCustomNetworkFeePerc(50)
+        expect(await earnVault.customNetworkFeePerc()).to.equal(50)
+        
+        await earnVault.setProfitSharingFeePerc(2500)
+        expect(await earnVault.profitSharingFeePerc()).to.equal(2500)
+        
+        await earnVault.setYieldFeePerc(2000)
+        expect(await earnStrategy.yieldFeePerc()).to.equal(2000)
+        
+        await earnVault.connect(admin).setPercTokenKeepInVault(1000)
+        expect(await earnVault.percKeepInVault()).to.equal(1000)
+        
+        const sampleAddress = "0xb1AD074E17AD59f2103A8832DADE917388D6C50D"
+        await earnVault.setTreasuryWallet(sampleAddress)
+        expect(await earnVault.treasuryWallet()).to.equal(sampleAddress)
+        
+        await earnVault.setCommunityWallet(sampleAddress)
+        expect(await earnVault.communityWallet()).to.equal(sampleAddress)
+        expect(await earnStrategy.communityWallet()).to.equal(sampleAddress)
+        
+        await earnVault.setBiconomy(sampleAddress)
+        expect(await earnVault.trustedForwarder()).to.equal(sampleAddress)
+        
+        await curveZap.setBiconomy(sampleAddress)
+        expect(await curveZap.trustedForwarder()).to.equal(sampleAddress)
+        
+        await earnVault.setAdmin(sampleAddress)
+        expect(await earnVault.admin()).to.equal(sampleAddress)
+        expect(await earnStrategy.admin()).to.equal(sampleAddress)
+        
+        await earnVault.connect(strategist).setStrategist(sampleAddress)
+        expect(await earnVault.strategist()).to.equal(sampleAddress)
+        expect(await earnStrategy.strategist()).to.equal(sampleAddress)
     })
 })

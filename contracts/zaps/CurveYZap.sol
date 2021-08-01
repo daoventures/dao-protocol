@@ -31,19 +31,19 @@ interface IEarnStrategy {
 
 interface ISushiRouter {
     function swapExactTokensForTokens(
-        uint amountIn,
-        uint amountOutMin,
+        uint256 amountIn,
+        uint256 amountOutMin,
         address[] calldata path,
         address to,
-        uint deadline
+        uint256 deadline
     ) external returns (uint[] memory amounts);
     function swapExactETHForTokens(
-        uint amountOutMin,
+        uint256 amountOutMin,
         address[] calldata path,
         address to,
-        uint deadline
+        uint256 deadline
     ) external payable returns (uint[] memory amounts);
-    function getAmountsOut(uint amountIn, address[] memory path) external view returns (uint[] memory amounts);
+    function getAmountsOut(uint256 amountIn, address[] memory path) external view returns (uint[] memory amounts);
 }
 
 contract CurveYZap is Ownable, BaseRelayRecipient {
@@ -66,7 +66,7 @@ contract CurveYZap is Ownable, BaseRelayRecipient {
     IERC20 private constant _yTUSD = IERC20(0x73a052500105205d34Daf004eAb301916DA8190f);
     IERC20 private constant _lpToken = IERC20(0xdF5e0e81Dff6FAF3A7e52BA697820c5e32D806A8);
 
-    event Deposit(address indexed vault, uint256 amount, address indexed coin, uint256 lptokenBal, uint256 daoERNBal);
+    event Deposit(address indexed vault, uint256 amount, address indexed coin, uint256 lptokenBal, uint256 daoERNBal, bool stake);
     event Withdraw(address indexed vault, uint256 shares, address indexed coin, uint256 lptokenBal, uint256 coinAmount);
     event SwapFees(uint256 amount, uint256 coinAmount, address indexed coin);
     event Compound(uint256 amount, address indexed vault, uint256 lpTokenBal);
@@ -174,7 +174,7 @@ contract CurveYZap is Ownable, BaseRelayRecipient {
         }
         uint256 _lpTokenBal = _lpToken.balanceOf(address(this));
         _daoERNBal = IEarnVault(_vault).depositZap(_lpTokenBal, _msgSender(), _stake);
-        emit Deposit(_vault, _amount, _coin, _lpTokenBal, _daoERNBal);
+        emit Deposit(_vault, _amount, _coin, _lpTokenBal, _daoERNBal, _stake);
     }
 
     /// @notice Function to withdraw funds from vault contract

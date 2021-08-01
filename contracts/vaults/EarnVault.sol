@@ -52,7 +52,6 @@ contract EarnVault is Initializable, ERC20Upgradeable, OwnableUpgradeable,
     uint256 public customNetworkFeeTier;
     uint256[] public networkFeePerc;
     uint256 public customNetworkFeePerc;
-    uint256 public profitSharingFeePerc;
     uint256 private _fees;
 
     // Address to collect fees
@@ -118,7 +117,6 @@ contract EarnVault is Initializable, ERC20Upgradeable, OwnableUpgradeable,
         customNetworkFeeTier = 1000000*1e18;
         networkFeePerc = [100, 75, 50];
         customNetworkFeePerc = 25;
-        profitSharingFeePerc = 0;
 
         lpToken = IERC20Upgradeable(_lpToken);
         percKeepInVault = 500;
@@ -241,15 +239,6 @@ contract EarnVault is Initializable, ERC20Upgradeable, OwnableUpgradeable,
         if (_withdrawAmt > lpToken.balanceOf(address(this))) {
             // Not enough token in vault, need to get from strategy
             _withdrawAmt = strategy.withdraw(_withdrawAmt);
-        }
-
-        // Calculate profit sharing fee
-        // Deposit amount (after fees) = shares amount (18 decimals)
-        if (_withdrawAmt > _shares) {
-            uint256 _profit = _withdrawAmt - _shares;
-            uint256 _fee = _profit * profitSharingFeePerc / _DENOMINATOR;
-            _withdrawAmt = _withdrawAmt - _fee;
-            _fees = _fees + _fee;
         }
 
         lpToken.safeTransfer(msg.sender, _withdrawAmt);
@@ -412,15 +401,6 @@ contract EarnVault is Initializable, ERC20Upgradeable, OwnableUpgradeable,
         uint256 oldCustomNetworkFeePerc = customNetworkFeePerc; // For event purpose
         customNetworkFeePerc = _percentage;
         emit SetCustomNetworkFeePerc(oldCustomNetworkFeePerc, _percentage);
-    }
-
-    /// @notice Function to set new profit sharing fee percentage
-    /// @param _percentage Percentage of new profit sharing fee
-    function setProfitSharingFeePerc(uint256 _percentage) external onlyOwner {
-        require(_percentage < 3001, "Not allow more than 30%");
-        uint256 oldProfitSharingFeePerc = profitSharingFeePerc; // For event purpose
-        profitSharingFeePerc = _percentage;
-        emit SetProfitSharingFeePerc(oldProfitSharingFeePerc, _percentage);
     }
 
     /// @notice Function to set new yield fee percentage

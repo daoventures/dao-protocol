@@ -46,13 +46,13 @@ describe("DAO Earn", () => {
         await earnStrategy.setVault(earnVault.address)
         await curveZap.addPool(earnVault.address, curvePoolAddr)
         // Transfer LP token to client
-        await network.provider.request({method: "hardhat_impersonateAccount",params: [unlockedLpTokenAddr],});
+        await network.provider.request({method: "hardhat_impersonateAccount", params: [unlockedLpTokenAddr],});
         const unlockedLpTokenSigner = await ethers.getSigner(unlockedLpTokenAddr);
         const lpTokenContract = new ethers.Contract(lpTokenAddr, IERC20_ABI, unlockedLpTokenSigner);
         await lpTokenContract.transfer(client.address, ethers.utils.parseEther("20000"))
         await lpTokenContract.connect(client).approve(earnVault.address, ethers.constants.MaxUint256)
         // Transfer USDT/USDC/DAI/AXS coin to client
-        await network.provider.request({method: "hardhat_impersonateAccount",params: [unlockedAddr],});
+        await network.provider.request({method: "hardhat_impersonateAccount", params: [unlockedAddr],});
         const unlockedSigner = await ethers.getSigner(unlockedAddr);
         const USDTContract = new ethers.Contract(USDTAddr, IERC20_ABI, unlockedSigner)
         const USDCContract = new ethers.Contract(USDCAddr, IERC20_ABI, unlockedSigner)
@@ -67,13 +67,13 @@ describe("DAO Earn", () => {
         await DAIContract.connect(client).approve(curveZap.address, ethers.constants.MaxUint256)
         await AXSContract.connect(client).approve(curveZap.address, ethers.constants.MaxUint256)
         // Transfer base coin to client
-        await network.provider.request({method: "hardhat_impersonateAccount",params: [unlockedBaseCoinAddr],});
+        await network.provider.request({method: "hardhat_impersonateAccount", params: [unlockedBaseCoinAddr],});
         const unlockedBaseCoinSigner = await ethers.getSigner(unlockedBaseCoinAddr);
         const baseCoinContract = new ethers.Contract(baseCoinAddr, IERC20_ABI, unlockedBaseCoinSigner);
         await baseCoinContract.transfer(client.address, ethers.utils.parseEther("20000"))
         await baseCoinContract.connect(client).approve(curveZap.address, ethers.constants.MaxUint256)
         // Transfer 3Crv to client
-        await network.provider.request({method: "hardhat_impersonateAccount",params: [unlocked3CrvAddr],});
+        await network.provider.request({method: "hardhat_impersonateAccount", params: [unlocked3CrvAddr],});
         const unlocked3CrvSigner = await ethers.getSigner(unlocked3CrvAddr);
         const _3CrvContract = new ethers.Contract(_3crvAddr, IERC20_ABI, unlocked3CrvSigner);
         await _3CrvContract.transfer(client.address, ethers.utils.parseEther("20000"))
@@ -151,9 +151,6 @@ describe("DAO Earn", () => {
         // console.log(ethers.utils.formatEther(await cvStake.balanceOf(earnStrategy.address)))
         // console.log(ethers.utils.formatEther(await lpTokenContract.balanceOf(earnVault.address)))
 
-        // Assume profit
-        // await lpTokenContract.transfer(earnVault.address, ethers.utils.parseEther("1000"))
-
         // Withdraw
         const withdrawAmt = (await earnVault.balanceOf(client.address)).mul(1).div(10)
         await earnVault.connect(client).withdraw(withdrawAmt)
@@ -214,52 +211,5 @@ describe("DAO Earn", () => {
         console.log("USDC withdraw:", ethers.utils.formatUnits(await USDCContract.balanceOf(client.address), 6))
         console.log("DAI withdraw:", ethers.utils.formatEther(await DAIContract.balanceOf(client.address)))
         console.log("Base coin withdraw:", ethers.utils.formatEther(await baseCoinContract.balanceOf(client.address)))
-
-        // Set functions
-        await earnVault.setNetworkFeeTier2([ethers.utils.parseEther("10000"), ethers.utils.parseEther("50000")])
-        expect(await earnVault.networkFeeTier2(0)).to.equal(ethers.utils.parseEther("10000"))
-        expect(await earnVault.networkFeeTier2(1)).to.equal(ethers.utils.parseEther("50000"))
-
-        await earnVault.setCustomNetworkFeeTier(ethers.utils.parseEther("100000"))
-        expect(await earnVault.customNetworkFeeTier()).to.equal(ethers.utils.parseEther("100000"))
-        
-        await earnVault.setNetworkFeePerc([200, 100, 75])
-        expect(await earnVault.networkFeePerc(0)).to.equal(200)
-        expect(await earnVault.networkFeePerc(1)).to.equal(100)
-        expect(await earnVault.networkFeePerc(2)).to.equal(75)
-        
-        await earnVault.setCustomNetworkFeePerc(50)
-        expect(await earnVault.customNetworkFeePerc()).to.equal(50)
-        
-        await earnVault.setProfitSharingFeePerc(2500)
-        expect(await earnVault.profitSharingFeePerc()).to.equal(2500)
-        
-        await earnVault.setYieldFeePerc(2000)
-        expect(await earnStrategy2.yieldFeePerc()).to.equal(2000)
-        
-        await earnVault.connect(admin).setPercTokenKeepInVault(1000)
-        expect(await earnVault.percKeepInVault()).to.equal(1000)
-        
-        const sampleAddress = "0xb1AD074E17AD59f2103A8832DADE917388D6C50D"
-        await earnVault.setTreasuryWallet(sampleAddress)
-        expect(await earnVault.treasuryWallet()).to.equal(sampleAddress)
-        
-        await earnVault.setCommunityWallet(sampleAddress)
-        expect(await earnVault.communityWallet()).to.equal(sampleAddress)
-        expect(await earnStrategy2.communityWallet()).to.equal(sampleAddress)
-        
-        await earnVault.setBiconomy(sampleAddress)
-        expect(await earnVault.trustedForwarder()).to.equal(sampleAddress)
-        
-        await curveZap2.setBiconomy(sampleAddress)
-        expect(await curveZap2.trustedForwarder()).to.equal(sampleAddress)
-        
-        await earnVault.setAdmin(sampleAddress)
-        expect(await earnVault.admin()).to.equal(sampleAddress)
-        expect(await earnStrategy2.admin()).to.equal(sampleAddress)
-        
-        await earnVault.connect(strategist).setStrategist(sampleAddress)
-        expect(await earnVault.strategist()).to.equal(sampleAddress)
-        expect(await earnStrategy2.strategist()).to.equal(sampleAddress)
     })
 })

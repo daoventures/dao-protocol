@@ -28,21 +28,21 @@ interface IEarnStrategy {
 
 interface ISushiRouter {
     function swapExactTokensForTokens(
-        uint amountIn,
-        uint amountOutMin,
+        uint256 amountIn,
+        uint256 amountOutMin,
         address[] calldata path,
         address to,
-        uint deadline
+        uint256 deadline
     ) external returns (uint[] memory amounts);
 
     function swapExactETHForTokens(
-        uint amountOutMin,
+        uint256 amountOutMin,
         address[] calldata path,
         address to,
-        uint deadline
+        uint256 deadline
     ) external payable returns (uint[] memory amounts);
 
-    function getAmountsOut(uint amountIn, address[] memory path) external view returns (uint[] memory amounts);
+    function getAmountsOut(uint256 amountIn, address[] memory path) external view returns (uint[] memory amounts);
 }
 
 contract CurveLendingPool2Zap is Ownable, BaseRelayRecipient {
@@ -60,7 +60,7 @@ contract CurveLendingPool2Zap is Ownable, BaseRelayRecipient {
 
     IERC20 private constant _WETH = IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
 
-    event Deposit(address indexed vault, uint256 amount, address indexed coin, uint256 lptokenBal, uint256 daoERNBal);
+    event Deposit(address indexed vault, uint256 amount, address indexed coin, uint256 lptokenBal, uint256 daoERNBal, bool stake);
     event Withdraw(address indexed vault, uint256 shares, address indexed coin, uint256 lptokenBal, uint256 coinAmount);
     event SwapFees(uint256 amount, uint256 coinAmount, address indexed coin);
     event Compound(uint256 amount, address indexed vault, uint256 lpTokenBal);
@@ -158,7 +158,7 @@ contract CurveLendingPool2Zap is Ownable, BaseRelayRecipient {
             revert("Coin not acceptable");
         }
         _daoERNBal = IEarnVault(_vault).depositZap(_lpTokenBal, _msgSender(), _stake);
-        emit Deposit(_vault, _amount, _coin, _lpTokenBal, _daoERNBal);
+        emit Deposit(_vault, _amount, _coin, _lpTokenBal, _daoERNBal, _stake);
     }
 
     /// @notice Function to withdraw funds from vault contract

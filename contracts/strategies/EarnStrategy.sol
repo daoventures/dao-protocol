@@ -31,11 +31,11 @@ interface ICvRewards {
 
 interface ISushiRouter {
     function swapExactTokensForTokens(
-        uint amountIn,
-        uint amountOutMin,
+        uint256 amountIn,
+        uint256 amountOutMin,
         address[] calldata path,
         address to,
-        uint deadline
+        uint256 deadline
     ) external;
 }
 
@@ -94,7 +94,7 @@ contract EarnStrategy is Initializable, OwnableUpgradeable {
         uint256 _pid, address _curveZap,
         address _admin, address _communityWallet, address _strategist
     ) external initializer {
-        __Ownable_init_unchained();
+        __Ownable_init();
 
         yieldFeePerc = 2000;
         admin = _admin;
