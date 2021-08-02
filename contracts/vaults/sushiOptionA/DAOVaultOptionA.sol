@@ -13,16 +13,17 @@ import "../../../interfaces/IUniswapV2Router02.sol";
 import "../../../interfaces/IUniswapV2Pair.sol";
 import "../../../interfaces/IMasterChef.sol";
 
-contract DAOVaultOptionA is ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpgradeable, BaseRelayRecipient{
+// import "hardhat/console.sol";
+contract DAOVaultOptionA is Initializable, ERC20Upgradeable,  OwnableUpgradeable,  ReentrancyGuardUpgradeable, BaseRelayRecipient{
     using SafeMathUpgradeable for uint;
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
-    IUniswapV2Router02 public SushiRouter;    ////can be constant
-    IMasterChef public MasterChef; //can be constant
+    IUniswapV2Router02 public constant SushiRouter = IUniswapV2Router02(0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F);    ////can be constant
+    IMasterChef public constant MasterChef = IMasterChef(0xc2EdaD668740f1aA35E4D8f227fB8E17dcA888Cd); //can be constant
 
     IERC20Upgradeable public lpToken; 
-    IERC20Upgradeable public WETH; //can be constant
-    IERC20Upgradeable public SUSHI; //can be constant
+    IERC20Upgradeable public constant WETH = IERC20Upgradeable(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2); //can be constant
+    IERC20Upgradeable public constant SUSHI = IERC20Upgradeable(0x6B3595068778DD592e39A122f4f5a5cF09C90fE2); //can be constant
     IERC20Upgradeable public token0;
     IERC20Upgradeable public token1;
 
@@ -43,6 +44,7 @@ contract DAOVaultOptionA is ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuar
 
     mapping(address => uint) public depositedAmount;
 
+    uint256[49] private __gap;
     modifier onlyAdmin {
         require(msg.sender == admin, "Only Admin");
         _;
@@ -50,7 +52,8 @@ contract DAOVaultOptionA is ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuar
 
     ///@dev For ETH-token pairs, _token0 should be ETH 
     function initialize(string memory _name, string memory _symbol, uint _poolId, 
-      IERC20Upgradeable _token0, IERC20Upgradeable _token1, IERC20Upgradeable _lpToken) external initializer {
+      IERC20Upgradeable _token0, IERC20Upgradeable _token1, IERC20Upgradeable _lpToken,
+      address _communityWallet, address _treasuryWallet, address _strategist, address _trustedForwarder, address _admin) external initializer {
         
         __ERC20_init(_name, _symbol);
         __Ownable_init();
@@ -61,6 +64,11 @@ contract DAOVaultOptionA is ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuar
         token0 = _token0;
         token1 = _token1;
         lpToken = _lpToken;
+        communityWallet = _communityWallet;
+        treasuryWallet = _treasuryWallet;
+        strategist = _strategist;
+        trustedForwarder = _trustedForwarder;
+        admin = _admin;
 
         networkFeeTier2 = [50000*1e18+1, 100000*1e18];
         customNetworkFeeTier = 1000000*1e18;
@@ -71,6 +79,7 @@ contract DAOVaultOptionA is ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuar
         token1.safeApprove(address(SushiRouter), type(uint).max);
         lpToken.safeApprove(address(SushiRouter), type(uint).max);
         lpToken.safeApprove(address(MasterChef), type(uint).max);
+        SUSHI.safeApprove(address(SushiRouter), type(uint).max);
 
     }
 
@@ -122,7 +131,7 @@ contract DAOVaultOptionA is ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuar
         uint amountOfLpsToWithdraw = lpTokenInPool.mul(_shares).div(totalSupply()); 
 
         uint lpInVault = available();
-
+        
         if(amountOfLpsToWithdraw > lpInVault) {
             _withdrawFromPool(amountOfLpsToWithdraw.sub(lpInVault));
         }
@@ -136,12 +145,16 @@ contract DAOVaultOptionA is ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuar
                 //user withdraws in ETH
 
                 (uint _token1Removed, )= SushiRouter.removeLiquidityETH(address(token1), amountOfLpsToWithdraw, 0, 0, address(this), block.timestamp);
+                // (, uint _amount1) = SushiRouter.removeLiquidity(address(token0), address(token1), amountOfLpsToWithdraw, 0, 0, address(this), block.timestamp);    
 
                 path[0] = address(token1);
                 path[1] = address(WETH);
+                // SushiRouter.swapExactTokensForTokens(_amount1, 0, path, address(this), block.timestamp);      
                 SushiRouter.swapExactTokensForETH(_token1Removed, 0, path, address(this), block.timestamp);
 
+                // amountToWithdraw = WETH.balanceOf(address(this));
                 amountToWithdraw = address(this).balance;
+                
 
             } else {
                 //user withdraws in one of underlying token
@@ -149,10 +162,11 @@ contract DAOVaultOptionA is ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuar
                 
                 path[0] = _token == token0 ? address(token1) : address(token0); //other token frm withdrawn token
                 path[1] = address(_token); //withdrawn token
-
+                
                 SushiRouter.swapExactTokensForTokens(_token == token0 ? _amount1 : _amount0, 0, path, address(this), block.timestamp);        
                 
                 amountToWithdraw = _token.balanceOf(address(this));
+                
             }
         }
 
@@ -172,9 +186,10 @@ contract DAOVaultOptionA is ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuar
     function invest() external onlyAdmin {
         require(isEmergency == false ,"Invest paused");
         //keep some % of lpTokens in vault, deposit remaining to masterChef 
-        _transferFee();
-
-        uint amountToDeposit = balance().mul(amountToKeepInVault).div(10000);
+        // _transferFee();
+        uint balanceInVault = available();
+        uint amountToKeep = balanceInVault.mul(amountToKeepInVault).div(10000);
+        uint amountToDeposit = balanceInVault.sub(amountToKeep);
         if(amountToDeposit > 0) {
             _stakeToPool(amountToDeposit);
         }
@@ -191,9 +206,9 @@ contract DAOVaultOptionA is ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuar
     function reInvest() external onlyOwner {        
         uint lpTokenBalance = available();
 
-        uint amountToDeposit = lpTokenBalance.mul(amountToKeepInVault).div(10000);
+        uint amountToKeep = lpTokenBalance.mul(amountToKeepInVault).div(10000);
 
-        _stakeToPool(amountToDeposit);
+        _stakeToPool(lpTokenBalance.sub(amountToKeep));
 
         isEmergency = false;
     }
@@ -272,7 +287,7 @@ contract DAOVaultOptionA is ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuar
             uint[] memory _tokensAmount = _token == address(0) ? _swapETHToPairs() : _swapTokenToPairs(_token, _amount);
 
             //add liquidity to sushiSwap
-            _lpTokens = _addLiquidity(_tokensAmount[0], _tokensAmount[1]);
+            _lpTokens = _addLiquidity(_tokensAmount[0], _tokensAmount[1]); //token0, token1
         }  else {
             _lpTokens = _amount;
         }
@@ -300,6 +315,8 @@ contract DAOVaultOptionA is ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuar
     function _withdrawFromPool(uint _amount) internal {
         MasterChef.withdraw(poolId, _amount);
     }
+    receive() external payable {
+    }
 
     function _withdrawToUser(address payable _user, uint _amount, IERC20Upgradeable _token) internal {
         if(address(_token) == address(0)) {
@@ -316,6 +333,7 @@ contract DAOVaultOptionA is ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuar
         //addLiquidity
         //_stakeToPool
         uint sushiBalance = SUSHI.balanceOf(address(this));
+        
         if(sushiBalance > 0) {
 
             address[] memory path = new address[](2);
@@ -323,28 +341,40 @@ contract DAOVaultOptionA is ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuar
             path[1] = address(token0);
 
             uint sushiToSwap = sushiBalance.div(2);
+            
+            if(SushiRouter.getAmountsOut(sushiToSwap, path)[1] > 0 ) {
 
-            uint[] memory amountsToken0 = SushiRouter.swapExactTokensForTokens(sushiToSwap, 0, path, address(this), block.timestamp);
+                path[1] = address(token1);
+                if(SushiRouter.getAmountsOut(sushiToSwap, path)[1] > 0 ) {
+                    path[1] = address(token0);
+                    uint[] memory amountsToken0 = SushiRouter.swapExactTokensForTokens(sushiToSwap, 0, path, address(this), block.timestamp);
 
-            path[1] = address(token1);
+                    path[1] = address(token1);
 
-            uint[] memory amountsToken1 = SushiRouter.swapExactTokensForTokens(sushiToSwap, 0, path, address(this), block.timestamp);
+                    uint[] memory amountsToken1 = SushiRouter.swapExactTokensForTokens(sushiToSwap, 0, path, address(this), block.timestamp);
 
-            uint _lpTokens = _addLiquidity(amountsToken0[1], amountsToken1[1]);
+                    uint _lpTokens = _addLiquidity(amountsToken0[1], amountsToken1[1]);
 
-            uint fee = _lpTokens.div(20); //TODO check Percentage
-            _fees = _fees.add(fee);
+                    uint fee = _lpTokens.mul(2000).div(10000); //TODO check Percentage //20%
+                    _fees = _fees.add(fee);
 
-            _stakeToPool(_lpTokens.sub(fee));
+                    _stakeToPool(_lpTokens.sub(fee));
+                }                                                            
+            }
+
         }
     }
 
     function _swapETHToPairs() internal returns (uint[] memory _tokensAmount){
+        //wrap ETH to WETH
+        (bool _status,) = payable(address(WETH)).call{value: msg.value}("");
+        require(_status, 'ETH-WETH failed');
         address[] memory path = new address[](2);
         path[0] = address(WETH);
-        path[1] = address(token0) == address(WETH) ? address(token1) : address(token0);
+        path[1] = address(token1);
+        // path[1] = address(token0) == address(WETH) ? address(token1) : address(token0);
         
-        _tokensAmount = SushiRouter.swapExactETHForTokens{value: msg.value.div(2)}(0, path, address(this), block.timestamp);
+        _tokensAmount = SushiRouter.swapExactTokensForTokens(msg.value.div(2), 0, path, address(this), block.timestamp);
 
     }
 
@@ -353,7 +383,7 @@ contract DAOVaultOptionA is ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuar
         address[] memory path = new address[](2);
         path[0] = _token;
         path[1] = _token == address(token0) ? address(token1) : address(token0);
-
+        
         _tokensAmount = SushiRouter.swapExactTokensForTokens(_amount.div(2), 0, path, address(this), block.timestamp);
     }
 
@@ -366,8 +396,7 @@ contract DAOVaultOptionA is ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuar
     }
 
     ///@dev Transfer fee from vault (in WETH)
-    function _transferFee() internal {
-
+    function transferFee() external onlyAdmin {
         (uint _token0Amount, uint _token1Amount) = SushiRouter.removeLiquidity(address(token0), address(token1), _fees, 0, 0, address(this), block.timestamp);
 
         address[] memory path = new address[](2);
