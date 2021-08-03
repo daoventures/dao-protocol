@@ -30,8 +30,6 @@ contract SushiOptionAFactory is Ownable {
 
         _proxyAddress = address(proxy);
         
-        //proxy's owner is set to Factory in prvious step. Changing it to owner of factory.
-        Logic(_proxyAddress).transferOwnership(owner());
 
         vaults.push(address(proxy));
     }

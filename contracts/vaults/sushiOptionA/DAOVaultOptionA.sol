@@ -4,28 +4,33 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/SafeERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 
 import "../../../libs/BaseRelayRecipient.sol";
 import "../../../interfaces/IRelayRecipient.sol";
 import "../../../interfaces/IUniswapV2Router02.sol";
 import "../../../interfaces/IUniswapV2Pair.sol";
 import "../../../interfaces/IMasterChef.sol";
+import "../../../interfaces/IUniswapV2Pair.sol";
 
-// import "hardhat/console.sol";
-contract DAOVaultOptionA is Initializable, ERC20Upgradeable,  OwnableUpgradeable,  ReentrancyGuardUpgradeable, BaseRelayRecipient{
+interface Factory {
+    function owner() external view returns (address);
+}
+
+
+contract DAOVaultOptionA is Initializable, ERC20Upgradeable, BaseRelayRecipient{
     using SafeMathUpgradeable for uint;
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
-    IUniswapV2Router02 public constant SushiRouter = IUniswapV2Router02(0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F);    ////can be constant
-    IMasterChef public constant MasterChef = IMasterChef(0xc2EdaD668740f1aA35E4D8f227fB8E17dcA888Cd); //can be constant
+    IUniswapV2Router02 public constant SushiRouter = IUniswapV2Router02(0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F);    
+    IMasterChef public constant MasterChef = IMasterChef(0xc2EdaD668740f1aA35E4D8f227fB8E17dcA888Cd); 
 
     IERC20Upgradeable public lpToken; 
-    IERC20Upgradeable public constant WETH = IERC20Upgradeable(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2); //can be constant
-    IERC20Upgradeable public constant SUSHI = IERC20Upgradeable(0x6B3595068778DD592e39A122f4f5a5cF09C90fE2); //can be constant
+    IERC20Upgradeable public constant WETH = IERC20Upgradeable(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2); 
+    IERC20Upgradeable public constant SUSHI = IERC20Upgradeable(0x6B3595068778DD592e39A122f4f5a5cF09C90fE2); 
     IERC20Upgradeable public token0;
     IERC20Upgradeable public token1;
+    IUniswapV2Pair public lpPair;
+    Factory public factory;
 
     address public admin; 
     address public treasuryWallet;
@@ -44,9 +49,27 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable,  OwnableUpgradeable
 
     mapping(address => uint) public depositedAmount;
 
+    event Yield(uint _yieldAmount);
+    event SetNetworkFeeTier2(uint256[] oldNetworkFeeTier2, uint256[] newNetworkFeeTier2);
+    event SetNetworkFeePerc(uint256[] oldNetworkFeePerc, uint256[] newNetworkFeePerc);
+    event SetCustomNetworkFeeTier(uint256 indexed oldCustomNetworkFeeTier, uint256 indexed newCustomNetworkFeeTier);
+    event SetCustomNetworkFeePerc(uint256 oldCustomNetworkFeePerc, uint256 newCustomNetworkFeePerc);
+    event SetTreasuryWallet(address indexed _treasuryWallet);
+    event SetCommunityWallet(address indexed _communityWallet);
+    event SetAdminWallet(address indexed _admin);
+    event SetStrategistWallet(address indexed _strategistWallet);
+    event SetPercTokenKeepInVault(uint256 _percentage);
+    event Deposit(address indexed _token, address _from, uint _amount, uint _sharesMinted);
+    event Withdraw(address indexed _token, address _from, uint _amount, uint _sharesBurned);
+
     uint256[49] private __gap;
     modifier onlyAdmin {
         require(msg.sender == admin, "Only Admin");
+        _;
+    }
+
+    modifier onlyOwner {
+        require(msg.sender == factory.owner(), "only Owner");
         _;
     }
 
@@ -56,7 +79,7 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable,  OwnableUpgradeable
       address _communityWallet, address _treasuryWallet, address _strategist, address _trustedForwarder, address _admin) external initializer {
         
         __ERC20_init(_name, _symbol);
-        __Ownable_init();
+        // __Ownable_init();
         
         poolId = _poolId;
         amountToKeepInVault = 500; //5%
@@ -64,11 +87,14 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable,  OwnableUpgradeable
         token0 = _token0;
         token1 = _token1;
         lpToken = _lpToken;
+        lpPair = IUniswapV2Pair(address(_lpToken));
         communityWallet = _communityWallet;
         treasuryWallet = _treasuryWallet;
         strategist = _strategist;
         trustedForwarder = _trustedForwarder;
         admin = _admin;
+
+        factory = Factory(msg.sender);
 
         networkFeeTier2 = [50000*1e18+1, 100000*1e18];
         customNetworkFeeTier = 1000000*1e18;
@@ -93,23 +119,37 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable,  OwnableUpgradeable
         return "1";
     }
 
+    function _isTokenValid(IERC20Upgradeable _token) internal view {
+        if(token0 == WETH) {
+            //Accept ETH deposits only for ETH pairs (i.e WETH-USDC not for WBTC-USDC)
+            require(_token == token0 || _token == token1 || address(_token) == address(0), "Invalid Token"); //address(0) - ETH (not WETH)
+        } else {
+            require(_token == token0 || _token == token1, "Invalid Token"); 
+        }
+    }
+    /**
+        @param _token Token to deposit. To deposit ETH, use address(0)    
+        @param _amount amount of token to deposit.
+
+        @dev For ETH send, msg.value is used instead of _amount
+     */
     function deposit(IERC20Upgradeable _token, uint _amount) external payable {
         require(tx.origin == msg.sender || isTrustedForwarder(msg.sender), "only EOA");
         require(isEmergency == false ,"Deposit paused");
-        //TODO - add nonReentrant
-        //share calculations
-        require(_token == token0 || _token == token1 || address(_token) == address(0), "Invalid Token"); //address(0) - ETH (not WETH)
+        _isTokenValid(_token);
+
+        address _sender = _msgSender();
 
         if(address(_token) == address(0)) {
             require(msg.value > 0, "Invalid ETH sent");
         } else {
             require(_amount > 0, "Invalid token amount");
-            _token.safeTransferFrom(msg.sender, address(this), _amount);
+            _token.safeTransferFrom(_sender, address(this), _amount);
         }
 
         uint shares;
         uint lpTokenPool = balance();
-        uint lpTokensSupplied = _deposit(address(_token), _amount); //TODO use better name for _deposit()
+        uint lpTokensSupplied = _deposit(address(_token), _amount);
 
         if(totalSupply() == 0) {
             shares = lpTokensSupplied;
@@ -117,14 +157,17 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable,  OwnableUpgradeable
             shares = lpTokensSupplied.mul(totalSupply()).div(lpTokenPool);
         }
 
-        _mint(msg.sender, shares);
+        _mint(_sender, shares);
 
-        
+        emit Deposit(address(_token), _sender, _amount, shares);
     }
-
-    function withdraw(IERC20Upgradeable _token, uint _shares) external { //TODO add nonreEntrant
+    /**
+        @param _token Token to deposit. To withdraw ETH, use address(0)    
+        @param _shares shares to withdraw.
+     */
+    function withdraw(IERC20Upgradeable _token, uint _shares) external { 
         require(msg.sender == tx.origin, "Only EOA");
-        require(_token == token0 || _token == token1 || address(_token) == address(0), "Invalid Token"); //address(0) - withdraw in ETH (not WETH)
+        _isTokenValid(_token);
         
         uint amountToWithdraw;
         uint lpTokenInPool = balance();
@@ -174,7 +217,7 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable,  OwnableUpgradeable
 
         _withdrawToUser(msg.sender, amountToWithdraw, _token);
 
-        //transfer to user
+        emit Withdraw(address(_token), msg.sender, amountToWithdraw, _shares);
     }
 
     function yield() external onlyAdmin{
@@ -183,10 +226,11 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable,  OwnableUpgradeable
 
     }
 
+    ///@dev Moves lpTokens from this contract to Masterchef
     function invest() external onlyAdmin {
         require(isEmergency == false ,"Invest paused");
         //keep some % of lpTokens in vault, deposit remaining to masterChef 
-        // _transferFee();
+        _transferFee();
         uint balanceInVault = available();
         uint amountToKeep = balanceInVault.mul(amountToKeepInVault).div(10000);
         uint amountToDeposit = balanceInVault.sub(amountToKeep);
@@ -195,6 +239,7 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable,  OwnableUpgradeable
         }
     }
 
+    ///@dev Withdraws lpTokens from masterChef. Yield, invest functions will be paused
     function emergencyWithdraw() external onlyAdmin {    
         isEmergency = true;
         _yield();
@@ -203,6 +248,7 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable,  OwnableUpgradeable
         MasterChef.withdraw(poolId, lpTokenBalance);
     }
 
+    ///@dev Moves funds in this contract to masterChef. ReEnables deposit, yield, invest.
     function reInvest() external onlyOwner {        
         uint lpTokenBalance = available();
 
@@ -230,6 +276,8 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable,  OwnableUpgradeable
          */
         uint256[] memory oldNetworkFeeTier2 = networkFeeTier2;
         networkFeeTier2 = _networkFeeTier2;
+        emit SetNetworkFeeTier2(oldNetworkFeeTier2, _networkFeeTier2);
+
     }
 
     /// @notice Function to set new custom network fee tier
@@ -239,6 +287,7 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable,  OwnableUpgradeable
 
         uint256 oldCustomNetworkFeeTier = customNetworkFeeTier;
         customNetworkFeeTier = _customNetworkFeeTier;
+        emit SetCustomNetworkFeeTier(oldCustomNetworkFeeTier, _customNetworkFeeTier);
     }
 
     /// @notice Function to set new network fee percentage
@@ -257,6 +306,7 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable,  OwnableUpgradeable
          */
         uint256[] memory oldNetworkFeePerc = networkFeePerc;
         networkFeePerc = _networkFeePerc;
+        emit SetNetworkFeePerc(oldNetworkFeePerc, _networkFeePerc);
     }
 
     /// @notice Function to set new custom network fee percentage
@@ -266,11 +316,28 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable,  OwnableUpgradeable
 
         uint256 oldCustomNetworkFeePerc = customNetworkFeePerc;
         customNetworkFeePerc = _percentage;
+        emit SetCustomNetworkFeePerc(oldCustomNetworkFeePerc, _percentage);
     }
 
     //500 for 50%
     function setPercTokenKeepInVault(uint256 _percentage) external onlyAdmin {
         amountToKeepInVault = _percentage;
+        emit SetPercTokenKeepInVault(_percentage);
+    }
+
+    function setTreasuryWallet(address _treasuryWallet) external onlyAdmin {
+        treasuryWallet = _treasuryWallet;
+        emit SetTreasuryWallet(_treasuryWallet);
+    }
+
+    function setCommunityWallet(address _communityWallet) external onlyAdmin {
+        communityWallet = _communityWallet;
+        emit SetCommunityWallet(_communityWallet);
+    }
+
+    function setStrategistWallet(address _strategistWallet) external onlyAdmin {
+        strategist = _strategistWallet;
+        emit SetStrategistWallet(_strategistWallet);
     }
 
     ///@dev To move lpTokens from masterChef to this contract.
@@ -315,6 +382,7 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable,  OwnableUpgradeable
     function _withdrawFromPool(uint _amount) internal {
         MasterChef.withdraw(poolId, _amount);
     }
+
     receive() external payable {
     }
 
@@ -332,6 +400,7 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable,  OwnableUpgradeable
         //swap to token0 and token1
         //addLiquidity
         //_stakeToPool
+        MasterChef.deposit(poolId, 0); // To collect SUSHI
         uint sushiBalance = SUSHI.balanceOf(address(this));
         
         if(sushiBalance > 0) {
@@ -341,7 +410,7 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable,  OwnableUpgradeable
             path[1] = address(token0);
 
             uint sushiToSwap = sushiBalance.div(2);
-            
+            //Transaction fails sometimes when sushi is too low. These conditions to check outAmount
             if(SushiRouter.getAmountsOut(sushiToSwap, path)[1] > 0 ) {
 
                 path[1] = address(token1);
@@ -355,29 +424,36 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable,  OwnableUpgradeable
 
                     uint _lpTokens = _addLiquidity(amountsToken0[1], amountsToken1[1]);
 
-                    uint fee = _lpTokens.mul(2000).div(10000); //TODO check Percentage //20%
+                    uint fee = _lpTokens.div(10);  //10%
                     _fees = _fees.add(fee);
 
                     _stakeToPool(_lpTokens.sub(fee));
+
+                    path[1] = address(WETH); //forEvent
+                    uint sushiAmountInETH = SushiRouter.getAmountsOut(sushiBalance, path)[1];
+                    emit Yield(sushiAmountInETH);
                 }                                                            
             }
 
         }
     }
 
+    ///@dev Converts ETH to WETH and swaps to required pair token
     function _swapETHToPairs() internal returns (uint[] memory _tokensAmount){
-        //wrap ETH to WETH
-        (bool _status,) = payable(address(WETH)).call{value: msg.value}("");
+        
+        (bool _status,) = payable(address(WETH)).call{value: msg.value}(""); //wrap ETH to WETH
         require(_status, 'ETH-WETH failed');
+        
         address[] memory path = new address[](2);
         path[0] = address(WETH);
         path[1] = address(token1);
-        // path[1] = address(token0) == address(WETH) ? address(token1) : address(token0);
+        
         
         _tokensAmount = SushiRouter.swapExactTokensForTokens(msg.value.div(2), 0, path, address(this), block.timestamp);
 
     }
 
+    ///@dev swap to required pair tokens
     function _swapTokenToPairs(address _token, uint _amount) internal returns (uint[] memory _tokensAmount) {
         
         address[] memory path = new address[](2);
@@ -395,33 +471,46 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable,  OwnableUpgradeable
         MasterChef.deposit(poolId, _amount);
     }
 
-    ///@dev Transfer fee from vault (in WETH)
-    function transferFee() external onlyAdmin {
-        (uint _token0Amount, uint _token1Amount) = SushiRouter.removeLiquidity(address(token0), address(token1), _fees, 0, 0, address(this), block.timestamp);
+    ///@dev Transfer fee from vault (in WETH). Fee will be transferred only when there is enough lpTokens as fee
+    function _transferFee() internal onlyAdmin {
+        (uint amount0, uint amount1) = getRemovedAmount(_fees); //Transaction may without this check.
+        
+        if(amount0 > 0 && amount1 > 0) {
+            (uint _token0Amount, uint _token1Amount) = SushiRouter.removeLiquidity(address(token0), address(token1), _fees, 0, 0, address(this), block.timestamp);
 
-        address[] memory path = new address[](2);
-        path[0] = address(token1) ;
-        path[1] = address(WETH);
+            address[] memory path = new address[](2);
+            path[0] = address(token1) ;
+            path[1] = address(WETH);
 
-        SushiRouter.swapExactTokensForTokens(_token1Amount, 0, path, address(this), block.timestamp);
+            SushiRouter.swapExactTokensForTokens(_token1Amount, 0, path, address(this), block.timestamp);
 
-        if(token0 != WETH) {
-            //for farms without ETH
-            path[0] == address(token0);
-            SushiRouter.swapExactTokensForTokens(_token0Amount, 0, path, address(this), block.timestamp);
+            if(token0 != WETH) {
+                //for farms without ETH
+                path[0] == address(token0);
+                SushiRouter.swapExactTokensForTokens(_token0Amount, 0, path, address(this), block.timestamp);
+            }
+
+            uint feeInEth  = WETH.balanceOf(address(this)); 
+            uint feeSplit = feeInEth.mul(2).div(5);
+
+            WETH.transfer(treasuryWallet, feeSplit); //40%
+            WETH.transfer(communityWallet, feeSplit); //40%
+            WETH.transfer(strategist, feeInEth.sub(feeSplit).sub(feeSplit)); //20%
+
+            _fees = 0;
         }
-
-        uint feeInEth  = WETH.balanceOf(address(this)); 
-        uint feeSplit = feeInEth.mul(2).div(5);
-
-        WETH.transfer(treasuryWallet, feeSplit); //40%
-        WETH.transfer(communityWallet, feeSplit); //40%
-        WETH.transfer(strategist, feeInEth.sub(feeSplit).sub(feeSplit)); //20%
-
-        _fees = 0;
 
     }
 
+    ///@dev calculates the assets that will be removed for the give lpTokenAmount
+    function getRemovedAmount(uint _inputAmount) internal returns (uint _amount0, uint _amount1){
+        uint totalSupply = lpPair.totalSupply();
+        uint balance0 = token0.balanceOf(address(lpPair));
+        uint balance1 = token1.balanceOf(address(lpPair));
+
+        _amount0 = _inputAmount.mul(balance0) / totalSupply; //not using div() as per univ2
+        _amount1 = _inputAmount.mul(balance1) / totalSupply; //not using div() as per univ2
+    }
     ///@dev balance of LPTokens in vault + masterCHef
     function balance() public view returns (uint _balance){
         (uint balanceInMasterChef, ) = MasterChef.userInfo(poolId,address(this));
