@@ -1,7 +1,7 @@
 const { ethers } = require("hardhat")
 const { mainnet } = require("../../../../addresses/index")
 
-const earnStrategyFactoryAddr = "" // from deploy/btc/base/earnStrategyFactory.js
+const earnStrategyFactoryAddr = "" // from deploy/usd/base/earnStrategyFactory.js
 const earnStrategyTemplateAddr = "" // from deploy/btc/base/earnStrategyUNIv2.js
 const curveZapAddr = "" // from deploy/btc/base/curveMetaPoolBTCZap.js
 

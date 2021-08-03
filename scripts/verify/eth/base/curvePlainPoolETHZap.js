@@ -1,11 +1,11 @@
 const { run } = require('hardhat')
 
-const earnStrategyTemplate = "" // from deploy/btc/base/earnStrategyUNIv2.js
+const CurvePlainPoolETHZap = "" // from deploy/eth/base/CurvePlainPoolETHZap.js
 
 async function main() {
     await run('verify:verify', {
-        address: earnStrategyTemplate,
-        contract: 'contracts/strategies/EarnStrategyUNIv2.sol:EarnStrategyUNIv2',
+        address: CurvePlainPoolETHZap,
+        contract: 'contracts/zaps/CurvePlainPoolETHZap.sol:CurvePlainPoolETHZap',
     })
 }
 

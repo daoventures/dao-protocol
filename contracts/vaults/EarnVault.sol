@@ -146,8 +146,8 @@ contract EarnVault is Initializable, ERC20Upgradeable, OwnableUpgradeable,
     /// @notice Function to deposit token
     /// @param _amount Amount to deposit (18 decimals)
     /// @param _stake True if stake into DAOmine
-    /// @return _daoERNAmount Amount of minted shares
-    function deposit(uint256 _amount, bool _stake) external nonReentrant whenNotPaused returns (uint256 _daoERNAmount) {
+    /// @return _daoERNBal Amount of minted shares
+    function deposit(uint256 _amount, bool _stake) external nonReentrant whenNotPaused returns (uint256 _daoERNBal) {
         require(_amount > 0, "Amount must > 0");
         if (msg.sender != tx.origin && !isTrustedForwarder(msg.sender)) {
             // Smart contract interaction: to prevent deposit & withdraw at same transaction
@@ -156,18 +156,18 @@ contract EarnVault is Initializable, ERC20Upgradeable, OwnableUpgradeable,
 
         address _sender = _msgSender();
         lpToken.safeTransferFrom(_sender, address(this), _amount);
-        _daoERNAmount = _deposit(_amount, _sender, _stake);
+        _daoERNBal = _deposit(_amount, _sender, _stake);
     }
 
     /// @notice Function to deposit token through CurveZap contract
     /// @param _amount Amount to deposit (18 decimals)
     /// @param _account Account to deposit (user address)
     /// @param _stake True if stake into DAOmine
-    /// @return _daoERNAmount Amount of minted shares
-    function depositZap(uint256 _amount, address _account, bool _stake) external nonReentrant whenNotPaused returns (uint256 _daoERNAmount) {
+    /// @return _daoERNBal Amount of minted shares
+    function depositZap(uint256 _amount, address _account, bool _stake) external nonReentrant whenNotPaused returns (uint256 _daoERNBal) {
         require(msg.sender == address(curveZap), "Only CurveZap");
         lpToken.safeTransferFrom(address(curveZap), address(this), _amount);
-        _daoERNAmount = _deposit(_amount, _account, _stake);
+        _daoERNBal = _deposit(_amount, _account, _stake);
     }
 
     /// @notice Derived function from deposit()

@@ -1,11 +1,12 @@
 const { run } = require('hardhat')
 
-const earnStrategyTemplate = "" // from deploy/btc/base/earnStrategyUNIv2.js
+// earnVaultAddr (not proxy) can be found in folder .openzeppelin -> mainnet.json -> impls -> address
+const earnVaultAddr = ""
 
 async function main() {
     await run('verify:verify', {
-        address: earnStrategyTemplate,
-        contract: 'contracts/strategies/EarnStrategyUNIv2.sol:EarnStrategyUNIv2',
+        address: earnVaultAddr,
+        contract: 'contracts/vaults/EarnVaultETH.sol:EarnVaultETH',
     })
 }
 

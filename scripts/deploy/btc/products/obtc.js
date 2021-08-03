@@ -1,8 +1,8 @@
 const { ethers } = require("hardhat")
 const { mainnet } = require("../../../../addresses/index")
 
-const earnStrategyFactoryAddr = "" // from deploy/btc/base/earnStrategyFactory.js
-const earnStrategyTemplateAddr = "" // from deploy/btc/base/earnStrategyUNIv2.js
+const earnStrategyFactoryAddr = "" // from deploy/usd/base/earnStrategyFactory.js
+const earnStrategyTemplateAddr = "" // from deploy/btc/base/earnStrategy.js
 const curveZapAddr = "" // from deploy/btc/base/curveMetaPoolBTCZap.js
 
 // Curve
@@ -30,7 +30,7 @@ async function main() {
         }
     }
     const earnStrategyAddr = await earnStrategyFactory.strategies((await earnStrategyFactory.getTotalStrategies()).sub(1))
-    const earnStrategy = await ethers.getContractAt("EarnStrategyUNIv2", earnStrategyAddr, deployer)
+    const earnStrategy = await ethers.getContractAt("EarnStrategy", earnStrategyAddr, deployer)
     const EarnVault = await ethers.getContractFactory("EarnVaultBTC", deployer)
     const earnVault = await upgrades.deployProxy(EarnVault, [
         await earnStrategy.lpToken(), earnStrategyAddr, curveZapAddr,

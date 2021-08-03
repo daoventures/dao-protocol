@@ -7,7 +7,7 @@
       "hash": "0x86f8bc2204ee78343730c01b9acd0cab03127ee702749e0a72256eb4dab8bbad",
       "type": 0,
       "accessList": null,
-      "blockHash": "0x0d9de54dd4ea684deac933d4f9d5b341a11c46dd954921f3df0d18191d3e61bd",
+      "blockHash": "0x2a2e1eb42d9bb63ae998865054c49ba8c67c46b168cff5c2e3d5ac8f4f445dad",
       "blockNumber": 12787006,
       "transactionIndex": 0,
       "confirmations": 1,
@@ -42,7 +42,7 @@
     },
     {
       "address": "0x5eb3Bc0a489C5A8288765d2336659EbCA68FCd00",
-      "txHash": "0xf852cea3abc61308be550efb025b0b453a3ca96c06face9d22531ab6d47fbbf2",
+      "txHash": "0x6959b8e47c3c143972ccb63ec999edbfca8071f0696e45ff7f3944a91a027310",
       "kind": "transparent"
     },
     {
@@ -52,9 +52,9 @@
     }
   ],
   "impls": {
-    "b4f08125230f7a6e11b056661e20bdf36d851bd144a318a7953f85de2bd3a1c8": {
+    "5dbcc0e70cf1c2cd89873df5362295aa486f3520cea57915c8ebeaea1bb27970": {
       "address": "0x8f86403A4DE0BB5791fa46B8e795C547942fE4Cf",
-      "txHash": "0x239cbb303212d14d275e3762e3e98d911c3f6db7a0d5a0d4e22c305ee6945b87",
+      "txHash": "0xd9c543f16c708d29460dc4563e0d0c492d9e34f2e221c5c42bd7c65b6d0b61d8",
       "layout": {
         "storage": [
           {
@@ -154,118 +154,118 @@
             "src": "libs/BaseRelayRecipient.sol:15"
           },
           {
-            "contract": "EarnVaultBTC",
+            "contract": "EarnVaultETH",
             "label": "lpToken",
             "type": "t_contract(IERC20Upgradeable)959",
-            "src": "contracts/vaults/EarnVaultBTC.sol:40"
+            "src": "contracts/vaults/EarnVaultETH.sol:40"
           },
           {
-            "contract": "EarnVaultBTC",
+            "contract": "EarnVaultETH",
             "label": "percKeepInVault",
             "type": "t_uint256",
-            "src": "contracts/vaults/EarnVaultBTC.sol:41"
+            "src": "contracts/vaults/EarnVaultETH.sol:41"
           },
           {
-            "contract": "EarnVaultBTC",
+            "contract": "EarnVaultETH",
             "label": "strategy",
-            "type": "t_contract(IStrategy)7153",
-            "src": "contracts/vaults/EarnVaultBTC.sol:42"
+            "type": "t_contract(IStrategy)8779",
+            "src": "contracts/vaults/EarnVaultETH.sol:42"
           },
           {
-            "contract": "EarnVaultBTC",
+            "contract": "EarnVaultETH",
             "label": "curveZap",
-            "type": "t_contract(ICurveZap)7173",
-            "src": "contracts/vaults/EarnVaultBTC.sol:43"
+            "type": "t_contract(ICurveZap)8799",
+            "src": "contracts/vaults/EarnVaultETH.sol:43"
           },
           {
-            "contract": "EarnVaultBTC",
+            "contract": "EarnVaultETH",
             "label": "admin",
             "type": "t_address",
-            "src": "contracts/vaults/EarnVaultBTC.sol:44"
+            "src": "contracts/vaults/EarnVaultETH.sol:44"
           },
           {
-            "contract": "EarnVaultBTC",
+            "contract": "EarnVaultETH",
             "label": "daoMine",
-            "type": "t_contract(IDAOmine)7183",
-            "src": "contracts/vaults/EarnVaultBTC.sol:48"
+            "type": "t_contract(IDAOmine)8809",
+            "src": "contracts/vaults/EarnVaultETH.sol:48"
           },
           {
-            "contract": "EarnVaultBTC",
+            "contract": "EarnVaultETH",
             "label": "daoMinePid",
             "type": "t_uint256",
-            "src": "contracts/vaults/EarnVaultBTC.sol:49"
+            "src": "contracts/vaults/EarnVaultETH.sol:49"
           },
           {
-            "contract": "EarnVaultBTC",
+            "contract": "EarnVaultETH",
             "label": "networkFeeTier2",
             "type": "t_array(t_uint256)dyn_storage",
-            "src": "contracts/vaults/EarnVaultBTC.sol:52"
+            "src": "contracts/vaults/EarnVaultETH.sol:52"
           },
           {
-            "contract": "EarnVaultBTC",
+            "contract": "EarnVaultETH",
             "label": "customNetworkFeeTier",
             "type": "t_uint256",
-            "src": "contracts/vaults/EarnVaultBTC.sol:53"
+            "src": "contracts/vaults/EarnVaultETH.sol:53"
           },
           {
-            "contract": "EarnVaultBTC",
+            "contract": "EarnVaultETH",
             "label": "networkFeePerc",
             "type": "t_array(t_uint256)dyn_storage",
-            "src": "contracts/vaults/EarnVaultBTC.sol:54"
+            "src": "contracts/vaults/EarnVaultETH.sol:54"
           },
           {
-            "contract": "EarnVaultBTC",
+            "contract": "EarnVaultETH",
             "label": "customNetworkFeePerc",
             "type": "t_uint256",
-            "src": "contracts/vaults/EarnVaultBTC.sol:55"
+            "src": "contracts/vaults/EarnVaultETH.sol:55"
           },
           {
-            "contract": "EarnVaultBTC",
+            "contract": "EarnVaultETH",
             "label": "_fees",
             "type": "t_uint256",
-            "src": "contracts/vaults/EarnVaultBTC.sol:56"
+            "src": "contracts/vaults/EarnVaultETH.sol:56"
           },
           {
-            "contract": "EarnVaultBTC",
+            "contract": "EarnVaultETH",
             "label": "treasuryWallet",
             "type": "t_address",
-            "src": "contracts/vaults/EarnVaultBTC.sol:59"
+            "src": "contracts/vaults/EarnVaultETH.sol:59"
           },
           {
-            "contract": "EarnVaultBTC",
+            "contract": "EarnVaultETH",
             "label": "communityWallet",
             "type": "t_address",
-            "src": "contracts/vaults/EarnVaultBTC.sol:60"
+            "src": "contracts/vaults/EarnVaultETH.sol:60"
           },
           {
-            "contract": "EarnVaultBTC",
+            "contract": "EarnVaultETH",
             "label": "strategist",
             "type": "t_address",
-            "src": "contracts/vaults/EarnVaultBTC.sol:61"
+            "src": "contracts/vaults/EarnVaultETH.sol:61"
           },
           {
-            "contract": "EarnVaultBTC",
+            "contract": "EarnVaultETH",
             "label": "depositTime",
             "type": "t_mapping(t_address,t_uint256)",
-            "src": "contracts/vaults/EarnVaultBTC.sol:64"
+            "src": "contracts/vaults/EarnVaultETH.sol:64"
           },
           {
-            "contract": "EarnVaultBTC",
+            "contract": "EarnVaultETH",
             "label": "pendingStrategy",
             "type": "t_address",
-            "src": "contracts/vaults/EarnVaultBTC.sol:67"
+            "src": "contracts/vaults/EarnVaultETH.sol:67"
           },
           {
-            "contract": "EarnVaultBTC",
+            "contract": "EarnVaultETH",
             "label": "canSetPendingStrategy",
             "type": "t_bool",
-            "src": "contracts/vaults/EarnVaultBTC.sol:68"
+            "src": "contracts/vaults/EarnVaultETH.sol:68"
           },
           {
-            "contract": "EarnVaultBTC",
+            "contract": "EarnVaultETH",
             "label": "unlockTime",
             "type": "t_uint256",
-            "src": "contracts/vaults/EarnVaultBTC.sol:69"
+            "src": "contracts/vaults/EarnVaultETH.sol:69"
           }
         ],
         "types": {
@@ -275,16 +275,16 @@
           "t_uint256": {
             "label": "uint256"
           },
-          "t_contract(IStrategy)7153": {
+          "t_contract(IStrategy)8779": {
             "label": "contract IStrategy"
           },
-          "t_contract(ICurveZap)7173": {
+          "t_contract(ICurveZap)8799": {
             "label": "contract ICurveZap"
           },
           "t_address": {
             "label": "address"
           },
-          "t_contract(IDAOmine)7183": {
+          "t_contract(IDAOmine)8809": {
             "label": "contract IDAOmine"
           },
           "t_array(t_uint256)dyn_storage": {

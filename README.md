@@ -55,41 +55,65 @@ Example with Ethers.js
 LP token: (through **vault** proxy contract)
 ```javascript
 lpToken.approve(vault.address, ethers.constants.MaxUint256)
-vault.deposit(amountOfLpToken, trueOrFalse)
+const daoERNBal = await vault.deposit(amountOfLpToken, trueOrFalse)
 ```
 
-USDT/USDC/DAI/Base coin/3Crv: (through **zap** contract)
+USDT/USDC/DAI/base coin/3Crv/others(as state in deposit token): (through **zap** contract)
 ```javascript
 coin.approve(zap.address, ethers.constants.MaxUint256)
-zap.deposit(vault.address, amountOfCoin, coin.address, trueOrFalse)
+const daoERNBal = await zap.deposit(vault.address, amountOfCoin, coin.address, trueOrFalse)
 ```
+
+> Base coin is the coin that has same name with product
 
 Any available token on Sushi: (through **zap** contract)
 ```javascript
 token.approve(zap.address, ethers.constants.MaxUint256)
-zap.depositZap(vault.address, amountOfToken, token.address, trueOrFalse)
+const daoERNBal = await zap.depositZap(vault.address, amountOfToken, token.address, trueOrFalse)
 ```
+
 To Check token availability, use `checkTokenSwapAvailability()` function in zap contract. Return amount in USD, return 0 if token not availability.
 ```javascript
-zap.checkTokenSwapAvailability(amountInput, tokenInput, tokenOutput)
+const amount = await zap.checkTokenSwapAvailability(amountInput, tokenInput, tokenOutput)
 ```
 
 Directly from ETH: (through **zap** contract, `amountOfETH` in 18 decimals)
 ```javascript
-zap.depositZap(vault.address, amountOfETH, ethers.constants.AddressZero, trueOrFalse, {from: client.address, value: amountOfETH})
+const daoERNBal = await zap.depositZap(vault.address, amountOfETH, ethers.constants.AddressZero, trueOrFalse, {from: client.address, value: amountOfETH})
 ```
+
 > `trueOfFalse` is a boolean to stake daoERN into DAOmine directly.
 
 ### Withdraw
 
 LP token: (through **vault** proxy contract)
 ```javascript
-vault.withdraw(amountOfShares)
+const withdrawAmt = await vault.withdraw(amountOfShares)
 ```
-USDT/USDC/DAI/Base coin: (through **zap** contract)
+
+USDT/USDC/DAI/base coin: (through **zap** contract)
 ```javascript
-zap.withdraw(vault.address, amountOfShares, coin.address)
+const withdrawAmt = await zap.withdraw(vault.address, amountOfShares, coin.address)
 ```
+
+> `withdrawAmt` decimals follow withdraw coin
+
+### Other
+
+To get TVL in USD
+```javascript
+const amount = await vault.getAllPoolInUSD()
+```
+
+> return amount in 6 decimals
+
+To get user shares in USD
+```javascript
+const pricePerFullShare = await vault.getPricePerFullShare(true)
+const userSharesInUSD = await userShares.mul(pricePerFullShare).div(1e18)
+```
+
+> return amount in 6 decimals
 
 ## Backend
 
@@ -113,7 +137,7 @@ npx hardhat run --network mainnet scripts/verify/usd/base/curveLendingPool2Zap.j
 
 Run every script in scripts/deploy/usd/products folder. Fill in `earnStrategyFactoryAddr`, `earnStrategyTemplateAddr` and `curveZapAddr` with corresponding contract address before run.
 
-Double check the value of `poolAddr`, `zapAddr` and `poolIndex` through test script with same farm name:
+Double check the value of `poolAddr`, `zapAddr`(if available) and `poolIndex` through test script with same farm name:
 
 `poolAddr` = `curvePoolAddr` in test script
 
@@ -133,7 +157,7 @@ npx hardhat run --network mainnet scripts/verify/usd/base/earnVault.js
 
 > earnVault verification only need run once.
 
-Then, go to [Etherscan](https://etherscan.io/), search earnVault proxy contract address for each farm, click *Code*, click *More Options* -> *Is this a proxy?*, click *Verify*, check if implementation contract is same as `earnVaultAddr` in `earnVault.js`, then proceed with the verification. After success verify, there will be 2 new button, *Read as Proxy* & *Write as Proxy*, in the same row of *Code*, *Read Contract* & *Write Contract*.
+Then, go to [Etherscan](https://etherscan.io/), search earnVault proxy contract address for each farm, click *Code*, click *More Options* -> *Is this a proxy?*, click *Verify*, check if implementation contract is same as `earnVaultAddr` in `earnVault.js`, then click *Save*. After success verify, there will be 2 new button, *Read as Proxy* & *Write as Proxy*, in the same row of *Code*, *Read Contract* & *Write Contract*.
 
 3/ Transfer ownership
 
@@ -160,6 +184,7 @@ USDC: 0xb7a4F3E9097C08dA09517b5aB877F7a917224ede
 DAI: 0x4F96Fe3b7A6Cf9725f59d353F723c1bDb64CA6Aa
 
 > In Kovan, vault contract accept ATN only. Zap contract accept USDT/USDC/DAI, ATN(`depositZap()`) and ETH(`depositZap()`) only.
+
 
 
 # DAO Earn Series (BTC based - 6 products)
@@ -196,9 +221,48 @@ HBTC | WBTC/[HBTC](https://etherscan.io/address/0x0316EB71485b0Ab14103307bf65a02
 
 # Developer docs
 
-**Frontend** and **Backend** same as USD based products.
+same as USD based products, except:
 
-**Kovan contract addresses** can reused USD based kovan addresses. Same interaction but different tokens and decimals.
+## Frontend
+
+WBTC/renBTC/sBTC/Base coin/crvRenWSBTC/others(as state in deposit token): (through **zap** contract)
+```javascript
+coin.approve(zap.address, ethers.constants.MaxUint256)
+const daoERNBal = await zap.deposit(vault.address, amountOfCoin, coin.address, trueOrFalse)
+```
+
+To Check token availability, use `checkTokenSwapAvailability()` function in zap contract. Return amount in BTC, return 0 if token not availability.
+```javascript
+const amount = await zap.checkTokenSwapAvailability(amountInput, tokenInput)
+```
+> `tokenOutput` = WBTC
+
+### Withdraw
+
+WBTC/renBTC/sBTC/base coin: (through **zap** contract)
+```javascript
+const withdrawAmt = await zap.withdraw(vault.address, amountOfShares, coin.address)
+```
+
+> `withdrawAmt` decimals follow withdraw coin
+
+### Other
+
+To get TVL in BTC
+```javascript
+const amount = await vault.getAllPoolInBTC()
+```
+
+> return amount in 8 decimals
+
+To get user shares in USD
+```javascript
+const pricePerFullShare = await vault.getPricePerFullShare(true)
+const userSharesInBTC = await userShares.mul(pricePerFullShare).div(1e18)
+const userSharesInUSD = userSharesInBTC.mul(USDPricePerBTC)
+```
+
+> return `userSharesInBTC` in 8 decimals
 
 ## Deployer
 
@@ -218,7 +282,7 @@ npx hardhat run --network mainnet scripts/verify/btc/base/curveMetaPoolBTCZap.js
 
 Run every script in scripts/deploy/btc/products folder. Fill in `earnStrategyFactoryAddr`, `earnStrategyTemplateAddr` and `curveZapAddr` with corresponding contract address before run.
 
-Double check the value of `poolAddr`, `zapAddr` and `poolIndex` through test script with same farm name:
+Double check the value of `poolAddr`, `zapAddr`(if available) and `poolIndex` through test script with same farm name:
 
 `poolAddr` = `curvePoolAddr` in test script
 
@@ -238,8 +302,123 @@ npx hardhat run --network mainnet scripts/verify/btc/base/earnVaultBTC.js
 
 > earnVaultBTC verification only need run once.
 
-Then, go to [Etherscan](https://etherscan.io/), search earnVaultBTC proxy contract address for each farm, click *Code*, click *More Options* -> *Is this a proxy?*, click *Verify*, check if implementation contract is same as `earnVaultAddr` in `earnVaultBTC.js`, then proceed with the verification. After success verify, there will be 2 new button, *Read as Proxy* & *Write as Proxy*, in the same row of *Code*, *Read Contract* & *Write Contract*.
+Then, go to [Etherscan](https://etherscan.io/), search earnVaultBTC proxy contract address for each farm, click *Code*, click *More Options* -> *Is this a proxy?*, click *Verify*, check if implementation contract is same as `earnVaultAddr` in `earnVaultBTC.js`, then click *Save*. After success verify, there will be 2 new button, *Read as Proxy* & *Write as Proxy*, in the same row of *Code*, *Read Contract* & *Write Contract*.
 
 3/ Transfer ownership
 
 Same as USD based products.
+
+## Kovan contract addresses
+
+Can reused USD based kovan addresses. Same interaction but different tokens and decimals.
+
+
+
+# DAO Earn Series (ETH based - 3 products)
+
+### Deposit token:-
+
+Product Name | Available token to deposit
+--------- | --------------------------
+stETH | directly from ETH/[stETH](https://etherscan.io/address/0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84)/*[LP Token](https://etherscan.io/address/0x06325440D014e39736583c165C2963BA99fAf14E)
+ankrETH | directly from ETH/[aETHc](https://etherscan.io/address/0xE95A203B1a91a908F9B9CE46459d101078c2c3cb)/*[LP Token](https://etherscan.io/address/0xaA17A236F2bAdc98DDc0Cf999AbB47D47Fc0A6Cf)
+rETH | directly from ETH/[rETH](https://etherscan.io/address/0x9559Aaa82d9649C7A7b220E7c461d2E74c9a3593)/*[LP Token](https://etherscan.io/address/0x53a901d48795C58f485cBB38df08FA96a24669D5)
+
+*Deposit LP token for no slippage & fees by Curve
+
+*any token that available to swap in Sushi.
+
+### Withdraw token:-
+
+Product Name | Available token to withdraw
+--------- | --------------------------
+stETH | pure ETH/[stETH](https://etherscan.io/address/0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84)/*[LP Token](https://etherscan.io/address/0x06325440D014e39736583c165C2963BA99fAf14E)
+ankrETH | pure ETH/[aETHc](https://etherscan.io/address/0xE95A203B1a91a908F9B9CE46459d101078c2c3cb)/*[LP Token](https://etherscan.io/address/0xaA17A236F2bAdc98DDc0Cf999AbB47D47Fc0A6Cf)
+rETH | pure ETH/[rETH](https://etherscan.io/address/0x9559Aaa82d9649C7A7b220E7c461d2E74c9a3593)/*[LP Token](https://etherscan.io/address/0x53a901d48795C58f485cBB38df08FA96a24669D5)
+
+*Withdraw LP token for no slippage & fees by Curve
+
+# Developer docs
+
+same as USD based products, except:
+
+## Frontend
+
+Base coin only: (through **zap** contract)
+```javascript
+coin.approve(zap.address, ethers.constants.MaxUint256)
+const daoERNBal = await zap.deposit(vault.address, amountOfCoin, coin.address, trueOrFalse)
+```
+
+To Check token availability, use `checkTokenSwapAvailability()` function in zap contract. Return amount in ETH, return 0 if token not availability.
+```javascript
+const amount = await zap.checkTokenSwapAvailability(amountInput, tokenInput)
+```
+> `tokenOutput` = WETH
+
+### Withdraw
+
+Pure ETH/base coin: (through **zap** contract)
+```javascript
+const withdrawAmt = await zap.withdraw(vault.address, amountOfShares, coin.address)
+```
+
+### Other
+
+To get TVL in ETH
+```javascript
+const amount = await vault.getAllPoolInETH()
+```
+
+To get user shares in USD
+```javascript
+const pricePerFullShare = await vault.getPricePerFullShare(true)
+const userSharesInETH = await userShares.mul(pricePerFullShare).div(1e18)
+const userSharesInUSD = userSharesInETH.mul(USDPricePerETH)
+```
+
+## Deployer
+
+1/ Base contracts
+
+Run script for everything in scripts/deploy/eth/base folder.
+
+Record down every contract address that deployed for later use. (will show with console.log after success deploy)
+
+For each deploy script in deploy/eth/base folder, there is a verify script in verify/eth/base folder with same script name.
+```
+npx hardhat run --network mainnet scripts/deploy/eth/base/curvePlainPoolETHZap.js
+npx hardhat run --network mainnet scripts/verify/eth/base/curvePlainPoolETHZap.js
+```
+
+2/ Product contracts
+
+Run every script in scripts/deploy/eth/products folder. Fill in `earnStrategyFactoryAddr`, `earnStrategyTemplateAddr` and `curveZapAddr` with corresponding contract address before run.
+
+Double check the value of `poolAddr` and `poolIndex` through test script with same farm name:
+
+`poolAddr` = `curvePoolAddr` in test script
+
+`poolIndex` = `poolIndex` in test script
+
+```
+npx hardhat run --network mainnet scripts/deploy/eth/products/steth.js
+```
+
+Verify earnVaultETH:
+
+```
+npx hardhat run --network mainnet scripts/verify/eth/base/earnVaultETH.js
+```
+
+> earnVaultETH verification only need run once.
+
+Then, go to [Etherscan](https://etherscan.io/), search earnVaultETH proxy contract address for each farm, click *Code*, click *More Options* -> *Is this a proxy?*, click *Verify*, check if implementation contract is same as `earnVaultAddr` in `earnVaultETH.js`, then click *Save*. After success verify, there will be 2 new button, *Read as Proxy* & *Write as Proxy*, in the same row of *Code*, *Read Contract* & *Write Contract*.
+
+3/ Transfer ownership
+
+Same as USD based products.
+
+## Kovan contract addresses
+
+Can reused USD based kovan addresses. Same interaction but different tokens and decimals.

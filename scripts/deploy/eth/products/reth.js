@@ -2,12 +2,12 @@ const { ethers } = require("hardhat")
 const { mainnet } = require("../../../../addresses/index")
 
 const earnStrategyFactoryAddr = "" // from deploy/usd/base/earnStrategyFactory.js
-const earnStrategyTemplateAddr = "" // from deploy/btc/base/earnStrategy.js
-const curveZapAddr = "" // from deploy/btc/base/curveMetaPoolBTCZap.js
+const earnStrategyTemplateAddr = "" // from deploy/btc/base/earnStrategyUNIv2.js
+const curveZapAddr = "" // from deploy/eth/base/CurvePlainPoolETHZap.js
 
 // Curve
-const poolAddr = "0x7fC77b5c7614E1533320Ea6DDc2Eb61fa00A9714"
-const poolIndex = 7
+const poolAddr = "0xF9440930043eb3997fc70e1339dBb11F341de7A8"
+const poolIndex = 35
 
 async function main() {
     let resultVault = "SUCCESS"
@@ -30,7 +30,7 @@ async function main() {
     }
     const earnStrategyAddr = await earnStrategyFactory.strategies((await earnStrategyFactory.getTotalStrategies()).sub(1))
     const earnStrategy = await ethers.getContractAt("EarnStrategy", earnStrategyAddr, deployer)
-    const EarnVault = await ethers.getContractFactory("EarnVaultBTC", deployer)
+    const EarnVault = await ethers.getContractFactory("EarnVaultETH", deployer)
     const earnVault = await upgrades.deployProxy(EarnVault, [
         await earnStrategy.lpToken(), earnStrategyAddr, curveZapAddr,
         mainnet.treasury, mainnet.community,
@@ -48,7 +48,7 @@ async function main() {
     const curveZap = new ethers.Contract(curveZapAddr, ["function addPool(address, address) external"], deployer)
     await curveZap.addPool( earnVault.address, poolAddr)
 
-    console.log("DAO Earn: sBTC product")
+    console.log("DAO Earn: rETH product")
     console.log('EarnVault proxy address:', earnVault.address, resultVault)
     console.log('EarnStrategy address:', earnStrategy.address, resultStrategy)
 }

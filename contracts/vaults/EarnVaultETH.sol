@@ -33,7 +33,7 @@ interface IDAOmine {
     function depositByProxy(address _user, uint256 _pid, uint256 _amount) external;
 }
 
-contract EarnVaultBTC is Initializable, ERC20Upgradeable, OwnableUpgradeable,
+contract EarnVaultETH is Initializable, ERC20Upgradeable, OwnableUpgradeable,
         ReentrancyGuardUpgradeable, PausableUpgradeable, BaseRelayRecipient {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
@@ -82,6 +82,7 @@ contract EarnVaultBTC is Initializable, ERC20Upgradeable, OwnableUpgradeable,
     event SetCustomNetworkFeeTier(uint256 indexed oldCustomNetworkFeeTier, uint256 indexed newCustomNetworkFeeTier);
     event SetNetworkFeePerc(uint256[] oldNetworkFeePerc, uint256[] newNetworkFeePerc);
     event SetCustomNetworkFeePerc(uint256 indexed oldCustomNetworkFeePerc, uint256 indexed newCustomNetworkFeePerc);
+    event SetProfitSharingFeePerc(uint256 indexed oldProfileSharingFeePerc, uint256 indexed newProfileSharingFeePerc);
     event SetYieldFeePerc(uint256 indexed percentage);
     event SetPercTokenKeepInVault(uint256 indexed percentages);
     event SetTreasuryWallet(address indexed treasuryWallet);
@@ -402,7 +403,7 @@ contract EarnVaultBTC is Initializable, ERC20Upgradeable, OwnableUpgradeable,
         customNetworkFeePerc = _percentage;
         emit SetCustomNetworkFeePerc(oldCustomNetworkFeePerc, _percentage);
     }
-    
+
     /// @notice Function to set new yield fee percentage
     /// @param _percentage Percentage of new yield fee
     function setYieldFeePerc(uint256 _percentage) external onlyOwner {
@@ -465,18 +466,18 @@ contract EarnVaultBTC is Initializable, ERC20Upgradeable, OwnableUpgradeable,
         return _vaultPool + _strategyPool;
     }
 
-    /// @notice Function to get all pool amount(vault+strategy) in BTC
-    /// @return All pool in BTC (8 decimals)
-    function getAllPoolInBTC() external view returns (uint256) {
-        return _getAllPool() * curveZap.getVirtualPrice() / 1e28;
+    /// @notice Function to get all pool amount(vault+strategy) in ETH
+    /// @return All pool in ETH (18 decimals)
+    function getAllPoolInETH() external view returns (uint256) {
+        return _getAllPool() * curveZap.getVirtualPrice() / 1e18;
     }
 
     /// @notice Function to get price per full share (LP token price)
-    /// @param _btc true for calculate user share in BTC, false for calculate APR
-    /// @return Price per full share (8 decimals if _btc = true, otherwise 18 decimals)
-    function getPricePerFullShare(bool _btc) external view returns (uint256) {
+    /// @param _eth true for calculate user share in ETH, false for calculate APR
+    /// @return Price per full share (18 decimals)
+    function getPricePerFullShare(bool _eth) external view returns (uint256) {
         uint256 _pricePerFullShare = _getAllPool() * 1e18 / totalSupply();
-        return _btc == true ? _pricePerFullShare * curveZap.getVirtualPrice() / 1e28 : _pricePerFullShare;
+        return _eth == true ? _pricePerFullShare * curveZap.getVirtualPrice() / 1e18 : _pricePerFullShare;
     }
 
     /// @notice Function to get current available amount of token to invest

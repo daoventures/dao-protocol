@@ -135,18 +135,18 @@ contract CurvePlainPoolETHZap is Ownable, BaseRelayRecipient {
     /// @param _stake True if stake into DAOmine
     /// @return _daoERNBal Amount of minted shares from vault contract
     function _deposit(address _vault, uint256 _amount, address _coin, bool _stake) private returns (uint256 _daoERNBal) {
-    //     PoolInfo memory _poolInfo = poolInfos[_vault];
-    //     uint256 _lpTokenBal;
-    //     uint256[2] memory _amounts;
-    //     if (_coin == address(0)) { // Deposit ETH
-    //         _amounts[0] = _amount;
-    //         _lpTokenBal = _poolInfo.curvePool.add_liquidity{value: msg.value}(_amounts, 0);
-    //     } else { // Base token
-    //         _amounts[1] = _amount;
-    //         _lpTokenBal = _poolInfo.curvePool.add_liquidity(_amounts, 0);
-    //     }
-    //     _daoERNBal = IEarnVault(_vault).depositZap(_lpTokenBal, _msgSender(), _stake);
-    //     emit Deposit(_vault, _amount, _coin, _lpTokenBal, _daoERNBal, _stake);
+        PoolInfo memory _poolInfo = poolInfos[_vault];
+        uint256 _lpTokenBal;
+        uint256[2] memory _amounts;
+        if (_coin == address(0)) { // Deposit ETH
+            _amounts[0] = _amount;
+            _lpTokenBal = _poolInfo.curvePool.add_liquidity{value: _amount}(_amounts, 0);
+        } else { // Base token
+            _amounts[1] = _amount;
+            _lpTokenBal = _poolInfo.curvePool.add_liquidity(_amounts, 0);
+        }
+        _daoERNBal = IEarnVault(_vault).depositZap(_lpTokenBal, _msgSender(), _stake);
+        emit Deposit(_vault, _amount, _coin, _lpTokenBal, _daoERNBal, _stake);
     }
 
     /// @notice Function to withdraw funds from vault contract
