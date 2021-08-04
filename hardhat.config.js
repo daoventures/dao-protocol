@@ -1,5 +1,6 @@
 require("@nomiclabs/hardhat-waffle");
 require("@nomiclabs/hardhat-etherscan");
+require('@openzeppelin/hardhat-upgrades');
 require("dotenv").config();
 
 module.exports = {
@@ -7,18 +8,7 @@ module.exports = {
     hardhat: {
       forking: {
         url: process.env.ALCHEMY_URL_MAINNET,
-        // blockNumber: 12400000, // 322821024047345168023
-        // blockNumber: 12460000, // 399023242252551683210
-        // blockNumber: 12510000, // 579394340598414536497
-        // blockNumber: 12560000, // 466482879584967190166
-
-        // blockNumber: 12618000, // 559420480515219944112
-        blockNumber: 12664000, // 645.15516325683238847
-
-        // blockNumber: 12672300,
-
-        // url: process.env.ALCHEMY_URL_KOVAN,
-        // blockNumber: 25412550, // Kovan
+        blockNumber: 12958000,
       },
     },
     mainnet: {
@@ -34,7 +24,7 @@ module.exports = {
     apiKey: process.env.ETHERSCAN_API_KEY,
   },
   solidity: {
-    version: "0.7.6",
+    version: "0.8.6",
     settings: {
       optimizer: {
         enabled: true,
@@ -42,4 +32,7 @@ module.exports = {
       },
     },
   },
+  mocha: {
+    timeout: 1000000
+  }
 };
