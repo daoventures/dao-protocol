@@ -64,7 +64,6 @@ describe("DAO Earn", () => {
         await expect(earnVault.connect(admin).setCustomNetworkFeeTier(ethers.utils.parseEther("100000"))).to.be.revertedWith("Ownable: caller is not the owner")
         await expect(earnVault.connect(admin).setNetworkFeePerc([200, 100, 75])).to.be.revertedWith("Ownable: caller is not the owner")
         await expect(earnVault.connect(admin).setCustomNetworkFeePerc(50)).to.be.revertedWith("Ownable: caller is not the owner")
-        await expect(earnVault.connect(admin).setProfitSharingFeePerc(2500)).to.be.revertedWith("Ownable: caller is not the owner")
         await expect(earnVault.connect(admin).setYieldFeePerc(2000)).to.be.revertedWith("Ownable: caller is not the owner")
         await expect(earnVault.connect(client).setPercTokenKeepInVault(1000)).to.be.revertedWith("Only owner or admin")
         await expect(earnVault.connect(admin).setCurveZap(curveZap.address)).to.be.revertedWith("Ownable: caller is not the owner")
@@ -119,9 +118,6 @@ describe("DAO Earn", () => {
         
         await earnVault.setCustomNetworkFeePerc(50)
         expect(await earnVault.customNetworkFeePerc()).to.equal(50)
-        
-        await earnVault.setProfitSharingFeePerc(2500)
-        expect(await earnVault.profitSharingFeePerc()).to.equal(2500)
         
         await earnVault.setYieldFeePerc(2000)
         expect(await earnStrategy.yieldFeePerc()).to.equal(2000)

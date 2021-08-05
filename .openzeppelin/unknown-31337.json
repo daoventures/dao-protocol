@@ -7,7 +7,7 @@
       "hash": "0x86f8bc2204ee78343730c01b9acd0cab03127ee702749e0a72256eb4dab8bbad",
       "type": 0,
       "accessList": null,
-      "blockHash": "0x2a2e1eb42d9bb63ae998865054c49ba8c67c46b168cff5c2e3d5ac8f4f445dad",
+      "blockHash": "0xaf2873aeceea4dfec206d6fd13940a55b6f8cb1adafbc889e86ee590fe50a879",
       "blockNumber": 12787006,
       "transactionIndex": 0,
       "confirmations": 1,
@@ -41,20 +41,25 @@
       "kind": "transparent"
     },
     {
-      "address": "0x5eb3Bc0a489C5A8288765d2336659EbCA68FCd00",
-      "txHash": "0x6959b8e47c3c143972ccb63ec999edbfca8071f0696e45ff7f3944a91a027310",
+      "address": "0x162A433068F51e18b7d13932F27e66a3f99E6890",
+      "txHash": "0x898c01dbf61fa3f595551428f65bd1e2608036bd1412cf63806781f2e4525b4c",
       "kind": "transparent"
     },
     {
       "address": "0xB0D4afd8879eD9F52b28595d31B441D079B2Ca07",
       "txHash": "0xbcca2e4013af2494686b276d095e2c62a64c97f47d38e9a90c6ba8405407c910",
       "kind": "transparent"
+    },
+    {
+      "address": "0x5eb3Bc0a489C5A8288765d2336659EbCA68FCd00",
+      "txHash": "0xd708552de96fbb453939475a3a4d63aac9432eb64b60dd4f97c20a7b71d0beed",
+      "kind": "transparent"
     }
   ],
   "impls": {
-    "5dbcc0e70cf1c2cd89873df5362295aa486f3520cea57915c8ebeaea1bb27970": {
+    "52bebd89101ba7c6fdb24d6646723306a6cc6bdddc03e516097efa928cfa3f9b": {
       "address": "0x8f86403A4DE0BB5791fa46B8e795C547942fE4Cf",
-      "txHash": "0xd9c543f16c708d29460dc4563e0d0c492d9e34f2e221c5c42bd7c65b6d0b61d8",
+      "txHash": "0x4ffeede0d0f84a202678eb9230cb0d744cf0a1366dd5d3d2e42375e4838d0851",
       "layout": {
         "storage": [
           {
@@ -154,118 +159,118 @@
             "src": "libs/BaseRelayRecipient.sol:15"
           },
           {
-            "contract": "EarnVaultETH",
+            "contract": "EarnVault",
             "label": "lpToken",
             "type": "t_contract(IERC20Upgradeable)959",
-            "src": "contracts/vaults/EarnVaultETH.sol:40"
+            "src": "contracts/vaults/EarnVault.sol:39"
           },
           {
-            "contract": "EarnVaultETH",
+            "contract": "EarnVault",
             "label": "percKeepInVault",
             "type": "t_uint256",
-            "src": "contracts/vaults/EarnVaultETH.sol:41"
+            "src": "contracts/vaults/EarnVault.sol:40"
           },
           {
-            "contract": "EarnVaultETH",
+            "contract": "EarnVault",
             "label": "strategy",
-            "type": "t_contract(IStrategy)8779",
-            "src": "contracts/vaults/EarnVaultETH.sol:42"
+            "type": "t_contract(IStrategy)5521",
+            "src": "contracts/vaults/EarnVault.sol:41"
           },
           {
-            "contract": "EarnVaultETH",
+            "contract": "EarnVault",
             "label": "curveZap",
-            "type": "t_contract(ICurveZap)8799",
-            "src": "contracts/vaults/EarnVaultETH.sol:43"
+            "type": "t_contract(ICurveZap)5541",
+            "src": "contracts/vaults/EarnVault.sol:42"
           },
           {
-            "contract": "EarnVaultETH",
+            "contract": "EarnVault",
             "label": "admin",
             "type": "t_address",
-            "src": "contracts/vaults/EarnVaultETH.sol:44"
+            "src": "contracts/vaults/EarnVault.sol:43"
           },
           {
-            "contract": "EarnVaultETH",
+            "contract": "EarnVault",
             "label": "daoMine",
-            "type": "t_contract(IDAOmine)8809",
-            "src": "contracts/vaults/EarnVaultETH.sol:48"
+            "type": "t_contract(IDAOmine)5551",
+            "src": "contracts/vaults/EarnVault.sol:47"
           },
           {
-            "contract": "EarnVaultETH",
+            "contract": "EarnVault",
             "label": "daoMinePid",
             "type": "t_uint256",
-            "src": "contracts/vaults/EarnVaultETH.sol:49"
+            "src": "contracts/vaults/EarnVault.sol:48"
           },
           {
-            "contract": "EarnVaultETH",
+            "contract": "EarnVault",
             "label": "networkFeeTier2",
             "type": "t_array(t_uint256)dyn_storage",
-            "src": "contracts/vaults/EarnVaultETH.sol:52"
+            "src": "contracts/vaults/EarnVault.sol:51"
           },
           {
-            "contract": "EarnVaultETH",
+            "contract": "EarnVault",
             "label": "customNetworkFeeTier",
             "type": "t_uint256",
-            "src": "contracts/vaults/EarnVaultETH.sol:53"
+            "src": "contracts/vaults/EarnVault.sol:52"
           },
           {
-            "contract": "EarnVaultETH",
+            "contract": "EarnVault",
             "label": "networkFeePerc",
             "type": "t_array(t_uint256)dyn_storage",
-            "src": "contracts/vaults/EarnVaultETH.sol:54"
+            "src": "contracts/vaults/EarnVault.sol:53"
           },
           {
-            "contract": "EarnVaultETH",
+            "contract": "EarnVault",
             "label": "customNetworkFeePerc",
             "type": "t_uint256",
-            "src": "contracts/vaults/EarnVaultETH.sol:55"
+            "src": "contracts/vaults/EarnVault.sol:54"
           },
           {
-            "contract": "EarnVaultETH",
+            "contract": "EarnVault",
             "label": "_fees",
             "type": "t_uint256",
-            "src": "contracts/vaults/EarnVaultETH.sol:56"
+            "src": "contracts/vaults/EarnVault.sol:55"
           },
           {
-            "contract": "EarnVaultETH",
+            "contract": "EarnVault",
             "label": "treasuryWallet",
             "type": "t_address",
-            "src": "contracts/vaults/EarnVaultETH.sol:59"
+            "src": "contracts/vaults/EarnVault.sol:58"
           },
           {
-            "contract": "EarnVaultETH",
+            "contract": "EarnVault",
             "label": "communityWallet",
             "type": "t_address",
-            "src": "contracts/vaults/EarnVaultETH.sol:60"
+            "src": "contracts/vaults/EarnVault.sol:59"
           },
           {
-            "contract": "EarnVaultETH",
+            "contract": "EarnVault",
             "label": "strategist",
             "type": "t_address",
-            "src": "contracts/vaults/EarnVaultETH.sol:61"
+            "src": "contracts/vaults/EarnVault.sol:60"
           },
           {
-            "contract": "EarnVaultETH",
+            "contract": "EarnVault",
             "label": "depositTime",
             "type": "t_mapping(t_address,t_uint256)",
-            "src": "contracts/vaults/EarnVaultETH.sol:64"
+            "src": "contracts/vaults/EarnVault.sol:63"
           },
           {
-            "contract": "EarnVaultETH",
+            "contract": "EarnVault",
             "label": "pendingStrategy",
             "type": "t_address",
-            "src": "contracts/vaults/EarnVaultETH.sol:67"
+            "src": "contracts/vaults/EarnVault.sol:66"
           },
           {
-            "contract": "EarnVaultETH",
+            "contract": "EarnVault",
             "label": "canSetPendingStrategy",
             "type": "t_bool",
-            "src": "contracts/vaults/EarnVaultETH.sol:68"
+            "src": "contracts/vaults/EarnVault.sol:67"
           },
           {
-            "contract": "EarnVaultETH",
+            "contract": "EarnVault",
             "label": "unlockTime",
             "type": "t_uint256",
-            "src": "contracts/vaults/EarnVaultETH.sol:69"
+            "src": "contracts/vaults/EarnVault.sol:68"
           }
         ],
         "types": {
@@ -275,16 +280,16 @@
           "t_uint256": {
             "label": "uint256"
           },
-          "t_contract(IStrategy)8779": {
+          "t_contract(IStrategy)5521": {
             "label": "contract IStrategy"
           },
-          "t_contract(ICurveZap)8799": {
+          "t_contract(ICurveZap)5541": {
             "label": "contract ICurveZap"
           },
           "t_address": {
             "label": "address"
           },
-          "t_contract(IDAOmine)8809": {
+          "t_contract(IDAOmine)5551": {
             "label": "contract IDAOmine"
           },
           "t_array(t_uint256)dyn_storage": {

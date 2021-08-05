@@ -155,8 +155,9 @@ contract EarnVault is Initializable, ERC20Upgradeable, OwnableUpgradeable,
         }
 
         address _sender = _msgSender();
+        uint256 _pool = _getAllPool();
         lpToken.safeTransferFrom(_sender, address(this), _amount);
-        _daoERNBal = _deposit(_amount, _sender, _stake);
+        _daoERNBal = _deposit(_amount, _sender, _stake, _pool);
     }
 
     /// @notice Function to deposit token through CurveZap contract
@@ -166,43 +167,41 @@ contract EarnVault is Initializable, ERC20Upgradeable, OwnableUpgradeable,
     /// @return _daoERNBal Amount of minted shares
     function depositZap(uint256 _amount, address _account, bool _stake) external nonReentrant whenNotPaused returns (uint256 _daoERNBal) {
         require(msg.sender == address(curveZap), "Only CurveZap");
+        uint256 _pool = _getAllPool();
         lpToken.safeTransferFrom(address(curveZap), address(this), _amount);
-        _daoERNBal = _deposit(_amount, _account, _stake);
+        _daoERNBal = _deposit(_amount, _account, _stake, _pool);
     }
 
     /// @notice Derived function from deposit()
     /// @param _amount Amount to deposit (18 decimals)
     /// @param _account Account to deposit (user address)
     /// @param _stake True if stake into DAOmine
+    /// @param _pool All pool before deposit
     /// @return Amount of minted shares
-    function _deposit(uint256 _amount, address _account, bool _stake) private returns (uint256) {
+    function _deposit(uint256 _amount, address _account, bool _stake, uint256 _pool) private returns (uint256) {
         uint256 _amtDeposit = _amount; // For event purpose
 
         // Calculate network fee
         uint256 _networkFeePerc;
-        if (_amount < networkFeeTier2[0]) { // Tier 1
-            _networkFeePerc = networkFeePerc[0];
-        } else if (_amount <= networkFeeTier2[1]) { // Tier 2
-            _networkFeePerc = networkFeePerc[1];
-        } else if (_amount < customNetworkFeeTier) { // Tier 3
-            _networkFeePerc = networkFeePerc[2];
-        } else { // Custom Tier
-            _networkFeePerc = customNetworkFeePerc;
-        }
+        if (_amount < networkFeeTier2[0]) _networkFeePerc = networkFeePerc[0]; // Tier 1
+        else if (_amount <= networkFeeTier2[1]) _networkFeePerc = networkFeePerc[1]; // Tier 2
+        else if (_amount < customNetworkFeeTier) _networkFeePerc = networkFeePerc[2]; // Tier 3
+        else _networkFeePerc = customNetworkFeePerc; // Custom Tier
         uint256 _fee = _amount * _networkFeePerc / _DENOMINATOR;
         _fees = _fees + _fee;
         _amount = _amount - _fee;
 
-        // 1:1 mint shares from deposit amount(after fee)
+        uint256 _totalSupply = totalSupply();
+        uint256 _shares = _totalSupply == 0 ? _amount : _amount * _totalSupply / _pool;
         if (_stake) {
-            _mint(address(this), _amount);
-            daoMine.depositByProxy(_account, daoMinePid, _amount);
+            _mint(address(this), _shares);
+            daoMine.depositByProxy(_account, daoMinePid, _shares);
         } else {
-            _mint(_account, _amount);
+            _mint(_account, _shares);
         }
-        emit Deposit(_account, _amtDeposit, _amount);
+        emit Deposit(_account, _amtDeposit, _shares);
 
-        return _amount;
+        return _shares;
     }
 
     /// @notice Function to withdraw token
