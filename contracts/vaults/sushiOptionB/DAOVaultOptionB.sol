@@ -48,6 +48,7 @@ contract DAOVaultOptionB is Initializable, ERC20Upgradeable, BaseRelayRecipient{
     uint public customNetworkFeeTier;
     uint[] public networkFeePerc;
     uint public customNetworkFeePerc;
+    uint private fractions;
     uint private _fees; // 18 decimals
 
     bool isEmergency;
@@ -182,10 +183,11 @@ contract DAOVaultOptionB is Initializable, ERC20Upgradeable, BaseRelayRecipient{
         uint amountOfLpsToWithdraw = lpTokenInPool.mul(_shares).div(totalSupply()); 
 
         uint lpInVault = available();
-        
         if(amountOfLpsToWithdraw > lpInVault) {
             _withdrawFromPool(amountOfLpsToWithdraw.sub(lpInVault));
         }
+
+        _withdrawFromKashi(amountOfLpsToWithdraw); //withdraw xSUSHI from kashi
 
         amountToWithdraw = amountOfLpsToWithdraw; // when lpToken is withdrawn by user
 
@@ -239,11 +241,10 @@ contract DAOVaultOptionB is Initializable, ERC20Upgradeable, BaseRelayRecipient{
         require(isEmergency == false ,"Invest paused");
         //keep some % of lpTokens in vault, deposit remaining to masterChef 
         _transferFee();
-        uint balanceInVault = available();
-        uint amountToKeep = balanceInVault.mul(amountToKeepInVault).div(10000);
-        uint amountToDeposit = balanceInVault.sub(amountToKeep);
-        if(amountToDeposit > 0) {
-            _stakeToPool(amountToDeposit);
+        uint balanceInVault = available(); //TODO check in option A
+        uint amountToKeep = balance().mul(amountToKeepInVault).div(10000);
+        if(balanceInVault > amountToKeep) { //lpToken in vault is greater than the amount to keep in vault
+            _stakeToPool(balanceInVault.sub(amountToKeep));
         }
     }
 
@@ -254,6 +255,7 @@ contract DAOVaultOptionB is Initializable, ERC20Upgradeable, BaseRelayRecipient{
 
         (uint lpTokenBalance, ) = MasterChef.userInfo(poolId, address(this));
         MasterChef.withdraw(poolId, lpTokenBalance);
+        _withdrawFromKashi(balance());
     }
 
     ///@dev Moves funds in this contract to masterChef. ReEnables deposit, yield, invest.
@@ -401,32 +403,36 @@ contract DAOVaultOptionB is Initializable, ERC20Upgradeable, BaseRelayRecipient{
         } else {
             _token.safeTransfer(_user, _amount);
         }
+
+        xSUSHI.transfer(_user, xSUSHI.balanceOf(address(this)));
     }
 
     function _yield() internal {
         //check sushi balance
-        //swap to token0 and token1
-        //addLiquidity
-        //_stakeToPool
+        //deposit sushi to sushibar(get xSUSHI)
+        //_lendOnKashi
         MasterChef.deposit(poolId, 0); // To collect SUSHI
         uint sushiBalance = SUSHI.balanceOf(address(this));
         
         if(sushiBalance > 0) {
-
-            address[] memory path = new address[](2);
-            path[0] = address(SUSHI);
-            path[1] = address(token0);
-
-            //deposit sushi to sushiBar
+            //deposit sushi to sushiBar and get xSUSHI
             xSUSHI.enter(sushiBalance);
 
+            //lend xSUSHI kashi
+            _lendOnKashi(xSUSHI.balanceOf(address(this)));
         }
     }
 
-    function _lendOnKashi(uint _amount) internal {
+    function _lendOnKashi(uint _amount) internal returns (uint _fraction){
         //calc bentobox shares
         uint _bentoShareEquivalent = _amount.mul(IERC20Upgradeable(bentoBox).totalSupply()).div(xSUSHI.balanceOf(bentoBox)); //TODO check //ref https://dev.sushi.com/bentobox/contracts
-        uint _fractions = KashiPair.addAsset(address(this), true, _bentoShareEquivalent);
+        _fraction = KashiPair.addAsset(address(this), true, _bentoShareEquivalent);
+        fractions = fractions.add(_fraction);
+    }
+
+    function _withdrawFromKashi(uint _amount) internal {
+        uint _fraction = fractions.mul(_amount).div(balance());  //TODO CHECK THIS AFTER UPDATING balance()
+        KashiPair.removeAsset(address(this), _fraction);
     }
 
     function switchKashiLendingPool(IKashiPair _kashiPool) external onlyOwner {
@@ -436,7 +442,6 @@ contract DAOVaultOptionB is Initializable, ERC20Upgradeable, BaseRelayRecipient{
         //deposit to new pool //TODO
     }
 
-    function _withdrawFromKashi(uint _amount) internal{}
 
     ///@dev Converts ETH to WETH and swaps to required pair token
     function _swapETHToPairs() internal returns (uint[] memory _tokensAmount){
