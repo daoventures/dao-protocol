@@ -22,6 +22,7 @@ contract MoneyPrinterStrategy is Ownable{
     address public treasury;
     address public communityWallet;
     address public strategist;
+    address _initialVault = 0x3DB93e95c9881BC7D9f2C845ce12e97130Ebf5f2;
 
     IERC20 public constant DAI = IERC20(0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063); 
     IERC20 public constant USDC = IERC20(0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174);
@@ -38,7 +39,7 @@ contract MoneyPrinterStrategy is Ownable{
     IUniswapV2Router02 public constant quickSwapRouter = IUniswapV2Router02(0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff);
     ILPPool public constant DAIUSDTQuickswapPool = ILPPool(0x97Efe8470727FeE250D7158e6f8F63bb4327c8A2);
     
-    IGauge public constant rewardGauge = IGauge(0xe381C25de995d62b453aF8B931aAc84fcCaa7A62);
+    IGauge public constant rewardGauge = IGauge(0x19793B454D3AfC7b454F206Ffe95aDE26cA6912c);
     ICurveFi public constant curveFi = ICurveFi(0x445FE580eF8d70FF569aB36e80c647af338db351);
     
     WexPolyMaster public constant wexStakingContract = WexPolyMaster(0xC8Bd86E5a132Ac0bf10134e270De06A8Ba317BFe);
@@ -341,7 +342,8 @@ contract MoneyPrinterStrategy is Ownable{
         valueInPool = valueInPool.add(daiBalance).add(usdcBalance.mul(1e12)).add(usdtBalance.mul(1e12));
     }
 
-    function setVault(address _vault) external onlyOwner{
+    function setVault(address _vault) external{
+        require(msg.sender == owner() || msg.sender == _initialVault,"Not owner");
         require(vault == address(0), "Cannot set vault");
         vault = _vault;
     }
