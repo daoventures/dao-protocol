@@ -4,13 +4,19 @@ module.exports = {
             USDT: "0xdAC17F958D2ee523a2206206994597C13D831ec7",
             USDC: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
             DAI: "0x6B175474E89094C44Da98b954EedeAC495271d0F",
-            WETH:"0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
-            SUSHI:"0x6B3595068778DD592e39A122f4f5a5cF09C90fE2",
-            ETHUSDCLP:"0x397FF1542f962076d0BFE58eA045FfA2d347ACa0"
+            WETH: "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+            SUSHI: "0x6B3595068778DD592e39A122f4f5a5cF09C90fE2",
+            ALCX: "0xdBdb4d16EdA451D0503b854CF79D55697F90c8DF",
+            WBTC: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+            IBTC: "0xc4E15973E6fF2A35cC804c2CF9D2a1b817a8b40F",
+            ETHUSDCLP: "0x397FF1542f962076d0BFE58eA045FfA2d347ACa0",
+            ETHALCXLP: "0xC3f279090a47e80990Fe3a9c30d24Cb117EF91a8",
+            WBTCIBTCLP: "0x18d98D452072Ac2EB7b74ce3DB723374360539f1"
         },
         SUSHI: {
             router: "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F",
-            masterChef: "0xc2EdaD668740f1aA35E4D8f227fB8E17dcA888Cd"
+            masterChef: "0xc2EdaD668740f1aA35E4D8f227fB8E17dcA888Cd",
+            masterChefV2: "0xEF0881eC094552b2e128Cf945EF17a6752B4Ec5d"
         },
         ADDRESSES: {
             communityWallet: "0xdd6c35aFF646B2fB7d8A8955Ccbe0994409348d0",
@@ -22,7 +28,9 @@ module.exports = {
             adminAddress: "0x3f68A3c1023d736D8Be867CA49Cb18c543373B99",
         },
         poolIDs: {
-            ETHUSDC: 1
+            ETHUSDC: 1,
+            ETHALCX: 0,
+            WBTCIBTC: 235
         }
     }
 

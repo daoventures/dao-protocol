@@ -14,14 +14,14 @@ interface IUniswapV2Router01 {
         address to,
         uint deadline
     ) external returns (uint amountA, uint amountB, uint liquidity);
-    function addLiquidityETH(
+/*     function addLiquidityETH(
         address token,
         uint amountTokenDesired,
         uint amountTokenMin,
         uint amountETHMin,
         address to,
         uint deadline
-    ) external payable returns (uint amountToken, uint amountETH, uint liquidity);
+    ) external payable returns (uint amountToken, uint amountETH, uint liquidity); */
     function removeLiquidity(
         address tokenA,
         address tokenB,
@@ -39,7 +39,7 @@ interface IUniswapV2Router01 {
         address to,
         uint deadline
     ) external returns (uint amountToken, uint amountETH);
-    function removeLiquidityWithPermit(
+    /* function removeLiquidityWithPermit(
         address tokenA,
         address tokenB,
         uint liquidity,
@@ -57,26 +57,36 @@ interface IUniswapV2Router01 {
         address to,
         uint deadline,
         bool approveMax, uint8 v, bytes32 r, bytes32 s
-    ) external returns (uint amountToken, uint amountETH);
-    function swapExactTokensForTokens(
+    ) external returns (uint amountToken, uint amountETH); */
+/*     function swapExactTokensForTokens(
         uint amountIn,
         uint amountOutMin,
         address[] calldata path,
         address to,
         uint deadline
-    ) external returns (uint[] memory amounts);
+    ) external returns (uint[] memory amounts); 
     function swapTokensForExactTokens(
         uint amountOut,
         uint amountInMax,
         address[] calldata path,
         address to,
         uint deadline
-    ) external returns (uint[] memory amounts);
+    ) external returns (uint[] memory amounts); */
+    function swapExactTokensForTokens(
+        uint amountIn,
+        uint amountOutMin,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external returns (uint[] memory amounts); 
     function swapExactETHForTokens(uint amountOutMin, address[] calldata path, address to, uint deadline)
         external
         payable
         returns (uint[] memory amounts);
-    function swapTokensForExactETH(uint amountOut, uint amountInMax, address[] calldata path, address to, uint deadline)
+    function swapExactTokensForETH(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline)
+        external
+        returns (uint[] memory amounts);
+   /*  function swapTokensForExactETH(uint amountOut, uint amountInMax, address[] calldata path, address to, uint deadline)
         external
         returns (uint[] memory amounts);
     function swapExactTokensForETH(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline)
@@ -90,6 +100,6 @@ interface IUniswapV2Router01 {
     function quote(uint amountA, uint reserveA, uint reserveB) external pure returns (uint amountB);
     function getAmountOut(uint amountIn, uint reserveIn, uint reserveOut) external pure returns (uint amountOut);
     function getAmountIn(uint amountOut, uint reserveIn, uint reserveOut) external pure returns (uint amountIn);
+    function getAmountsIn(uint amountOut, address[] calldata path) external view returns (uint[] memory amounts); */
     function getAmountsOut(uint amountIn, address[] calldata path) external view returns (uint[] memory amounts);
-    function getAmountsIn(uint amountOut, address[] calldata path) external view returns (uint[] memory amounts);
 }
