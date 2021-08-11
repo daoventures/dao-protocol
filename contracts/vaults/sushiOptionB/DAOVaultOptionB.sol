@@ -30,6 +30,7 @@ contract DAOVaultOptionB is Initializable, ERC20Upgradeable, BaseRelayRecipient{
     IERC20Upgradeable public lpToken; 
     IWETH public WETH ; 
     IERC20Upgradeable public WBTC ; 
+    IERC20Upgradeable public ibBTC;
     IERC20Upgradeable public SUSHI ; 
     IERC20Upgradeable public token0;
     IERC20Upgradeable public token1;
@@ -83,6 +84,7 @@ contract DAOVaultOptionB is Initializable, ERC20Upgradeable, BaseRelayRecipient{
         WBTC = IERC20Upgradeable(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599); 
         SUSHI = IERC20Upgradeable(0x6B3595068778DD592e39A122f4f5a5cF09C90fE2); 
         xSUSHI = IxSUSHI(0x8798249c2E607446EfB7Ad49eC89dD1865Ff4272);
+        ibBTC = IERC20Upgradeable(0xc4E15973E6fF2A35cC804c2CF9D2a1b817a8b40F);
         
         poolId = _poolId;
         amountToKeepInVault = 500; //5%
@@ -109,18 +111,23 @@ contract DAOVaultOptionB is Initializable, ERC20Upgradeable, BaseRelayRecipient{
         networkFeePerc = [100, 75, 50];
         customNetworkFeePerc = 25;
 
-        token0.safeApprove(address(SushiRouter), type(uint).max);
-        token1.safeApprove(address(SushiRouter), type(uint).max);
-        lpToken.safeApprove(address(SushiRouter), type(uint).max);
-        lpToken.safeApprove(address(MasterChef), type(uint).max);
-        SUSHI.safeApprove(address(SushiRouter), type(uint).max);
-        SUSHI.safeApprove(address(xSUSHI), type(uint).max);
-        xSUSHI.approve(address(bentoBox), type(uint).max);
-        xSUSHI.approve(address(KashiPair), type(uint).max);
-        xSUSHI.approve(address(SushiRouter), type(uint).max);
+        //reduce bytecode size
+        _approve(address(token0), address(SushiRouter));
+        _approve(address(token1), address(SushiRouter));
+        _approve(address(lpToken), address(SushiRouter));
+        _approve(address(lpToken), address(MasterChef));
+        _approve(address(SUSHI), address(SushiRouter));
+        _approve(address(SUSHI), address(xSUSHI));
+        _approve(address(xSUSHI), address(bentoBox));
+        _approve(address(xSUSHI), address(KashiPair));
+        _approve(address(xSUSHI), address(SushiRouter));
 
         bentoBox.setMasterContractApproval(address(this), address(KashiPair.masterContract()), true, 0, 0, 0);
 
+    }
+
+    function _approve(address _from, address _target) internal {
+        IERC20Upgradeable(_from).safeApprove(_target, type(uint).max);
     }
 
     /// @notice Function that required for inherict BaseRelayRecipient
@@ -207,15 +214,14 @@ contract DAOVaultOptionB is Initializable, ERC20Upgradeable, BaseRelayRecipient{
 
                 if(address(_token) == address(0)) {
                     path[0] = address(token1);
-                    path[0] = address(WETH);
+                    path[1] = address(WETH);
                 } else {
                     path[0] = _token == token0 ? address(token1) : address(token0); //other token frm withdrawn token
                     path[1] = address(_token); //withdrawn token
                 }
                 
-                SushiRouter.swapExactTokensForTokens(_token == token0  || address(_token) == address(0) ? _amount1 : _amount0, 0, path, address(this), block.timestamp);     
-                
-                amountToWithdraw = _token.balanceOf(address(this));
+                _swapExactTokens(_token == token0  || address(_token) == address(0) ? _amount1 : _amount0, 0, path);
+                amountToWithdraw = address(_token) == address(0) ? WETH.balanceOf(address(this)):_token.balanceOf(address(this));
 
         }
 
@@ -491,8 +497,7 @@ contract DAOVaultOptionB is Initializable, ERC20Upgradeable, BaseRelayRecipient{
         path[1] = address(token1);
         
         
-        _tokensAmount = SushiRouter.swapExactTokensForTokens(msg.value.div(2), 0, path, address(this), block.timestamp);
-
+        _tokensAmount = _swapExactTokens(msg.value.div(2), 0, path);
     }
 
     ///@dev swap to required pair tokens
@@ -502,8 +507,8 @@ contract DAOVaultOptionB is Initializable, ERC20Upgradeable, BaseRelayRecipient{
 
         path[0] = _token;
         path[1] = _token == address(token0) ? address(token1) : address(token0);    
-        uint[] memory _tokensAmountTemp = SushiRouter.swapExactTokensForTokens(_amount.div(2), 0, path, address(this), block.timestamp);
 
+        uint[] memory _tokensAmountTemp = _swapExactTokens(_amount.div(2), 0, path);
         //swap token order. first element should be token0
         if(_token != address(token0)) {
             _tokensAmount = new uint[](2);
@@ -533,30 +538,39 @@ contract DAOVaultOptionB is Initializable, ERC20Upgradeable, BaseRelayRecipient{
         (uint amount0, uint amount1) = getRemovedAmount(_fees); //Transaction may fail without this check.
 
         if(amount0 > 0 && amount1 > 0) {
-            (, uint _token1Amount) = SushiRouter.removeLiquidity(address(token0), address(token1), _fees, 0, 0, address(this), block.timestamp);
+            (uint _token0Amount, uint _token1Amount) = SushiRouter.removeLiquidity(address(token0), address(token1), _fees, 0, 0, address(this), block.timestamp);
+            
             address[] memory path = new address[](2);
 
-            if(token0 == WBTC) {
-                // token-WETH doesn't exists for some pairs
+            if(token1 == ibBTC) {
+                //ibBTC-WETH pair doesn't exists 
                 address[] memory path = new address[](3);
                 path[0] = address(token1);
                 path[1] = address(WBTC);
                 path[2] = address(WETH);
-                
-                SushiRouter.swapExactTokensForTokens(_token1Amount, 0, path, address(this), block.timestamp);
-        
+                _swapExactTokens(_token1Amount, 0, path);
             } else {
-                path[0] = address(token1) ;
+                //swap token1 to eth
+                path[0] = address(token1);
+                path[1] = address(WETH);
+                _swapExactTokens(_token1Amount, 0, path);
+            }
+
+            
+            if(address(token0) != address(WETH)) {
+                //if token0 is not eth, swap it to eth
+                address[] memory path = new address[](2);
+                path[0] = address(token0) ;
                 path[1] = address(WETH); 
 
-                SushiRouter.swapExactTokensForTokens(_token1Amount, 0, path, address(this), block.timestamp);
+                _swapExactTokens(_token0Amount, 0, path);
             }
 
             //swap xSUSHI to WETH
 
             if(_xSushiFee > 0) {
                 path[0] = address(xSUSHI);
-                SushiRouter.swapExactTokensForTokens(_xSushiFee, 0, path, address(this), block.timestamp);
+                _swapExactTokens(_xSushiFee, 0, path);
                 _xSushiFee = 0;
             }
 
@@ -570,6 +584,10 @@ contract DAOVaultOptionB is Initializable, ERC20Upgradeable, BaseRelayRecipient{
             _fees = 0;
         }
 
+    }
+
+    function _swapExactTokens(uint _inAmount, uint _outAmount, address[] memory _path) internal returns (uint[] memory _tokens) {
+        _tokens = SushiRouter.swapExactTokensForTokens(_inAmount, _outAmount, _path, address(this), block.timestamp);
     }
 
     ///@dev calculates the assets that will be removed for the give lpTokenAmount
