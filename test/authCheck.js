@@ -73,6 +73,7 @@ describe("DAO Earn", () => {
         await expect(earnVault.connect(admin).setBiconomy(admin.address)).to.be.revertedWith("Ownable: caller is not the owner")
         await expect(earnVault.connect(admin).setAdmin(admin.address)).to.be.revertedWith("Ownable: caller is not the owner")
         await expect(earnVault.connect(admin).setStrategist(admin.address)).to.be.revertedWith("Only owner or strategist")
+        await expect(earnVault.connect(admin).setDaoMine(admin.address, 1)).to.be.revertedWith("Ownable: caller is not the owner")
 
         // EarnStrategy
         await expect(earnStrategy.initialize(
