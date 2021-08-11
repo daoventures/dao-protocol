@@ -91,15 +91,15 @@ describe("OA - ETHALCX", () => {
     })
 
 
-    // it("Should deploy correctly", async () => {
-    //     const { vault, ALCX, USDT, DAI, unlockedUser, unlockedUser2, adminSigner, deployer } = await setup()
-    //     expect(await vault.communityWallet()).to.be.equal(addresses.ADDRESSES.communityWallet)
-    //     expect(await vault.treasuryWallet()).to.be.equal(addresses.ADDRESSES.treasuryWallet)
-    //     expect(await vault.strategist()).to.be.equal(addresses.ADDRESSES.strategist)
-    //     expect(await vault.trustedForwarder()).to.be.equal(addresses.ADDRESSES.trustedForwarder)
-    //     expect(await vault.admin()).to.be.equal(addresses.ADDRESSES.adminAddress)
+    it("Should deploy correctly", async () => {
+        const { vault, ALCX, USDT, DAI, unlockedUser, unlockedUser2, adminSigner, deployer } = await setup()
+        expect(await vault.communityWallet()).to.be.equal(addresses.ADDRESSES.communityWallet)
+        expect(await vault.treasuryWallet()).to.be.equal(addresses.ADDRESSES.treasuryWallet)
+        expect(await vault.strategist()).to.be.equal(addresses.ADDRESSES.strategist)
+        expect(await vault.trustedForwarder()).to.be.equal(addresses.ADDRESSES.trustedForwarder)
+        expect(await vault.admin()).to.be.equal(addresses.ADDRESSES.adminAddress)
 
-    // })
+    })
 
     it("Should work - normal flow with token1", async () => {
         const { vault, ALCX, USDT, DAI, unlockedUser, unlockedUser2, adminSigner, deployer } = await setup()

@@ -91,15 +91,15 @@ describe("OA - ETHUSDC", () => {
     })
 
 
-    // it("Should deploy correctly", async () => {
-    //     const { vault, USDC, USDT, DAI, unlockedUser, unlockedUser2, adminSigner, deployer } = await setup()
-    //     expect(await vault.communityWallet()).to.be.equal(addresses.ADDRESSES.communityWallet)
-    //     expect(await vault.treasuryWallet()).to.be.equal(addresses.ADDRESSES.treasuryWallet)
-    //     expect(await vault.strategist()).to.be.equal(addresses.ADDRESSES.strategist)
-    //     expect(await vault.trustedForwarder()).to.be.equal(addresses.ADDRESSES.trustedForwarder)
-    //     expect(await vault.admin()).to.be.equal(addresses.ADDRESSES.adminAddress)
+    it("Should deploy correctly", async () => {
+        const { vault, USDC, USDT, DAI, unlockedUser, unlockedUser2, adminSigner, deployer } = await setup()
+        expect(await vault.communityWallet()).to.be.equal(addresses.ADDRESSES.communityWallet)
+        expect(await vault.treasuryWallet()).to.be.equal(addresses.ADDRESSES.treasuryWallet)
+        expect(await vault.strategist()).to.be.equal(addresses.ADDRESSES.strategist)
+        expect(await vault.trustedForwarder()).to.be.equal(addresses.ADDRESSES.trustedForwarder)
+        expect(await vault.admin()).to.be.equal(addresses.ADDRESSES.adminAddress)
 
-    // })
+    })
 
     it("Should work - normal flow with token1", async () => {
         const { vault, USDC, USDT, DAI, unlockedUser, unlockedUser2, adminSigner, deployer } = await setup()
@@ -131,129 +131,129 @@ describe("OA - ETHUSDC", () => {
         console.log('valueInPool', valueInPool.toString())
     })
 
-    // it("Should work - normal flow with token0", async () => {
-    //     const { vault, USDC, USDT, DAI, WETH, unlockedUser, unlockedUser2, adminSigner, deployer, SushiRouter } = await setup()
-    //     // swap to WETH
-    //     await SushiRouter.connect(unlockedUser).swapExactTokensForTokens(ethers.utils.parseUnits("10000", 6), 0, [USDC.address, WETH.address], unlockedAddress, 32490605417);
-    //     await SushiRouter.connect(unlockedUser2).swapExactTokensForTokens(ethers.utils.parseUnits("10000", 6), 0, [USDC.address, WETH.address], unlockedAddress2, 32490605417);
+    it("Should work - normal flow with token0", async () => {
+        const { vault, USDC, USDT, DAI, WETH, unlockedUser, unlockedUser2, adminSigner, deployer, SushiRouter } = await setup()
+        // swap to WETH
+        await SushiRouter.connect(unlockedUser).swapExactTokensForTokens(ethers.utils.parseUnits("10000", 6), 0, [USDC.address, WETH.address], unlockedAddress, 32490605417);
+        await SushiRouter.connect(unlockedUser2).swapExactTokensForTokens(ethers.utils.parseUnits("10000", 6), 0, [USDC.address, WETH.address], unlockedAddress2, 32490605417);
 
-    //     let balanceBefore = await WETH.balanceOf(unlockedUser.address)
-    //     let balanceBefore2 = await WETH.balanceOf(unlockedUser2.address)
+        let balanceBefore = await WETH.balanceOf(unlockedUser.address)
+        let balanceBefore2 = await WETH.balanceOf(unlockedUser2.address)
 
-    //     await vault.connect(unlockedUser).deposit(WETH.address, balanceBefore)
-    //     await vault.connect(unlockedUser2).deposit(WETH.address, balanceBefore2)
+        await vault.connect(unlockedUser).deposit(WETH.address, balanceBefore)
+        await vault.connect(unlockedUser2).deposit(WETH.address, balanceBefore2)
 
-    //     let shares = await vault.balanceOf(unlockedUser.address)
-    //     let sharesUser2 = await vault.balanceOf(unlockedUser2.address)
-    //     await vault.connect(adminSigner).invest()
+        let shares = await vault.balanceOf(unlockedUser.address)
+        let sharesUser2 = await vault.balanceOf(unlockedUser2.address)
+        await vault.connect(adminSigner).invest()
 
         
-    //     await increaseTime(86400)//(432000)
-    //     await mine()
+        await increaseTime(86400)//(432000)
+        await mine()
 
-    //     await vault.connect(adminSigner).yield()
+        await vault.connect(adminSigner).yield()
 
-    //     await vault.connect(unlockedUser).withdraw(WETH.address, shares)
-    //     await vault.connect(unlockedUser2).withdraw(WETH.address, sharesUser2)
-    //     let balanceAfter = await WETH.balanceOf(unlockedUser.address)
-    //     // console.log('withdrawn ', (balanceAfter.sub(balanceBefore).toString()), balanceBefore.toString(), balanceAfter.toString())
-    //     let valueInPool = await vault.balance()
-    //     // console.log('valueInPool', valueInPool.toString())
-    //     // // 
-    //     let balanceAfter2 = await WETH.balanceOf(unlockedUser2.address)
-    //     // console.log('withdrawn ', (balanceAfter2.sub(balanceBefore2).toString()), balanceBefore2.toString(), balanceAfter2.toString())
-    //     valueInPool = await vault.balance()
-    //     // console.log('valueInPool', valueInPool.toString())
-    // })
+        await vault.connect(unlockedUser).withdraw(WETH.address, shares)
+        await vault.connect(unlockedUser2).withdraw(WETH.address, sharesUser2)
+        let balanceAfter = await WETH.balanceOf(unlockedUser.address)
+        // console.log('withdrawn ', (balanceAfter.sub(balanceBefore).toString()), balanceBefore.toString(), balanceAfter.toString())
+        let valueInPool = await vault.balance()
+        // console.log('valueInPool', valueInPool.toString())
+        // // 
+        let balanceAfter2 = await WETH.balanceOf(unlockedUser2.address)
+        // console.log('withdrawn ', (balanceAfter2.sub(balanceBefore2).toString()), balanceBefore2.toString(), balanceAfter2.toString())
+        valueInPool = await vault.balance()
+        // console.log('valueInPool', valueInPool.toString())
+    })
 
-    // it("Should work - normal flow with ETH", async () => {
-    //     const { vault, USDC, USDT, DAI, WETH, unlockedUser, unlockedUser2, adminSigner, deployer } = await setup()
-    //     // let balanceBefore = await USDC.balanceOf(unlockedUser.address)
-    //     // let balanceBefore2 = await USDC.balanceOf(unlockedUser2.address)
-    //     // 
-    //     await vault.connect(unlockedUser).deposit(ethers.constants.AddressZero, ethers.utils.parseUnits("1", 18), { value: ethers.utils.parseEther("1.0") })
-    //     await vault.connect(unlockedUser2).deposit(ethers.constants.AddressZero, ethers.utils.parseUnits("1", 18), { value: ethers.utils.parseEther("1.0") })
-    //     // 
-    //     let shares = await vault.balanceOf(unlockedUser.address)
-    //     let sharesUser2 = await vault.balanceOf(unlockedUser2.address)
-    //     await vault.connect(adminSigner).invest()
-    //     await increaseTime(86400)//(432000)
-    //     await mine()
+    it("Should work - normal flow with ETH", async () => {
+        const { vault, USDC, USDT, DAI, WETH, unlockedUser, unlockedUser2, adminSigner, deployer } = await setup()
+        // let balanceBefore = await USDC.balanceOf(unlockedUser.address)
+        // let balanceBefore2 = await USDC.balanceOf(unlockedUser2.address)
+        // 
+        await vault.connect(unlockedUser).deposit(ethers.constants.AddressZero, ethers.utils.parseUnits("1", 18), { value: ethers.utils.parseEther("1.0") })
+        await vault.connect(unlockedUser2).deposit(ethers.constants.AddressZero, ethers.utils.parseUnits("1", 18), { value: ethers.utils.parseEther("1.0") })
+        // 
+        let shares = await vault.balanceOf(unlockedUser.address)
+        let sharesUser2 = await vault.balanceOf(unlockedUser2.address)
+        await vault.connect(adminSigner).invest()
+        await increaseTime(86400)//(432000)
+        await mine()
 
-    //     await vault.connect(adminSigner).yield()
-    //     await increaseTime(86400)//(432000)
-    //     await mine()
+        await vault.connect(adminSigner).yield()
+        await increaseTime(86400)//(432000)
+        await mine()
 
-    //     await vault.connect(unlockedUser).withdraw(ethers.constants.AddressZero, shares)
-    //     await vault.connect(unlockedUser2).withdraw(ethers.constants.AddressZero, sharesUser2)
-    //     let balanceAfter = await USDC.balanceOf(unlockedUser.address)
-    //     // console.log('withdrawn ', (balanceAfter.sub(balanceBefore).toString()), balanceBefore.toString(), balanceAfter.toString())
-    //     let valueInPool = await vault.balance()
-    //     // console.log('valueInPool', valueInPool.toString())
-    //     // // 
-    //     // let balanceAfter2 = await USDC.balanceOf(unlockedUser2.address)
-    //     // console.log('withdrawn ', (balanceAfter2.sub(balanceBefore2).toString()), balanceBefore2.toString(), balanceAfter2.toString())
-    //     valueInPool = await vault.balance()
-    //     // console.log('valueInPool', valueInPool.toString())
-    // })
+        await vault.connect(unlockedUser).withdraw(ethers.constants.AddressZero, shares)
+        await vault.connect(unlockedUser2).withdraw(ethers.constants.AddressZero, sharesUser2)
+        let balanceAfter = await USDC.balanceOf(unlockedUser.address)
+        // console.log('withdrawn ', (balanceAfter.sub(balanceBefore).toString()), balanceBefore.toString(), balanceAfter.toString())
+        let valueInPool = await vault.balance()
+        // console.log('valueInPool', valueInPool.toString())
+        // // 
+        // let balanceAfter2 = await USDC.balanceOf(unlockedUser2.address)
+        // console.log('withdrawn ', (balanceAfter2.sub(balanceBefore2).toString()), balanceBefore2.toString(), balanceAfter2.toString())
+        valueInPool = await vault.balance()
+        // console.log('valueInPool', valueInPool.toString())
+    })
 
-    // it("Should yield correctly", async () => {//TODO - check
-    //     const { vault, strategy, USDC, USDT, DAI, unlockedUser, unlockedUser2, adminSigner, deployer } = await setup()
-    //     await vault.connect(unlockedUser).deposit(USDC.address, ethers.utils.parseUnits("10000", 6))
+    it("Should yield correctly", async () => {//TODO - check
+        const { vault, strategy, USDC, USDT, DAI, unlockedUser, unlockedUser2, adminSigner, deployer } = await setup()
+        await vault.connect(unlockedUser).deposit(USDC.address, ethers.utils.parseUnits("10000", 6))
 
-    //     await vault.connect(adminSigner).invest()
-    //     await increaseTime(86400)//(432000)
-    //     await vault.connect(unlockedUser2).deposit(USDC.address, ethers.utils.parseUnits("10000", 6))
-    //     let valueInPoolBefore = await vault.balance()
-    //     await vault.connect(adminSigner).yield()
-    //     let valueInPoolAfter = await vault.balance()
+        await vault.connect(adminSigner).invest()
+        await increaseTime(86400)//(432000)
+        await vault.connect(unlockedUser2).deposit(USDC.address, ethers.utils.parseUnits("10000", 6))
+        let valueInPoolBefore = await vault.balance()
+        await vault.connect(adminSigner).yield()
+        let valueInPoolAfter = await vault.balance()
 
-    //     let shares = await vault.balanceOf(unlockedUser.address)
+        let shares = await vault.balanceOf(unlockedUser.address)
 
 
 
-    //     // expect(valueInPoolAfter.toNumber()).to.be.greaterThan(valueInPoolBefore.toNumber())
-    // })
+        // expect(valueInPoolAfter.toNumber()).to.be.greaterThan(valueInPoolBefore.toNumber())
+    })
 
-    // it("Should withdraw all funds in emergencyWithdraw", async () => {
-    //     const { vault, strategy, USDC, USDT, DAI, unlockedUser, unlockedUser2, adminSigner, deployer } = await setup()
-    //     await vault.connect(unlockedUser).deposit(USDC.address, ethers.utils.parseUnits("10000", 6))
-    //     let balanceBefore = await USDC.balanceOf(unlockedUser.address)
+    it("Should withdraw all funds in emergencyWithdraw", async () => {
+        const { vault, strategy, USDC, USDT, DAI, unlockedUser, unlockedUser2, adminSigner, deployer } = await setup()
+        await vault.connect(unlockedUser).deposit(USDC.address, ethers.utils.parseUnits("10000", 6))
+        let balanceBefore = await USDC.balanceOf(unlockedUser.address)
 
-    //     let shares = await vault.balanceOf(unlockedUser.address)
-    //     await vault.connect(adminSigner).invest()
-    //     await vault.connect(adminSigner).emergencyWithdraw()
-    //     await vault.connect(unlockedUser).withdraw(USDC.address, shares)
-    //     let balanceAfter = await USDC.balanceOf(unlockedUser.address)
+        let shares = await vault.balanceOf(unlockedUser.address)
+        await vault.connect(adminSigner).invest()
+        await vault.connect(adminSigner).emergencyWithdraw()
+        await vault.connect(unlockedUser).withdraw(USDC.address, shares)
+        let balanceAfter = await USDC.balanceOf(unlockedUser.address)
 
-    //     console.log("Withdrawn amount",(balanceAfter.sub(balanceBefore)).toString())
-    // })
+        console.log("Withdrawn amount",(balanceAfter.sub(balanceBefore)).toString())
+    })
+    // 
+    it("Should revert other functions on emergency", async () => {
+        const { vault, strategy, USDC, USDT, DAI, unlockedUser, unlockedUser2, adminSigner, deployer } = await setup()
+        await vault.connect(unlockedUser).deposit(USDC.address, ethers.utils.parseUnits("10000", 6))
+        await vault.connect(adminSigner).invest()
+        // 
+        await vault.connect(adminSigner).emergencyWithdraw()
+        await expect(vault.connect(unlockedUser).deposit(USDC.address, ethers.utils.parseUnits("10000", 6))).to.be.revertedWith("Deposit paused")
+        await expect(vault.connect(adminSigner).invest()).to.be.revertedWith("Invest paused")
+        await expect(vault.connect(adminSigner).yield()).to.be.revertedWith("yield paused")
+        // 
+    })
     // // 
-    // it("Should revert other functions on emergency", async () => {
-    //     const { vault, strategy, USDC, USDT, DAI, unlockedUser, unlockedUser2, adminSigner, deployer } = await setup()
-    //     await vault.connect(unlockedUser).deposit(USDC.address, ethers.utils.parseUnits("10000", 6))
-    //     await vault.connect(adminSigner).invest()
-    //     // 
-    //     await vault.connect(adminSigner).emergencyWithdraw()
-    //     await expect(vault.connect(unlockedUser).deposit(USDC.address, ethers.utils.parseUnits("10000", 6))).to.be.revertedWith("Deposit paused")
-    //     await expect(vault.connect(adminSigner).invest()).to.be.revertedWith("Invest paused")
-    //     await expect(vault.connect(adminSigner).yield()).to.be.revertedWith("yield paused")
-    //     // 
-    // })
-    // // // 
-    // it("Should enable all functions on reinvest", async () => {
-    //     const { vault, strategy, USDC, USDT, DAI, unlockedUser, unlockedUser2, adminSigner, deployer } = await setup()
-    //     await vault.connect(unlockedUser).deposit(USDC.address, ethers.utils.parseUnits("10000", 6))
-    //     await vault.connect(adminSigner).invest()
-    //     await vault.connect(adminSigner).yield()
-    //     await vault.connect(adminSigner).emergencyWithdraw()
-    //     // 
-    //     await vault.connect(deployer).reInvest()
+    it("Should enable all functions on reinvest", async () => {
+        const { vault, strategy, USDC, USDT, DAI, unlockedUser, unlockedUser2, adminSigner, deployer } = await setup()
+        await vault.connect(unlockedUser).deposit(USDC.address, ethers.utils.parseUnits("10000", 6))
+        await vault.connect(adminSigner).invest()
+        await vault.connect(adminSigner).yield()
+        await vault.connect(adminSigner).emergencyWithdraw()
+        // 
+        await vault.connect(deployer).reInvest()
 
-    //     // console.log('beforeInvest')
-    //     await vault.connect(adminSigner).invest()
-    //     // console.log('beforeYield')
-    //     await vault.connect(adminSigner).yield()
-    // })
+        // console.log('beforeInvest')
+        await vault.connect(adminSigner).invest()
+        // console.log('beforeYield')
+        await vault.connect(adminSigner).yield()
+    })
 
 })
