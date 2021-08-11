@@ -146,5 +146,9 @@ describe("DAO Earn", () => {
         await earnVault.connect(strategist).setStrategist(sampleAddress)
         expect(await earnVault.strategist()).to.equal(sampleAddress)
         expect(await earnStrategy.strategist()).to.equal(sampleAddress)
+
+        await earnVault.setDaoMine(sampleAddress, 1)
+        expect(await earnVault.daoMine()).to.equal(sampleAddress)
+        expect(await earnVault.daoMinePid()).to.equal(1)
     })
 })

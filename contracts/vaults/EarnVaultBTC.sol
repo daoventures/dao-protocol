@@ -89,6 +89,7 @@ contract EarnVaultBTC is Initializable, ERC20Upgradeable, OwnableUpgradeable,
     event SetAdminWallet(address indexed admin);
     event SetStrategistWallet(address indexed strategistWallet);
     event SetBiconomy(address indexed biconomy);
+    event SetDaoMine(address indexed daoMine, uint256 indexed daoMinePid);
 
     modifier onlyOwnerOrAdmin {
         require(msg.sender == owner() || msg.sender == address(admin), "Only owner or admin");
@@ -454,6 +455,15 @@ contract EarnVaultBTC is Initializable, ERC20Upgradeable, OwnableUpgradeable,
     function setBiconomy(address _biconomy) external onlyOwner {
         trustedForwarder = _biconomy;
         emit SetBiconomy(_biconomy);
+    }
+
+    /// @notice Function to set DAOmine and pid of this vault
+    /// @param _daoMine Address of DAOmine
+    /// @param _daoMinePid Pid of this vault in DAOmine
+    function setDAOmine(address _daoMine, uint256 _daoMinePid) external onlyOwner {
+        daoMine = IDAOmine(_daoMine);
+        daoMinePid = _daoMinePid;
+        emit SetDaoMine(_daoMine, _daoMinePid);
     }
 
     /// @notice Function to get total amount of token(vault+strategy)
