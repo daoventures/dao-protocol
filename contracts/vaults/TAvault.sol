@@ -114,7 +114,14 @@ contract TAvault is ERC20Upgradeable, /* OwnableUpgradeable, */ BaseRelayRecipie
     }
 
     modifier onlyOwner {
-        // require(msg.sender == );
+        address _owner;
+
+        //TO avoid collision with onlyOwner and onwer() in proxy
+        assembly{
+            _owner := sload(0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103) //bytes32(uint256(keccak256("eip1967.proxy.admin")) - 1)
+        }
+
+        require(msg.sender == _owner, "Only owner");
         _;
     }
 

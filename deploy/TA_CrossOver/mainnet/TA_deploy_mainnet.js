@@ -32,7 +32,7 @@ module.exports = async ({deployments}) => {
     await TAStrategy.connect(deployer).setVault((await vault).address)
     let impl = await ethers.getContract("TAvault_Implementation")
 
-    console.log("Vault: ", vault.address)
+    console.log("Vault: ", (await vault).address)
     console.log('Implementation address', impl.address)
     console.log("Strategy: ", strategy.address)
 }

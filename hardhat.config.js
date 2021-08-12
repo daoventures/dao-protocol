@@ -3,6 +3,7 @@ require("@nomiclabs/hardhat-etherscan");
 require("hardhat-deploy");
 require("hardhat-deploy-ethers");
 require("@nomiclabs/hardhat-solhint");
+require("@openzeppelin/hardhat-upgrades");
 require("dotenv").config();
 
 module.exports = {
@@ -10,17 +11,17 @@ module.exports = {
     hardhat: {
       forking: {
         url: process.env.ALCHEMY_URL_MAINNET,
-        blockNumber: 12817212,
+        blockNumber: 13009627//12817212,
       },
 /*       mining: {
         auto: false,
         interval: 5000
       } */
     },
-    // mainnet: {
-    //   url: process.env.ALCHEMY_URL_MAINNET,
-    //   accounts: [`0x${process.env.PRIVATE_KEY}`],
-    // },
+     mainnet: {
+       url: process.env.ALCHEMY_URL_MAINNET,
+       accounts: [`0x${process.env.PRIVATE_KEY}`],
+     },
     // kovan: {
     //   url: process.env.ALCHEMY_URL_KOVAN,
     //   accounts: [`0x${process.env.PRIVATE_KEY}`],

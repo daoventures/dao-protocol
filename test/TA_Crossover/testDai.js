@@ -191,5 +191,15 @@ describe("TA - DAI", () => {
         // console.log("Withdrawn", (afterBalance.sub(beforeBalance)).toString())
         // 
     })
+    
+    it("Should fail with Only owner", async() => {
+        const {vault, strategy, USDC, USDT, DAI, unlockedUser, unlockedUser2, adminSigner, deployer} = await setup()
+        await vault.connect(unlockedUser).deposit(ethers.utils.parseUnits("100", 6), 0)
+        let beforeBalance = await USDC.balanceOf(unlockedUser.address)
+        await vault.connect(adminSigner).invest()
+        
+        await expect(vault.connect(unlockedUser).setPendingStrategy(strategy.address)).to.be.revertedWith("Only owner")
+        await expect(vault.connect(unlockedUser).unlockMigrateFunds()).to.be.revertedWith("Only owner")
+    })
 
 })
