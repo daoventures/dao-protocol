@@ -107,7 +107,7 @@ describe("TA - USDT", () => {
         let balanceBefore = await USDC.balanceOf(unlockedUser2.address)
         await vault.connect(adminSigner).invest()
 // 
-        await vault.connect(adminSigner).switchMode(0)
+        await vault.connect(adminSigner).switchMode(1)
         await vault.connect(adminSigner).switchMode(0)
 // 
         await vault.connect(unlockedUser2).withdraw(shares, 0)
@@ -183,7 +183,7 @@ describe("TA - USDT", () => {
 // 
         await increaseTime(216000) //2.5 days
 // 
-        await vault.connect(deployer).unlockMigrateFunds()
+        // await vault.connect(deployer).unlockMigrateFunds()
         await vault.connect(deployer).migrateFunds()
 // 
         let afterBalance = await USDC.balanceOf(unlockedUser.address)

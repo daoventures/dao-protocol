@@ -183,7 +183,7 @@ describe("TA - DAI", () => {
 // 
         await increaseTime(216000) //2.5 days
 // 
-        await vault.connect(deployer).unlockMigrateFunds()
+        // await vault.connect(deployer).unlockMigrateFunds()
         await vault.connect(deployer).migrateFunds()
 // 
         let afterBalance = await DAI.balanceOf(unlockedUser.address)

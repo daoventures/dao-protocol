@@ -19,6 +19,13 @@ const increaseTime = async (_timeInMilliSeconds)=> {
     })
 }
 
+
+const mine = async () => {
+    await network.provider.request({
+        method: "evm_mine",
+        params: []
+    })
+}
 describe("TA - USDC", () => {
     const setup = async () => {
         const [ deployer ] = await ethers.getSigners()
@@ -183,8 +190,9 @@ describe("TA - USDC", () => {
         await vault.connect(deployer).unlockMigrateFunds()
 // 
         await increaseTime(216000) //2.5 days
+        await mine()
 // 
-        await vault.connect(deployer).unlockMigrateFunds()
+        // await vault.connect(deployer).unlockMigrateFunds()
         await vault.connect(deployer).migrateFunds()
         await vault.connect(unlockedUser).withdraw(shares, 1)
         let afterBalance = await USDC.balanceOf(unlockedUser.address)
