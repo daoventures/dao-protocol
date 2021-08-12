@@ -41,6 +41,7 @@ contract TAstrategy is Ownable {
     uint private WETHWBTCPoolId = 21;
     uint private WETHUSDCPoolId = 1;
     bool public isEmergency = false;
+    uint yieldFee = 20; //20%
     uint valueInETH;
 
     enum Mode {
@@ -178,6 +179,10 @@ contract TAstrategy is Ownable {
         }
     }
 
+    function setYieldFee(uint _yieldFee) external onlyVault {
+        yieldFee = _yieldFee;
+    }
+
     function reimburse() external onlyVault {
         uint256 _reimburseUSDT = vault.getReimburseTokenAmount(0);
         uint256 _reimburseUSDC = vault.getReimburseTokenAmount(1);
@@ -312,7 +317,7 @@ contract TAstrategy is Ownable {
             
 
             if(sushiBalance > 0) {
-                uint fee = sushiBalance.div(10); //10 %
+                uint fee = sushiBalance.mul(yieldFee).div(10000); 
                 uint _treasuryFee = fee.mul(2).div(5); //40%
                 SUSHI.safeTransfer(treasury, _treasuryFee);
                 SUSHI.safeTransfer(communityWallet, _treasuryFee);

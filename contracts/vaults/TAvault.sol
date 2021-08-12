@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.7.6;
 
-import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/math/SafeMath.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/SafeERC20Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "../../libs/BaseRelayRecipient.sol";
 
 interface IStrategy {    
@@ -26,6 +26,7 @@ interface IStrategy {
     function setCommunityWallet(address _communityWallet) external;
     function setTreasuryWallet(address _treasuryWallet) external;
     function switchMode(Mode _newMode) external ;
+    function setYieldFee(uint _yieldFee) external;
 }
 
 interface IRouter {
@@ -48,17 +49,17 @@ interface IChainlink {
     function latestAnswer() external view returns (int256);
 }
 
-contract TAvault is ERC20("DAO Vault TA", "daoTA"), Ownable, BaseRelayRecipient { 
-    using SafeERC20 for IERC20;
-    using SafeMath for uint256;
+contract TAvault is ERC20Upgradeable, /* OwnableUpgradeable, */ BaseRelayRecipient { 
+    using SafeERC20Upgradeable for IERC20Upgradeable;
+    using SafeMathUpgradeable for uint256;
 
     struct Token {
-        IERC20 token;
+        IERC20Upgradeable token;
         uint256 decimals;
         uint256 percKeepInVault;
     }
 
-    IERC20 private constant WETH = IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+    IERC20Upgradeable private constant WETH = IERC20Upgradeable(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
 
     IStrategy public strategy;
     IRouter private constant router = IRouter(0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F);
@@ -73,11 +74,11 @@ contract TAvault is ERC20("DAO Vault TA", "daoTA"), Ownable, BaseRelayRecipient 
     uint256 public constant LOCKTIME = 2 days;
 
     // Calculation for fees
-    uint256[] public networkFeeTier2 = [50000*1e18+1, 100000*1e18];
-    uint256 public customNetworkFeeTier = 1000000*1e18;
-    uint256[] public networkFeePerc = [100, 75, 50];
-    uint256 public customNetworkFeePerc = 25;
-    uint256 public profitSharingFeePerc = 2000;
+    uint256[] public networkFeeTier2;
+    uint256 public customNetworkFeeTier;
+    uint256[] public networkFeePerc;
+    uint256 public customNetworkFeePerc;
+    uint256 public profitSharingFeePerc;
 
     // Address to collect fees
     address public treasuryWallet;
@@ -112,12 +113,19 @@ contract TAvault is ERC20("DAO Vault TA", "daoTA"), Ownable, BaseRelayRecipient 
         _;
     }
 
-    constructor(
+    modifier onlyOwner {
+        // require(msg.sender == );
+        _;
+    }
+
+    function initialize(
         address _strategy, 
         address _treasuryWallet, address _communityWallet, 
         address _admin, address _strategist, 
         address _biconomy
-    ) {
+    ) external initializer{
+        __ERC20_init("DAO Vault TA", "daoTA");
+        // __Ownable_init();
         strategy = IStrategy(_strategy);
         treasuryWallet = _treasuryWallet;
         communityWallet = _communityWallet;
@@ -125,9 +133,17 @@ contract TAvault is ERC20("DAO Vault TA", "daoTA"), Ownable, BaseRelayRecipient 
         strategist = _strategist;
         trustedForwarder = _biconomy;
 
-        IERC20 USDT = IERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7);
-        IERC20 USDC = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
-        IERC20 DAI = IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
+        IERC20Upgradeable USDT = IERC20Upgradeable(0xdAC17F958D2ee523a2206206994597C13D831ec7);
+        IERC20Upgradeable USDC = IERC20Upgradeable(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
+        IERC20Upgradeable DAI = IERC20Upgradeable(0x6B175474E89094C44Da98b954EedeAC495271d0F);
+
+        networkFeeTier2 = [50000*1e18+1, 100000*1e18];
+        customNetworkFeeTier = 1000000*1e18;
+        networkFeePerc = [100, 75, 50];
+        customNetworkFeePerc = 25;
+        profitSharingFeePerc = 2000;
+
+
         Tokens[0] = Token(USDT, 6, 200);
         Tokens[1] = Token(USDC, 6, 200);
         Tokens[2] = Token(DAI, 18, 200);
@@ -145,7 +161,7 @@ contract TAvault is ERC20("DAO Vault TA", "daoTA"), Ownable, BaseRelayRecipient 
     }
 
     /// @notice Function that required for inherict BaseRelayRecipient
-    function _msgSender() internal override(Context, BaseRelayRecipient) view returns (address payable) {
+    function _msgSender() internal override(ContextUpgradeable, BaseRelayRecipient) view returns (address payable) {
         return BaseRelayRecipient._msgSender();
     }
     
@@ -293,7 +309,7 @@ contract TAvault is ERC20("DAO Vault TA", "daoTA"), Ownable, BaseRelayRecipient 
     /// @notice Function to swap stablecoin to WETH
     /// @param _token Stablecoin to swap
     /// @param _toKeepAmt Amount to keep in vault (decimals follow stablecoins)
-    function _invest(IERC20 _token, uint256 _toKeepAmt) private {
+    function _invest(IERC20Upgradeable _token, uint256 _toKeepAmt) private {
         uint256 _balanceOfToken = _token.balanceOf(address(this));
         if (_balanceOfToken > _toKeepAmt) {
             _swapExactTokensForTokens(_balanceOfToken.sub(_toKeepAmt), address(_token), address(WETH));
@@ -310,6 +326,10 @@ contract TAvault is ERC20("DAO Vault TA", "daoTA"), Ownable, BaseRelayRecipient 
     function switchMode(IStrategy.Mode _mode) external onlyAdmin {
         require(isEmergency == false, "Cannot call during emergency");
         strategy.switchMode(_mode);
+    }
+
+    function setYieldFee(uint _yieldFee) external onlyOwner{
+        strategy.setYieldFee(_yieldFee);
     }
 
     /// @notice Function to swap stablecoin within vault with Curve
@@ -468,7 +488,7 @@ contract TAvault is ERC20("DAO Vault TA", "daoTA"), Ownable, BaseRelayRecipient 
     /// @notice Function to set new strategist address
     /// @param _strategist Address of new strategist
     function setStrategist(address _strategist) external {
-        require(msg.sender == strategist || msg.sender == owner(), "Not authorized");
+        require(msg.sender == strategist /* || msg.sender == owner() */, "Not authorized");
         strategist = _strategist;
         strategy.setStrategist(_strategist);
         emit SetStrategistWallet(_strategist);
