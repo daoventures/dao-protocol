@@ -1,41 +1,41 @@
-require("@nomiclabs/hardhat-waffle");
-require("@nomiclabs/hardhat-etherscan");
-require("hardhat-deploy");
-require("hardhat-deploy-ethers");
-require("@nomiclabs/hardhat-solhint");
-require("dotenv").config();
+require("@nomiclabs/hardhat-waffle")
+require("@nomiclabs/hardhat-etherscan")
+require('@openzeppelin/hardhat-upgrades');
+require("dotenv").config()
 
 module.exports = {
   networks: {
     hardhat: {
       forking: {
         url: process.env.ALCHEMY_URL_MAINNET,
-        // blockNumber: 11960000,
+        blockNumber: 13010000,
+
+        // url: process.env.ALCHEMY_URL_KOVAN,
+        // blockNumber: 26380000, // Kovan
       },
     },
-    // mainnet: {
-    //   url: process.env.ALCHEMY_URL_MAINNET,
-    //   accounts: [`0x${process.env.PRIVATE_KEY}`],
-    // },
-    // kovan: {
-    //   url: process.env.ALCHEMY_URL_KOVAN,
-    //   accounts: [`0x${process.env.PRIVATE_KEY}`],
-    // },
-    // rinkeby: {
-    //   url: process.env.ALCHEMY_URL_RINKEBY,
-    //   accounts: [`0x${process.env.PRIVATE_KEY}`],
-    // },
+    mainnet: {
+      url: process.env.ALCHEMY_URL_MAINNET,
+      accounts: [`0x${process.env.PRIVATE_KEY}`],
+    },
+    kovan: {
+      url: process.env.ALCHEMY_URL_KOVAN,
+      accounts: [`0x${process.env.PRIVATE_KEY}`],
+    },
   },
-  // etherscan: {
-  //   apiKey: process.env.ETHERSCAN_API_KEY,
-  // },
+  etherscan: {
+    apiKey: process.env.ETHERSCAN_API_KEY,
+  },
   solidity: {
-    version: "0.7.6",
+    version: "0.8.7",
     settings: {
       optimizer: {
         enabled: true,
-        runs: 1000,
+        runs: 200,
       },
     },
   },
+  mocha: {
+    timeout: 300000
+  }
 };

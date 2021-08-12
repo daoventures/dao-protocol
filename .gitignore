@@ -1,10 +1,7 @@
 node_modules
 .env
-deployments/
-*deployment.json
+.vscode
 
 #Hardhat files
 cache
 artifacts
-contracts/.DS_Store
-.DS_Store
