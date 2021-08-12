@@ -7,7 +7,7 @@
       "hash": "0xd93cbe312fe2cf86ae7a98effb82b2a589d68b848cf443242eff795375728e2e",
       "type": 0,
       "accessList": null,
-      "blockHash": "0xafc0fa8600a0c69a0600e7da55456752b0da140311d1ae6bef5e9d58b2c1ca7c",
+      "blockHash": "0xa1ae58d011224e32c7b3ab0ec03777c795ae377642887af4a3fc9af782dd883a",
       "blockNumber": 12958002,
       "transactionIndex": 0,
       "confirmations": 1,
@@ -37,14 +37,14 @@
   "proxies": [
     {
       "address": "0x9d4454B023096f34B160D6B654540c56A1F81688",
-      "txHash": "0xe3a7c14b9a45ca2f180b5d4d0130e5ff48b9e4a121b19231adf23afdb02ae084",
+      "txHash": "0x7ddb05f6cbc1d8518ee0fbf67ecd473fcc56831f6eda8d9e06eac5f9d8620032",
       "kind": "transparent"
     }
   ],
   "impls": {
-    "8d106ecebf8489f8687737403a3d5b55d29a7e897046e17d13e4d4322c048c5e": {
+    "5eabb62a0dd03e4a6eb67b46162d7bd6326d332fd57c947eaae01cc6089f9d4f": {
       "address": "0x0E801D84Fa97b50751Dbf25036d067dCf18858bF",
-      "txHash": "0x05a0ca8a25d2b56bf6040d70ef9e4cf011e1f91a25347f9c1110bfe8325bd0bb",
+      "txHash": "0x4da4284ca935986f2bfb3eb1dc083489fe8f06addeaf13c296d2b3aa4e9802e8",
       "layout": {
         "storage": [
           {
@@ -99,7 +99,7 @@
             "contract": "ERC20Upgradeable",
             "label": "__gap",
             "type": "t_array(t_uint256)45_storage",
-            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:360"
+            "src": "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol:371"
           },
           {
             "contract": "OwnableUpgradeable",
@@ -114,54 +114,114 @@
             "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:77"
           },
           {
+            "contract": "ReentrancyGuardUpgradeable",
+            "label": "_status",
+            "type": "t_uint256",
+            "src": "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol:37"
+          },
+          {
+            "contract": "ReentrancyGuardUpgradeable",
+            "label": "__gap",
+            "type": "t_array(t_uint256)49_storage",
+            "src": "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol:67"
+          },
+          {
+            "contract": "PausableUpgradeable",
+            "label": "_paused",
+            "type": "t_bool",
+            "src": "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol:28"
+          },
+          {
+            "contract": "PausableUpgradeable",
+            "label": "__gap",
+            "type": "t_array(t_uint256)49_storage",
+            "src": "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol:96"
+          },
+          {
             "contract": "YearnStrategy",
             "label": "tokens",
-            "type": "t_mapping(t_address,t_contract(IERC20Upgradeable)992)",
-            "src": "contracts/strategies/YearnStrategy.sol:96"
+            "type": "t_mapping(t_address,t_contract(IERC20Upgradeable)1038)",
+            "src": "contracts/strategies/YearnStrategy.sol:98"
           },
           {
             "contract": "YearnStrategy",
             "label": "balanceOfAllTokens",
             "type": "t_uint256",
-            "src": "contracts/strategies/YearnStrategy.sol:97"
-          },
-          {
-            "contract": "YearnStrategy",
-            "label": "treasury",
-            "type": "t_address",
             "src": "contracts/strategies/YearnStrategy.sol:99"
           },
           {
             "contract": "YearnStrategy",
-            "label": "community",
-            "type": "t_address",
+            "label": "percKeepInVault",
+            "type": "t_uint256",
             "src": "contracts/strategies/YearnStrategy.sol:100"
-          },
-          {
-            "contract": "YearnStrategy",
-            "label": "strategist",
-            "type": "t_address",
-            "src": "contracts/strategies/YearnStrategy.sol:101"
           },
           {
             "contract": "YearnStrategy",
             "label": "admin",
             "type": "t_address",
-            "src": "contracts/strategies/YearnStrategy.sol:102"
+            "src": "contracts/strategies/YearnStrategy.sol:101"
+          },
+          {
+            "contract": "YearnStrategy",
+            "label": "networkFeeTier2",
+            "type": "t_array(t_uint256)dyn_storage",
+            "src": "contracts/strategies/YearnStrategy.sol:104"
+          },
+          {
+            "contract": "YearnStrategy",
+            "label": "customNetworkFeeTier",
+            "type": "t_uint256",
+            "src": "contracts/strategies/YearnStrategy.sol:105"
+          },
+          {
+            "contract": "YearnStrategy",
+            "label": "networkFeePerc",
+            "type": "t_array(t_uint256)dyn_storage",
+            "src": "contracts/strategies/YearnStrategy.sol:106"
+          },
+          {
+            "contract": "YearnStrategy",
+            "label": "customNetworkFeePerc",
+            "type": "t_uint256",
+            "src": "contracts/strategies/YearnStrategy.sol:107"
+          },
+          {
+            "contract": "YearnStrategy",
+            "label": "treasury",
+            "type": "t_address",
+            "src": "contracts/strategies/YearnStrategy.sol:110"
+          },
+          {
+            "contract": "YearnStrategy",
+            "label": "community",
+            "type": "t_address",
+            "src": "contracts/strategies/YearnStrategy.sol:111"
+          },
+          {
+            "contract": "YearnStrategy",
+            "label": "strategist",
+            "type": "t_address",
+            "src": "contracts/strategies/YearnStrategy.sol:112"
           }
         ],
         "types": {
-          "t_mapping(t_address,t_contract(IERC20Upgradeable)992)": {
+          "t_mapping(t_address,t_contract(IERC20Upgradeable)1038)": {
             "label": "mapping(address => contract IERC20Upgradeable)"
           },
           "t_address": {
             "label": "address"
           },
-          "t_contract(IERC20Upgradeable)992": {
+          "t_contract(IERC20Upgradeable)1038": {
             "label": "contract IERC20Upgradeable"
           },
           "t_uint256": {
             "label": "uint256"
+          },
+          "t_array(t_uint256)dyn_storage": {
+            "label": "uint256[]"
+          },
+          "t_bool": {
+            "label": "bool"
           },
           "t_array(t_uint256)49_storage": {
             "label": "uint256[49]"
@@ -180,9 +240,6 @@
           },
           "t_array(t_uint256)50_storage": {
             "label": "uint256[50]"
-          },
-          "t_bool": {
-            "label": "bool"
           }
         }
       }
