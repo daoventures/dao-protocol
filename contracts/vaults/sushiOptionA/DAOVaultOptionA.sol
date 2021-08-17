@@ -4,6 +4,7 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/SafeERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 
 import "../../../libs/BaseRelayRecipient.sol";
 import "../../../interfaces/IRelayRecipient.sol";
@@ -17,7 +18,7 @@ interface Factory {
 }
 
 
-contract DAOVaultOptionA is Initializable, ERC20Upgradeable, BaseRelayRecipient{
+contract DAOVaultOptionA is Initializable, ERC20Upgradeable, ReentrancyGuardUpgradeable, BaseRelayRecipient{
     using SafeMathUpgradeable for uint;
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
@@ -38,6 +39,7 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable, BaseRelayRecipient{
     address public treasuryWallet;
     address public communityWallet;
     address public strategist;
+    address public zapContract;
 
     uint public poolId;
     uint public amountToKeepInVault; //500 //5 %
@@ -81,7 +83,7 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable, BaseRelayRecipient{
     function initialize(string memory _name, string memory _symbol, uint _poolId, 
       IERC20Upgradeable _token0, IERC20Upgradeable _token1, IERC20Upgradeable _lpToken,
       address _communityWallet, address _treasuryWallet, address _strategist, address _trustedForwarder, address _admin,
-      address _masterchef, uint _masterChefVersion) external initializer {
+      address _masterchef, uint _masterChefVersion, address _zapContract) external initializer {
         
         __ERC20_init(_name, _symbol);
         
@@ -101,6 +103,7 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable, BaseRelayRecipient{
         strategist = _strategist;
         trustedForwarder = _trustedForwarder;
         admin = _admin;
+        zapContract = _zapContract;
 
         factory = Factory(msg.sender);
 
@@ -126,101 +129,53 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable, BaseRelayRecipient{
     function versionRecipient() external pure override returns (string memory) {
         return "1";
     }
-
-    function _isTokenValid(IERC20Upgradeable _token) internal view {
-        if(token0 == WETH) {
-            //Accept ETH deposits only for ETH pairs (i.e WETH-USDC not for WBTC-USDC)
-            require(_token == token0 || _token == token1 || address(_token) == address(0), "Invalid Token"); //address(0) - ETH (not WETH)
-        } else {
-            require(_token == token0 || _token == token1, "Invalid Token"); 
-        }
-    }
+        
     /**
-        @param _token Token to deposit. To deposit ETH, use address(0)    
         @param _amount amount of token to deposit.
-
         @dev For ETH send, msg.value is used instead of _amount
      */
-    function deposit(IERC20Upgradeable _token, uint _amount) external payable {
-        require(tx.origin == msg.sender || isTrustedForwarder(msg.sender), "only EOA");
+    function deposit(uint _amount) external nonReentrant {
         require(isEmergency == false ,"Deposit paused");
-        _isTokenValid(_token);
+        require(_amount > 0, "Invalid amount");
 
         address _sender = _msgSender();
 
-        if(address(_token) == address(0)) {
-            require(msg.value > 0, "Invalid ETH sent");
-        } else {
-            require(_amount > 0, "Invalid token amount");
-            _token.safeTransferFrom(_sender, address(this), _amount);
-        }
-
-        uint shares;
-        uint lpTokenPool = balance();
-        uint lpTokensSupplied = _deposit(address(_token), _amount);
-
-        if(totalSupply() == 0) {
-            shares = lpTokensSupplied;
-        } else {
-            shares = lpTokensSupplied.mul(totalSupply()).div(lpTokenPool);
-        }
-
-        _mint(_sender, shares);
-
-        emit Deposit(address(_token), _sender, _amount, shares);
+        _deposit(_amount, _sender, _sender);
     }
-    /**
-        @param _token Token to deposit. To withdraw ETH, use address(0)    
+
+    function depositUnderlying(uint _amount, address _user) external nonReentrant {
+        require(msg.sender == zapContract,"only ZAP contract"); // change name && uncomment //NEW_CHANGE
+        _deposit(_amount, _user, zapContract); 
+    }
+    /** 
         @param _shares shares to withdraw.
      */
-    function withdraw(IERC20Upgradeable _token, uint _shares) external { 
-        require(msg.sender == tx.origin, "Only EOA");
-        _isTokenValid(_token);
+    function withdraw(uint _shares) external nonReentrant returns (uint amountToWithdraw){
+        require(_shares > 0, "Invalid amount");
         
-        uint amountToWithdraw;
-        uint lpTokenInPool = balance();
-        uint amountOfLpsToWithdraw = lpTokenInPool.mul(_shares).div(totalSupply()); 
+        amountToWithdraw = _withdraw(_shares, msg.sender);
+    }
+
+    function withdrawUnderlying(uint _shares, address _user) external nonReentrant returns (uint amountToWithdraw){
+        require(msg.sender == zapContract, "only ZAP contract"); // change name && uncomment //NEW_CHANGE
+        amountToWithdraw = _withdraw(_shares, _user);
+    }
+
+    function _withdraw(uint _shares, address _user) internal returns (uint amountToWithdraw){
+        amountToWithdraw = balance().mul(_shares).div(totalSupply()); 
 
         uint lpInVault = available();
         
-        if(amountOfLpsToWithdraw > lpInVault) {
-            _withdrawFromPool(amountOfLpsToWithdraw.sub(lpInVault));
+        if(amountToWithdraw > lpInVault) {
+            _withdrawFromPool(amountToWithdraw.sub(lpInVault));
         }
 
-        amountToWithdraw = amountOfLpsToWithdraw; // when lpToken is withdrawn by user
+        _burn(_user, _shares);
 
-        if(_token != lpToken) {
-            address[] memory path = new address[](2);
+        lpToken.safeTransfer(msg.sender, amountToWithdraw);
 
-            if(address(_token) == address(0)) {
-                //user withdraws in ETH
+        emit Withdraw(address(lpToken), _user, amountToWithdraw, _shares);//NEW_CHANGE //remove lptoken from event
 
-                (uint _token1Removed, uint _ethRemoved)= SushiRouter.removeLiquidityETH(address(token1), amountOfLpsToWithdraw, 0, 0, address(this), block.timestamp);
-
-                path[0] = address(token1);
-                path[1] = address(WETH);   
-                uint _amount = SushiRouter.swapExactTokensForETH(_token1Removed, 0, path, address(this), block.timestamp)[1];
-                amountToWithdraw = _ethRemoved.add(_amount);
-                
-
-            } else {
-                //user withdraws in one of underlying token
-                (uint _amount0, uint _amount1) = SushiRouter.removeLiquidity(address(token0), address(token1), amountOfLpsToWithdraw, 0, 0, address(this), block.timestamp);    
-                
-                path[0] = _token == token0 ? address(token1) : address(token0); //other token frm withdrawn token
-                path[1] = address(_token); //withdrawn token
-                uint[] memory amounts = _swapExactTokens(_token == token0 ? _amount1 : _amount0, 0, path);
-                amountToWithdraw = _token == token0 ? _amount0.add(amounts[1]) : _amount1.add(amounts[1]);
-                
-                
-            }
-        }
-
-        _burn(msg.sender, _shares);
-
-        _withdrawToUser(msg.sender, amountToWithdraw, _token);
-
-        emit Withdraw(address(_token), msg.sender, amountToWithdraw, _shares);
     }
 
     function yield() external onlyAdmin{
@@ -356,27 +311,16 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable, BaseRelayRecipient{
     }
 
     ///@dev swap to required lpToken. Deposit to masterChef in invest()
-    function _deposit(address _token, uint _amount) internal returns(uint _lpTokens){
+    function _deposit(uint _amount, address _sender, address _transferFrom) internal returns(uint _lpTokens){
         
-        //_token is not lpToken, so conver token to required pairs
-        if(_token != address(lpToken)) {
-            //address of _token is address(0) when ETH is used(not WETH) 
-            uint[] memory _tokensAmount = _token == address(0) ? _swapETHToPairs() : _swapTokenToPairs(_token, _amount);
-
-            //add liquidity to sushiSwap
-            _lpTokens = _addLiquidity(_tokensAmount[0], _tokensAmount[1]); //token0, token1
-        }  else {
-            _lpTokens = _amount;
-        }
-
         uint256 _networkFeePerc;
-        if (_lpTokens < networkFeeTier2[0]) {
+        if (_amount < networkFeeTier2[0]) {
             // Tier 1
             _networkFeePerc = networkFeePerc[0];
-        } else if (_lpTokens <= networkFeeTier2[1]) {
+        } else if (_amount <= networkFeeTier2[1]) {
             // Tier 2
             _networkFeePerc = networkFeePerc[1];
-        } else if (_lpTokens < customNetworkFeeTier) {
+        } else if (_amount < customNetworkFeeTier) {
             // Tier 3
             _networkFeePerc = networkFeePerc[2];
         } else {
@@ -384,9 +328,25 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable, BaseRelayRecipient{
             _networkFeePerc = customNetworkFeePerc;
         }
 
-        uint256 _fee = _lpTokens.mul(_networkFeePerc).div(10000);
+        uint256 _fee = _amount.mul(_networkFeePerc).div(10000);
         _fees = _fees.add(_fee);
-        _lpTokens = _lpTokens.sub(_fee);
+        _lpTokens = _amount.sub(_fee);
+
+        uint shares;
+        uint lpTokenPool = balance();
+
+        lpToken.transferFrom(_transferFrom, address(this), _amount);
+
+        if(totalSupply() == 0) {
+            shares = _lpTokens;
+        } else {
+            shares = _lpTokens.mul(totalSupply()).div(lpTokenPool);
+        }
+
+        _mint(_sender, shares);
+
+        emit Deposit(address(lpToken), _sender, _amount, shares);
+
     }
 
     function _withdrawFromPool(uint _amount) internal {
@@ -400,14 +360,6 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable, BaseRelayRecipient{
     receive() external payable {
     }
 
-    function _withdrawToUser(address payable _user, uint _amount, IERC20Upgradeable _token) internal {
-        if(address(_token) == address(0)) {
-            (bool success, ) = _user.call{value: _amount}(""); //add gas
-            require(success, "Transfer failed");
-        } else {
-            _token.safeTransfer(_user, _amount);
-        }
-    }
 
     function _yield() internal {
         uint lpTokens;
