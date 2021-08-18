@@ -6,8 +6,6 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/SafeERC20Upgradeable.sol
 import "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 
-import "../../../libs/BaseRelayRecipient.sol";
-import "../../../interfaces/IRelayRecipient.sol";
 import "../../../interfaces/IUniswapV2Router02.sol";
 import "../../../interfaces/IUniswapV2Pair.sol";
 import "../../../interfaces/IMasterChef.sol";
@@ -18,7 +16,7 @@ interface Factory {
 }
 
 
-contract DAOVaultOptionA is Initializable, ERC20Upgradeable, ReentrancyGuardUpgradeable, BaseRelayRecipient{
+contract DAOVaultOptionA is Initializable, ERC20Upgradeable, ReentrancyGuardUpgradeable {
     using SafeMathUpgradeable for uint;
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
@@ -39,7 +37,6 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable, ReentrancyGuardUpgr
     address public treasuryWallet;
     address public communityWallet;
     address public strategist;
-    address public zapContract;
 
     uint public poolId;
     uint public amountToKeepInVault; //500 //5 %
@@ -82,8 +79,8 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable, ReentrancyGuardUpgr
     ///@dev For ETH-token pairs, _token0 should be ETH 
     function initialize(string memory _name, string memory _symbol, uint _poolId, 
       IERC20Upgradeable _token0, IERC20Upgradeable _token1, IERC20Upgradeable _lpToken,
-      address _communityWallet, address _treasuryWallet, address _strategist, address _trustedForwarder, address _admin,
-      address _masterchef, uint _masterChefVersion, address _zapContract) external initializer {
+      address _communityWallet, address _treasuryWallet, address _strategist, address _admin,
+      address _masterchef, uint _masterChefVersion) external initializer {
         
         __ERC20_init(_name, _symbol);
         
@@ -101,9 +98,7 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable, ReentrancyGuardUpgr
         communityWallet = _communityWallet;
         treasuryWallet = _treasuryWallet;
         strategist = _strategist;
-        trustedForwarder = _trustedForwarder;
         admin = _admin;
-        zapContract = _zapContract;
 
         factory = Factory(msg.sender);
 
@@ -119,16 +114,6 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable, ReentrancyGuardUpgr
         SUSHI.safeApprove(address(SushiRouter), type(uint).max);
 
     }
-
-    /// @notice Function that required for inherict BaseRelayRecipient
-    function _msgSender() internal override(ContextUpgradeable, BaseRelayRecipient) view returns (address payable) {
-        return BaseRelayRecipient._msgSender();
-    }
-    
-    /// @notice Function that required for inherict BaseRelayRecipient
-    function versionRecipient() external pure override returns (string memory) {
-        return "1";
-    }
         
     /**
         @param _amount amount of token to deposit.
@@ -138,30 +123,19 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable, ReentrancyGuardUpgr
         require(isEmergency == false ,"Deposit paused");
         require(_amount > 0, "Invalid amount");
 
-        address _sender = _msgSender();
-
-        _deposit(_amount, _sender, _sender);
+        _deposit(_amount);
     }
 
-    function depositUnderlying(uint _amount, address _user) external nonReentrant {
-        require(msg.sender == zapContract,"only ZAP contract"); // change name && uncomment //NEW_CHANGE
-        _deposit(_amount, _user, zapContract); 
-    }
     /** 
         @param _shares shares to withdraw.
      */
     function withdraw(uint _shares) external nonReentrant returns (uint amountToWithdraw){
         require(_shares > 0, "Invalid amount");
         
-        amountToWithdraw = _withdraw(_shares, msg.sender);
+        amountToWithdraw = _withdraw(_shares);
     }
 
-    function withdrawUnderlying(uint _shares, address _user) external nonReentrant returns (uint amountToWithdraw){
-        require(msg.sender == zapContract, "only ZAP contract"); // change name && uncomment //NEW_CHANGE
-        amountToWithdraw = _withdraw(_shares, _user);
-    }
-
-    function _withdraw(uint _shares, address _user) internal returns (uint amountToWithdraw){
+    function _withdraw(uint _shares) internal returns (uint amountToWithdraw){
         amountToWithdraw = balance().mul(_shares).div(totalSupply()); 
 
         uint lpInVault = available();
@@ -170,11 +144,11 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable, ReentrancyGuardUpgr
             _withdrawFromPool(amountToWithdraw.sub(lpInVault));
         }
 
-        _burn(_user, _shares);
+        _burn(msg.sender, _shares);
 
         lpToken.safeTransfer(msg.sender, amountToWithdraw);
 
-        emit Withdraw(address(lpToken), _user, amountToWithdraw, _shares);//NEW_CHANGE //remove lptoken from event
+        emit Withdraw(address(lpToken), msg.sender, amountToWithdraw, _shares);//NEW_CHANGE //remove lptoken from event
 
     }
 
@@ -222,10 +196,6 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable, ReentrancyGuardUpgr
         _stakeToPool(lpTokenBalance.sub(amountToKeep));
 
         isEmergency = false;
-    }
-
-    function setBiconomy(address _biconomy) external onlyOwner {
-        trustedForwarder = _biconomy;
     }
 
     /// @notice Function to set new network fee for deposit amount tier 2
@@ -311,7 +281,7 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable, ReentrancyGuardUpgr
     }
 
     ///@dev swap to required lpToken. Deposit to masterChef in invest()
-    function _deposit(uint _amount, address _sender, address _transferFrom) internal returns(uint _lpTokens){
+    function _deposit(uint _amount) internal returns(uint _lpTokens){
         
         uint256 _networkFeePerc;
         if (_amount < networkFeeTier2[0]) {
@@ -335,7 +305,7 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable, ReentrancyGuardUpgr
         uint shares;
         uint lpTokenPool = balance();
 
-        lpToken.transferFrom(_transferFrom, address(this), _amount);
+        lpToken.transferFrom(msg.sender, address(this), _amount);
 
         if(totalSupply() == 0) {
             shares = _lpTokens;
@@ -343,9 +313,9 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable, ReentrancyGuardUpgr
             shares = _lpTokens.mul(totalSupply()).div(lpTokenPool);
         }
 
-        _mint(_sender, shares);
+        _mint(msg.sender, shares);
 
-        emit Deposit(address(lpToken), _sender, _amount, shares);
+        emit Deposit(address(lpToken), msg.sender, _amount, shares);
 
     }
 
