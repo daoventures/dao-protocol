@@ -39,7 +39,6 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable, ReentrancyGuardUpgr
     address public strategist;
 
     uint public poolId;
-    uint public amountToKeepInVault; //500 //5 %
     uint[] public networkFeeTier2;
     uint public customNetworkFeeTier;
     uint[] public networkFeePerc;
@@ -61,7 +60,6 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable, ReentrancyGuardUpgr
     event SetCommunityWallet(address indexed _communityWallet);
     event SetAdminWallet(address indexed _admin);
     event SetStrategistWallet(address indexed _strategistWallet);
-    event SetPercTokenKeepInVault(uint256 _percentage);
     event Deposit(address indexed _token, address _from, uint _amount, uint _sharesMinted);
     event Withdraw(address indexed _token, address _from, uint _amount, uint _sharesBurned);
 
@@ -85,7 +83,6 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable, ReentrancyGuardUpgr
         __ERC20_init(_name, _symbol);
         
         poolId = _poolId;
-        amountToKeepInVault = 500; //5%
         yieldFee = 2000; //20%
 
         MasterChef  = IMasterChef(_masterchef); 
@@ -161,13 +158,12 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable, ReentrancyGuardUpgr
     ///@dev Moves lpTokens from this contract to Masterchef
     function invest() external onlyAdmin {
         require(isEmergency == false ,"Invest paused");
-        //keep some % of lpTokens in vault, deposit remaining to masterChef 
+
         _transferFee();
+
         uint balanceInVault = available();
-        uint amountToKeep = balanceInVault.mul(amountToKeepInVault).div(10000);
-        uint amountToDeposit = balanceInVault.sub(amountToKeep);
-        if(amountToDeposit > 0) {
-            _stakeToPool(amountToDeposit);
+        if(balanceInVault > 0) {
+            _stakeToPool(balanceInVault);
         }
     }
 
@@ -193,11 +189,8 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable, ReentrancyGuardUpgr
 
     ///@dev Moves funds in this contract to masterChef. ReEnables deposit, yield, invest.
     function reInvest() external onlyOwner {        
-        uint lpTokenBalance = available();
 
-        uint amountToKeep = lpTokenBalance.mul(amountToKeepInVault).div(10000);
-
-        _stakeToPool(lpTokenBalance.sub(amountToKeep));
+        _stakeToPool(available());
 
         isEmergency = false;
     }
@@ -256,12 +249,6 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable, ReentrancyGuardUpgr
         uint256 oldCustomNetworkFeePerc = customNetworkFeePerc;
         customNetworkFeePerc = _percentage;
         emit SetCustomNetworkFeePerc(oldCustomNetworkFeePerc, _percentage);
-    }
-
-    //500 for 50%
-    function setPercTokenKeepInVault(uint256 _percentage) external onlyAdmin {
-        amountToKeepInVault = _percentage;
-        emit SetPercTokenKeepInVault(_percentage);
     }
 
     function setTreasuryWallet(address _treasuryWallet) external onlyAdmin {
