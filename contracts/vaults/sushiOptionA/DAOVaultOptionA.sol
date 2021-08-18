@@ -433,48 +433,15 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable, ReentrancyGuardUpgr
         }
     }
 
-    ///@dev Transfer fee from vault (in WETH). Fee will be transferred only when there is enough lpTokens as fee
-    function _transferFee() internal onlyAdmin {
-        (uint amount0, uint amount1) = getRemovedAmount(_fees); //Transaction may without this check.
-        
-        if(amount0 > 0 && amount1 > 0) {
-            (uint _token0Amount, uint _token1Amount) = SushiRouter.removeLiquidity(address(token0), address(token1), _fees, 0, 0, address(this), block.timestamp);
-            
-            address[] memory path = new address[](2);
+    ///@dev Transfer fee from vault
+    function _transferFee() internal {
+        uint feeSplit = _fees.mul(2).div(5);
 
-            if(token1 == ibBTC) {
-                //ibBTC-WETH pair doesn't exists 
-                address[] memory path = new address[](3);
-                path[0] = address(token1);
-                path[1] = address(WBTC);
-                path[2] = address(WETH);
-                _swapExactTokens(_token1Amount, 0, path);
-            } else {
-                //swap token1 to eth
-                path[0] = address(token1);
-                path[1] = address(WETH);
-                _swapExactTokens(_token1Amount, 0, path);
-            }
+        lpToken.safeTransfer(treasuryWallet, feeSplit); //40%
+        lpToken.safeTransfer(communityWallet, feeSplit); //40
+        lpToken.safeTransfer(strategist, _fees.sub(feeSplit).sub(feeSplit)); //20%
 
-            
-            if(address(token0) != address(WETH)) {
-                //if token0 is not eth, swap it to eth
-                path[0] = address(token0) ;
-                path[1] = address(WETH); 
-
-                _swapExactTokens(_token0Amount, 0, path);
-            }
-
-            uint feeInEth  = WETH.balanceOf(address(this)); 
-            uint feeSplit = feeInEth.mul(2).div(5);
-
-            WETH.transfer(treasuryWallet, feeSplit); //40%
-            WETH.transfer(communityWallet, feeSplit); //40%
-            WETH.transfer(strategist, feeInEth.sub(feeSplit).sub(feeSplit)); //20%
-
-            _fees = 0;
-        }
-
+        _fees = 0;
     }
 
     function _swapExactTokens(uint _inAmount, uint _outAmount, address[] memory _path) internal returns (uint[] memory _tokens) {
