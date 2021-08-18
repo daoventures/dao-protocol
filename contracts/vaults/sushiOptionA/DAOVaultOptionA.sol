@@ -39,13 +39,10 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable, ReentrancyGuardUpgr
     address public strategist;
 
     uint public poolId;
-    uint[] public networkFeeTier2;
-    uint public customNetworkFeeTier;
-    uint[] public networkFeePerc;
-    uint public customNetworkFeePerc;
     uint private _fees; // 18 decimals
     uint private masterChefVersion;
     uint public yieldFee;
+    uint public depositFee;
 
     bool isEmergency;
 
@@ -84,6 +81,7 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable, ReentrancyGuardUpgr
         
         poolId = _poolId;
         yieldFee = 2000; //20%
+        depositFee = 1000; //20%
 
         MasterChef  = IMasterChef(_masterchef); 
         masterChefVersion = _masterChefVersion;
@@ -98,11 +96,6 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable, ReentrancyGuardUpgr
         admin = _admin;
 
         factory = Factory(msg.sender);
-
-        networkFeeTier2 = [50000*1e18+1, 100000*1e18];
-        customNetworkFeeTier = 1000000*1e18;
-        networkFeePerc = [100, 75, 50];
-        customNetworkFeePerc = 25;
 
         token0.safeApprove(address(SushiRouter), type(uint).max);
         token1.safeApprove(address(SushiRouter), type(uint).max);
@@ -173,10 +166,13 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable, ReentrancyGuardUpgr
 
     /**
      *@param _yieldFee yieldFee percentange. 2000 for 20%
+     *@param _depositFee deposit fee percentange. 1000 for 10%
      */
-    function setYieldFee(uint _yieldFee) external onlyOwner {
+    function setFee(uint _yieldFee, uint _depositFee) external onlyOwner {
         yieldFee = _yieldFee;
+        depositFee = _depositFee;
     }
+    
 
     ///@dev Withdraws lpTokens from masterChef. Yield, invest functions will be paused
     function emergencyWithdraw() external onlyAdmin {    
@@ -193,62 +189,6 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable, ReentrancyGuardUpgr
         _stakeToPool(available());
 
         isEmergency = false;
-    }
-
-    /// @notice Function to set new network fee for deposit amount tier 2
-    /// @param _networkFeeTier2 Array that contains minimum and maximum amount of tier 2 (18 decimals)
-    function setNetworkFeeTier2(uint256[] calldata _networkFeeTier2) external onlyOwner {
-        require(_networkFeeTier2[0] != 0, "Minimun amount cannot be 0");
-        require(_networkFeeTier2[1] > _networkFeeTier2[0], "Maximun amount must greater than minimun amount");
-        /**
-         * Network fees have three tier, but it is sufficient to have minimun and maximun amount of tier 2
-         * Tier 1: deposit amount < minimun amount of tier 2
-         * Tier 2: minimun amount of tier 2 <= deposit amount <= maximun amount of tier 2
-         * Tier 3: amount > maximun amount of tier 2
-         */
-        uint256[] memory oldNetworkFeeTier2 = networkFeeTier2;
-        networkFeeTier2 = _networkFeeTier2;
-        emit SetNetworkFeeTier2(oldNetworkFeeTier2, _networkFeeTier2);
-
-    }
-
-    /// @notice Function to set new custom network fee tier
-    /// @param _customNetworkFeeTier Amount of new custom network fee tier (18 decimals)
-    function setCustomNetworkFeeTier(uint256 _customNetworkFeeTier) external onlyOwner {
-        require(_customNetworkFeeTier > networkFeeTier2[1], "Custom network fee tier must greater than tier 2");
-
-        uint256 oldCustomNetworkFeeTier = customNetworkFeeTier;
-        customNetworkFeeTier = _customNetworkFeeTier;
-        emit SetCustomNetworkFeeTier(oldCustomNetworkFeeTier, _customNetworkFeeTier);
-    }
-
-    /// @notice Function to set new network fee percentage
-    /// @param _networkFeePerc Array that contains new network fee percentage for tier 1, tier 2 and tier 3
-    function setNetworkFeePerc(uint256[] calldata _networkFeePerc) external onlyOwner {
-        require(
-            _networkFeePerc[0] < 3000 &&
-                _networkFeePerc[1] < 3000 &&
-                _networkFeePerc[2] < 3000,
-            "Network fee percentage cannot be more than 30%"
-        );
-        /**
-         * _networkFeePerc content a array of 3 element, representing network fee of tier 1, tier 2 and tier 3
-         * For example networkFeePerc is [100, 75, 50]
-         * which mean network fee for Tier 1 = 1%, Tier 2 = 0.75% and Tier 3 = 0.5%
-         */
-        uint256[] memory oldNetworkFeePerc = networkFeePerc;
-        networkFeePerc = _networkFeePerc;
-        emit SetNetworkFeePerc(oldNetworkFeePerc, _networkFeePerc);
-    }
-
-    /// @notice Function to set new custom network fee percentage
-    /// @param _percentage Percentage of new custom network fee
-    function setCustomNetworkFeePerc(uint256 _percentage) public onlyOwner {
-        require(_percentage < networkFeePerc[2], "Custom network fee percentage cannot be more than tier 2");
-
-        uint256 oldCustomNetworkFeePerc = customNetworkFeePerc;
-        customNetworkFeePerc = _percentage;
-        emit SetCustomNetworkFeePerc(oldCustomNetworkFeePerc, _percentage);
     }
 
     function setTreasuryWallet(address _treasuryWallet) external onlyAdmin {
@@ -274,18 +214,18 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable, ReentrancyGuardUpgr
     ///@dev swap to required lpToken. Deposit to masterChef in invest()
     function _deposit(uint _amount) internal returns(uint _lpTokens){
 
+        uint lpTokenPool = balance();
+
         if(isWhitelisted[msg.sender]) {
             _lpTokens = _amount;
         } else {
-            uint256 _fee = _amount.div(10); //10%
+            uint256 _fee = _amount.mul(depositFee).div(10000); //10%
             _fees = _fees.add(_fee);
             _lpTokens = _amount.sub(_fee);
         }
 
         uint shares;
-        uint lpTokenPool = balance();
-
-        lpToken.transferFrom(msg.sender, address(this), _amount);
+        
 
         if(totalSupply() == 0) {
             shares = _lpTokens;
@@ -293,6 +233,7 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable, ReentrancyGuardUpgr
             shares = _lpTokens.mul(totalSupply()).div(lpTokenPool);
         }
 
+        lpToken.transferFrom(msg.sender, address(this), _amount);
         _mint(msg.sender, shares);
 
         emit Deposit(address(lpToken), msg.sender, _amount, shares);
