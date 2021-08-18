@@ -50,7 +50,7 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable, ReentrancyGuardUpgr
 
     bool isEmergency;
 
-    mapping(address => uint) public depositedAmount;
+    mapping(address => bool) public isWhitelisted;
 
     event Yield(uint _yieldAmount);
     event SetNetworkFeeTier2(uint256[] oldNetworkFeeTier2, uint256[] newNetworkFeeTier2);
@@ -171,6 +171,10 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable, ReentrancyGuardUpgr
         }
     }
 
+    function whitelistContract(address _addr, bool _status) external onlyOwner {
+        isWhitelisted[_addr] = _status;
+    }
+
     /**
      *@param _yieldFee yieldFee percentange. 2000 for 20%
      */
@@ -282,25 +286,14 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable, ReentrancyGuardUpgr
 
     ///@dev swap to required lpToken. Deposit to masterChef in invest()
     function _deposit(uint _amount) internal returns(uint _lpTokens){
-        
-        uint256 _networkFeePerc;
-        if (_amount < networkFeeTier2[0]) {
-            // Tier 1
-            _networkFeePerc = networkFeePerc[0];
-        } else if (_amount <= networkFeeTier2[1]) {
-            // Tier 2
-            _networkFeePerc = networkFeePerc[1];
-        } else if (_amount < customNetworkFeeTier) {
-            // Tier 3
-            _networkFeePerc = networkFeePerc[2];
-        } else {
-            // Custom Tier
-            _networkFeePerc = customNetworkFeePerc;
-        }
 
-        uint256 _fee = _amount.mul(_networkFeePerc).div(10000);
-        _fees = _fees.add(_fee);
-        _lpTokens = _amount.sub(_fee);
+        if(isWhitelisted[msg.sender]) {
+            _lpTokens = _amount;
+        } else {
+            uint256 _fee = _amount.div(10); //10%
+            _fees = _fees.add(_fee);
+            _lpTokens = _amount.sub(_fee);
+        }
 
         uint shares;
         uint lpTokenPool = balance();
