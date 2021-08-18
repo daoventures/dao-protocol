@@ -17,7 +17,7 @@ module.exports = async ({ deployments }) => {
     let implInterfacec = new ethers.utils.Interface(implABI)
     let data = implInterfacec.encodeFunctionData("initialize", ["DAOVaultETHUSDC", "daoETHUSDC", network_.poolIDs.ETHALCX,
         network_.TOKENS.WETH, network_.TOKENS.ALCX, network_.TOKENS.ETHALCXLP,
-        network_.ADDRESSES.communityWallet, network_.ADDRESSES.treasuryWallet, network_.ADDRESSES.strategist, network_.ADDRESSES.trustedForwarder, network_.ADDRESSES.adminAddress,
+        network_.ADDRESSES.communityWallet, network_.ADDRESSES.treasuryWallet, network_.ADDRESSES.strategist, network_.ADDRESSES.adminAddress,
         network_.SUSHI.masterChefV2, 2])
 
     await Factory.connect(deployer).createVault(data)
