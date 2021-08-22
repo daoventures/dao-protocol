@@ -52,7 +52,6 @@ interface IRouter {
     ) external returns (uint amountA, uint amountB, uint liquidity);
 
     function getAmountsOut(uint amountIn, address[] memory path) external view returns (uint[] memory amounts);
-    function quote(uint amountA, uint reserveA, uint reserveB) external pure returns (uint amountB);    
 }
 
 interface IPair is IERC20Upgradeable {
