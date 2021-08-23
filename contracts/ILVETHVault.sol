@@ -263,38 +263,54 @@ contract ILVETHVault is Initializable, ERC20Upgradeable, OwnableUpgradeable, Ree
         _deposit = ilvPool.getDeposit(address(this), i);
     }
 
-    function getAllPool() public view returns (uint) {
-        uint ILVETHAmtInVault = ILVETH.balanceOf(address(this));
-        uint ILVETHAmtInIlvEthPool = ilvEthPool.balanceOf(address(this));
-        uint vestedILVAmt = vestedILV;
-
-        uint ILVPriceInETH = (sushiRouter.getAmountsOut(1e18, getPath(address(ILV), address(WETH))))[1];
-        (uint112 reserveILV, uint112 reserveWETH,) = ILVETH.getReserves();
-        uint totalReserveInETH = reserveILV * ILVPriceInETH / 1e18 + reserveWETH;
-        uint ILVETHPriceInETH = totalReserveInETH * 1e18 / ILVETH.totalSupply();
-
-        uint ILVETHPerILV = ILVETHPriceInETH * 1e18 / ILVPriceInETH;
-        uint vestedILVAmtInILVETH = ILVETHPerILV * vestedILVAmt / 1e18;
-
-        return ILVETHAmtInVault + ILVETHAmtInIlvEthPool + vestedILVAmtInILVETH;
+    function getPendingRewards() external view returns (uint) {
+        return ilvEthPool.pendingYieldRewards(address(this));
     }
 
-    function getAllPoolInUSD() public view returns (uint) {
+    function getTotalILVETH() private view returns (uint) {
+        return ILVETH.balanceOf(address(this)) + ilvEthPool.balanceOf(address(this));
+    }
+
+    function getILVETHPriceInUSD() private view returns (uint) {
         uint ETHPriceInUSD = uint(IChainlink(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419).latestAnswer()); // 8 decimals
 
         uint ILVPriceInETH = (sushiRouter.getAmountsOut(1e18, getPath(address(ILV), address(WETH))))[1];
         (uint112 reserveILV, uint112 reserveWETH,) = ILVETH.getReserves();
         uint totalReserveInETH = reserveILV * ILVPriceInETH / 1e18 + reserveWETH;
         uint totalReserveInUSD = totalReserveInETH * ETHPriceInUSD / 1e8; // 18 decimals
-        uint ILVETHPriceInUSD = totalReserveInUSD * 1e18 / ILVETH.totalSupply();
+        return totalReserveInUSD * 1e18 / ILVETH.totalSupply();
+    }
 
-        return getAllPool() * ILVETHPriceInUSD / 1e18;
+    /// @return Total amount of ILV-ETH in USD under this contract, NOT include vested ILV
+    function getAllPoolExcludeVestedILVInUSD() private view returns (uint) {
+        return getTotalILVETH() * getILVETHPriceInUSD() / 1e18;
+    }
+
+    /// @return Total amount of ILV-ETH under this contract, include vested ILV (calculate in ILV-ETH)
+    function getAllPool() public view returns (uint) {
+        uint ILVPriceInETH = (sushiRouter.getAmountsOut(1e18, getPath(address(ILV), address(WETH))))[1];
+        (uint112 reserveILV, uint112 reserveWETH,) = ILVETH.getReserves();
+        uint totalReserveInETH = reserveILV * ILVPriceInETH / 1e18 + reserveWETH;
+        uint ILVETHPriceInETH = totalReserveInETH * 1e18 / ILVETH.totalSupply();
+
+        uint ILVETHPerILV = ILVETHPriceInETH * 1e18 / ILVPriceInETH;
+        uint vestedILVAmtInILVETH = ILVETHPerILV * vestedILV / 1e18;
+
+        return getTotalILVETH() + vestedILVAmtInILVETH;
+    }
+
+    function getAllPoolInUSD() public view returns (uint) {
+        return getAllPool() * getILVETHPriceInUSD() / 1e18;
     }
 
     /// @param _usd true for calculate user share in USD, false for calculate APR
     function getPricePerFullShare(bool _usd) external view returns (uint) {
         return _usd == true ?
-            getAllPoolInUSD() *1e18 / totalSupply() :
-            getAllPool() *1e18 / totalSupply();
+            getAllPoolInUSD() * 1e18 / totalSupply() :
+            getAllPool() * 1e18 / totalSupply();
+    }
+
+    function getPricePerFullShareExcludeVestedILVInUSD() external view returns (uint) {
+        return getAllPoolExcludeVestedILVInUSD() * 1e18 / totalSupply();
     }
 }
