@@ -17,9 +17,11 @@ const MVIAddr = "0x72e364F2ABdC788b7E918bc238B21f109Cd634D7"
 const sushiFarmAddr = "0xc2EdaD668740f1aA35E4D8f227fB8E17dcA888Cd"
 const illuviumAddr = "0x8B4d8443a0229349A9892D4F7CbE89eF5f843F72"
 
+const unlockedAccAddr = "0x28C6c06298d514Db089934071355E5743bf21d60"
+
 describe("Metaverse-Farmer", () => {
     it("should work", async () => {
-        const [deployer, treasury, community, strategist, biconomy, admin] = await ethers.getSigners()
+        const [deployer, client, treasury, community, strategist, biconomy, admin] = await ethers.getSigners()
 
         // Deploy AXS-ETH
         const SushiL1Vault = await ethers.getContractFactory("DAOVaultOptionA", deployer)
@@ -43,7 +45,7 @@ describe("Metaverse-Farmer", () => {
         const AXSETHVaultAddr = await sushiL1Factory.getVault(0)
         const AXSETHVault = await ethers.getContractAt("DAOVaultOptionA", AXSETHVaultAddr, deployer)
         
-        // ILV-ETH
+        // Deploy ILV-ETH
         const ILVETHVaultFac = await ethers.getContractFactory("ILVETHVault", deployer)
         const ILVETHVault = await ILVETHVaultFac.deploy()
         await ILVETHVault.initialize("DAO L1 Sushi ILV-ETH", "daoSushiILV")
@@ -51,48 +53,54 @@ describe("Metaverse-Farmer", () => {
         // Main contract
         const MVFFactory = await ethers.getContractFactory("MVFVault")
         const mvfVault = await MVFFactory.deploy()
-        await mvfVault.initialize(AXSETHVaultAddr, deployer.address, ILVETHVault.address, deployer.address)
+        await mvfVault.initialize(
+            AXSETHVaultAddr, deployer.address, ILVETHVault.address, deployer.address,
+            treasury.address, community.address, admin.address, strategist.address, biconomy.address,
+            0, 0
+        )
         
         // Set whitelist
         await AXSETHVault.whitelistContract(mvfVault.address, true)
         await ILVETHVault.setWhitelistAddress(mvfVault.address, true)
 
-        let WETHContract
-        WETHContract = new ethers.Contract(WETHAddr, ["function deposit() external payable"], deployer)
-        await WETHContract.deposit({value: ethers.utils.parseEther("5")})
-        WETHContract = new ethers.Contract(WETHAddr, IERC20_ABI, deployer)
-        await WETHContract.approve(mvfVault.address, ethers.constants.MaxUint256)
-        await mvfVault.invest(ethers.utils.parseEther("1"))
+        // Unlock & transfer Stablecoins to client
+        network.provider.request({method: "hardhat_impersonateAccount", params: [unlockedAccAddr]})
+        const unlockedAcc = await ethers.getSigner(unlockedAccAddr)
+        const USDTContract = new ethers.Contract(USDTAddr, IERC20_ABI, unlockedAcc)
+        const USDCContract = new ethers.Contract(USDCAddr, IERC20_ABI, unlockedAcc)
+        const DAIContract = new ethers.Contract(DAIAddr, IERC20_ABI, unlockedAcc)
+        await USDTContract.transfer(client.address, ethers.utils.parseUnits("10000", 6))
+        await USDCContract.transfer(client.address, ethers.utils.parseUnits("10000", 6))
+        await DAIContract.transfer(client.address, ethers.utils.parseUnits("10000", 18))
 
-        // console.log(ethers.utils.formatEther(await ILVETHVault.balanceOf(mvfVault.address)))
-        // await ILVETHVault.invest()
+        // Deposit
+        await USDTContract.connect(client).approve(mvfVault.address, ethers.constants.MaxUint256)
+        await USDCContract.connect(client).approve(mvfVault.address, ethers.constants.MaxUint256)
+        await DAIContract.connect(client).approve(mvfVault.address, ethers.constants.MaxUint256)
+        await mvfVault.connect(client).deposit(ethers.utils.parseUnits("10000", 6), USDTAddr)
+        await mvfVault.connect(client).deposit(ethers.utils.parseUnits("10000", 6), USDCAddr)
+        await mvfVault.connect(client).deposit(ethers.utils.parseUnits("10000", 18), DAIAddr)
 
-        // Simulate profit
-        const MVIHolderAddr = "0x6B9dFC960299166Df15aB8a85f054c69e2BE2353"
-        network.provider.request({method: "hardhat_impersonateAccount", params: [MVIHolderAddr]})
-        const MVIHolderAcc = await ethers.getSigner(MVIHolderAddr)
-        const MVIContract = new ethers.Contract(MVIAddr, IERC20_ABI, MVIHolderAcc)
-        await MVIContract.transfer(mvfVault.address, ethers.utils.parseEther("1"))
-        console.log(ethers.utils.formatEther(await MVIContract.balanceOf(mvfVault.address))) // 6.843377435995941677
+        // Invest
+        await mvfVault.invest()
+        console.log(ethers.utils.formatEther(await mvfVault.getAllPoolInUSD()))
+        console.log(ethers.utils.formatEther(
+            (await mvfVault.balanceOf(client.address))
+            .mul(await mvfVault.getPricePerFullShare())
+            .div(ethers.utils.parseEther("1"))
+        )) // User share in USD
+        console.log(ethers.utils.formatEther(await mvfVault.getPricePerFullShare())) // LP token price
 
+        // // Withdraw
+        // const portionShare = (await mvfVault.balanceOf(client.address)).div("3")
+        // await mvfVault.connect(client).withdraw(portionShare, USDTAddr)
+        // await mvfVault.connect(client).withdraw(portionShare, USDCAddr)
+        // await mvfVault.connect(client).withdraw(portionShare, DAIAddr)
 
-        // const abi = ["function balanceOf(address) external view returns (uint)", "function userInfo(uint, address) external view returns (uint)"]
-        // const AXSETHContract = new ethers.Contract(AXSETHAddr, abi, deployer)
-        // const sushiFarmContract = new ethers.Contract(sushiFarmAddr, abi, deployer)
-        // const SLPETHContract = new ethers.Contract(SLPETHAddr, abi, deployer)
-        // const ILVETHContract = new ethers.Contract(ILVETHAddr, abi, deployer)
-        // const illuviumContract = new ethers.Contract(illuviumAddr, abi, deployer)
-        // const GHSTETHContract = new ethers.Contract(GHSTETHAddr, abi, deployer)
-        // const REVVETHContract = new ethers.Contract(REVVETHAddr, abi, deployer)
-        // const MVIContract = new ethers.Contract(MVIAddr, abi, deployer)
-        // console.log(ethers.utils.formatEther(await AXSETHContract.balanceOf(mvfVault.address)))
-        // console.log(ethers.utils.formatEther(await sushiFarmContract.userInfo(231, mvfVault.address)))
-        // console.log(ethers.utils.formatEther(await SLPETHContract.balanceOf(mvfVault.address)))
-        // console.log(ethers.utils.formatEther(await ILVETHContract.balanceOf(mvfVault.address)))
-        // console.log(ethers.utils.formatEther(await illuviumContract.balanceOf(ILVETHVault.address)))
-        // console.log(ethers.utils.formatEther(await GHSTETHContract.balanceOf(mvfVault.address)))
-        // console.log(ethers.utils.formatEther(await REVVETHContract.balanceOf(mvfVault.address)))
-        // console.log(ethers.utils.formatEther(await MVIContract.balanceOf(mvfVault.address)))
+        // // Check balance
+        // console.log(ethers.utils.formatUnits(await USDTContract.balanceOf(client.address), 6))
+        // console.log(ethers.utils.formatUnits(await USDCContract.balanceOf(client.address), 6))
+        // console.log(ethers.utils.formatUnits(await DAIContract.balanceOf(client.address), 18))
     })
 
 

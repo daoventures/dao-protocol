@@ -271,19 +271,21 @@ contract ILVETHVault is Initializable, ERC20Upgradeable, OwnableUpgradeable, Ree
         return ILVETH.balanceOf(address(this)) + ilvEthPool.balanceOf(address(this));
     }
 
-    function getILVETHPriceInUSD() private view returns (uint) {
-        uint ETHPriceInUSD = uint(IChainlink(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419).latestAnswer()); // 8 decimals
-
+    function getILVETHPrice() private view returns (uint) {
         uint ILVPriceInETH = (sushiRouter.getAmountsOut(1e18, getPath(address(ILV), address(WETH))))[1];
         (uint112 reserveILV, uint112 reserveWETH,) = ILVETH.getReserves();
         uint totalReserveInETH = reserveILV * ILVPriceInETH / 1e18 + reserveWETH;
-        uint totalReserveInUSD = totalReserveInETH * ETHPriceInUSD / 1e8; // 18 decimals
-        return totalReserveInUSD * 1e18 / ILVETH.totalSupply();
+        return totalReserveInETH * 1e18 / ILVETH.totalSupply();
     }
 
-    /// @return Total amount of ILV-ETH in USD under this contract, NOT include vested ILV
-    function getAllPoolExcludeVestedILVInUSD() private view returns (uint) {
-        return getTotalILVETH() * getILVETHPriceInUSD() / 1e18;
+    function getILVETHPriceInUSD() private view returns (uint) {
+        uint ETHPriceInUSD = uint(IChainlink(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419).latestAnswer()); // 8 decimals
+        return getILVETHPrice() * ETHPriceInUSD / 1e8;
+    }
+
+    /// @return Total amount of ILV-ETH in ETH under this contract, NOT include vested ILV
+    function getAllPoolExcludeVestedILV() private view returns (uint) {
+        return getTotalILVETH() * getILVETHPrice() / 1e18;
     }
 
     /// @return Total amount of ILV-ETH under this contract, include vested ILV (calculate in ILV-ETH)
@@ -303,14 +305,18 @@ contract ILVETHVault is Initializable, ERC20Upgradeable, OwnableUpgradeable, Ree
         return getAllPool() * getILVETHPriceInUSD() / 1e18;
     }
 
-    /// @param _usd true for calculate user share in USD, false for calculate APR
-    function getPricePerFullShare(bool _usd) external view returns (uint) {
-        return _usd == true ?
-            getAllPoolInUSD() * 1e18 / totalSupply() :
-            getAllPool() * 1e18 / totalSupply();
+    /// @param inUSD true for calculate user share in USD, false for calculate APR
+    function getPricePerFullShare(bool inUSD) external view returns (uint) {
+        uint _totalSupply = totalSupply();
+        if (_totalSupply == 0) return 0;
+        return inUSD == true ?
+            getAllPoolInUSD() * 1e18 / _totalSupply :
+            getAllPool() * 1e18 / _totalSupply;
     }
 
-    function getPricePerFullShareExcludeVestedILVInUSD() external view returns (uint) {
-        return getAllPoolExcludeVestedILVInUSD() * 1e18 / totalSupply();
+    function getPricePerFullShareExcludeVestedILV() external view returns (uint) {
+        uint _totalSupply = totalSupply();
+        if (_totalSupply == 0) return 0;
+        return getAllPoolExcludeVestedILV() * 1e18 / _totalSupply;
     }
 }
