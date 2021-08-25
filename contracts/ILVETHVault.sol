@@ -135,14 +135,14 @@ contract ILVETHVault is Initializable, ERC20Upgradeable, OwnableUpgradeable, Ree
         emit Deposit(msg.sender, amtDeposit, share);
     }
 
-    function withdraw(uint share) external nonReentrant {
+    function withdraw(uint share) external nonReentrant returns (uint withdrawAmt) {
         require(share > 0, "Share must > 0");
         require(share <= balanceOf(msg.sender), "Not enough shares to withdraw");
         require(depositedBlock[msg.sender] != block.number);
 
         uint ILVETHBal = ILVETH.balanceOf(address(this));
         uint ILVETHAmt = ilvEthPool.balanceOf(address(this)) + ILVETHBal;
-        uint withdrawAmt = ILVETHAmt * share / totalSupply();
+        withdrawAmt = ILVETHAmt * share / totalSupply();
         _burn(msg.sender, share);
 
         uint availableILVETH = ILVETHBal;
@@ -283,11 +283,6 @@ contract ILVETHVault is Initializable, ERC20Upgradeable, OwnableUpgradeable, Ree
         return getILVETHPrice() * ETHPriceInUSD / 1e8;
     }
 
-    /// @return Total amount of ILV-ETH in ETH under this contract, NOT include vested ILV
-    function getAllPoolExcludeVestedILV() private view returns (uint) {
-        return getTotalILVETH() * getILVETHPrice() / 1e18;
-    }
-
     /// @return Total amount of ILV-ETH under this contract, include vested ILV (calculate in ILV-ETH)
     function getAllPool() public view returns (uint) {
         uint ILVPriceInETH = (sushiRouter.getAmountsOut(1e18, getPath(address(ILV), address(WETH))))[1];
@@ -301,8 +296,17 @@ contract ILVETHVault is Initializable, ERC20Upgradeable, OwnableUpgradeable, Ree
         return getTotalILVETH() + vestedILVAmtInILVETH;
     }
 
+    function getAllPoolInETH() public view returns (uint) {
+        return getAllPool() * getILVETHPrice() / 1e18;
+    }
+
     function getAllPoolInUSD() public view returns (uint) {
         return getAllPool() * getILVETHPriceInUSD() / 1e18;
+    }
+
+    /// @return Total amount of ILV-ETH in ETH under this contract, NOT include vested ILV
+    function getAllPoolInETHExcludeVestedILV() external view returns (uint) {
+        return getTotalILVETH() * getILVETHPrice() / 1e18;
     }
 
     /// @param inUSD true for calculate user share in USD, false for calculate APR
@@ -312,11 +316,5 @@ contract ILVETHVault is Initializable, ERC20Upgradeable, OwnableUpgradeable, Ree
         return inUSD == true ?
             getAllPoolInUSD() * 1e18 / _totalSupply :
             getAllPool() * 1e18 / _totalSupply;
-    }
-
-    function getPricePerFullShareExcludeVestedILV() external view returns (uint) {
-        uint _totalSupply = totalSupply();
-        if (_totalSupply == 0) return 0;
-        return getAllPoolExcludeVestedILV() * 1e18 / _totalSupply;
     }
 }

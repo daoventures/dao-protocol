@@ -471,8 +471,7 @@ contract DAOVaultOptionA is Initializable, ERC20Upgradeable, ReentrancyGuardUpgr
         _available = lpToken.balanceOf(address(this)).sub(_fees);
     }
 
-    /// @param inUSD true for calculate user share in USD, false for calculate APR
-    function getPricePerFullShare(bool inUSD) external view returns (uint) {
+    function getAllPoolInETH() external view returns (uint) {
         return 0;
     }
 

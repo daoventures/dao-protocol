@@ -83,24 +83,29 @@ describe("Metaverse-Farmer", () => {
 
         // Invest
         await mvfVault.invest()
-        console.log(ethers.utils.formatEther(await mvfVault.getAllPoolInUSD()))
-        console.log(ethers.utils.formatEther(
-            (await mvfVault.balanceOf(client.address))
-            .mul(await mvfVault.getPricePerFullShare())
-            .div(ethers.utils.parseEther("1"))
-        )) // User share in USD
-        console.log(ethers.utils.formatEther(await mvfVault.getPricePerFullShare())) // LP token price
+        // console.log(ethers.utils.formatEther(await mvfVault.getAllPoolInUSD()))
+        // console.log(ethers.utils.formatEther(
+        //     (await mvfVault.balanceOf(client.address))
+        //     .mul(await mvfVault.getPricePerFullShare())
+        //     .div(ethers.utils.parseEther("1"))
+        // )) // User share in USD
+        // console.log(ethers.utils.formatEther(await mvfVault.getPricePerFullShare())) // LP token price
 
-        // // Withdraw
-        // const portionShare = (await mvfVault.balanceOf(client.address)).div("3")
-        // await mvfVault.connect(client).withdraw(portionShare, USDTAddr)
-        // await mvfVault.connect(client).withdraw(portionShare, USDCAddr)
-        // await mvfVault.connect(client).withdraw(portionShare, DAIAddr)
+        // // Check percentage keep in vault
+        // console.log(ethers.utils.formatUnits(await USDTContract.balanceOf(mvfVault.address), 6))
+        // console.log(ethers.utils.formatUnits(await USDCContract.balanceOf(mvfVault.address), 6))
+        // console.log(ethers.utils.formatUnits(await DAIContract.balanceOf(mvfVault.address), 18))
 
-        // // Check balance
-        // console.log(ethers.utils.formatUnits(await USDTContract.balanceOf(client.address), 6))
-        // console.log(ethers.utils.formatUnits(await USDCContract.balanceOf(client.address), 6))
-        // console.log(ethers.utils.formatUnits(await DAIContract.balanceOf(client.address), 18))
+        // Withdraw
+        const portionShare = (await mvfVault.balanceOf(client.address)).div("3")
+        await mvfVault.connect(client).withdraw(portionShare, USDTAddr)
+        await mvfVault.connect(client).withdraw(portionShare, USDCAddr)
+        await mvfVault.connect(client).withdraw(portionShare, DAIAddr)
+
+        // Check balance
+        console.log(ethers.utils.formatUnits(await USDTContract.balanceOf(client.address), 6))
+        console.log(ethers.utils.formatUnits(await USDCContract.balanceOf(client.address), 6))
+        console.log(ethers.utils.formatUnits(await DAIContract.balanceOf(client.address), 18))
     })
 
 
